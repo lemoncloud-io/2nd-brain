@@ -14,6 +14,10 @@ Before any vault operation, read:
 
 If a task is project-specific, also read the matching `projects/<name>/README.md`.
 
+## Obsidian CLI
+
+When Obsidian is running, use `/obsidian-cli` skill commands for vault operations (search, link analysis, frontmatter edits). Prefer `obsidian search:context query="..."` over grep for note content, and `obsidian backlinks file=<name>` to check incoming links. For bulk operations across many files, direct file tools (Read/Edit/Write) remain appropriate.
+
 ## Directory Contract
 
 | Directory | Role |
@@ -59,22 +63,39 @@ sources:
 Use `sources` for direct provenance. If the source is a processed raw clipping, store the
 `raw/...` path as a string. Use `[[wikilinks]]` only when the source is an actual wiki note.
 
-Allowed `type` values:
+### type values
 
-- `concept`
-- `tool`
-- `model`
-- `framework`
-- `pattern`
-- `protocol`
-- `topic`
+- `concept` — abstract idea, pattern, or architecture
+- `tool` — specific software or CLI tool
+- `model` — AI model family or variant
+- `framework` — structured methodology or platform
+- `pattern` — repeatable workflow or technique
+- `protocol` — technical specification
+- `topic` — reserved for wiki/topics/ pages only
 
-Allowed `status` values:
+### status values
 
-- `stub`
-- `draft`
-- `complete`
-- `needs-update`
+- `stub` — under 350 words; needs expansion
+- `draft` — substantial content but not fully reviewed
+- `complete` — reviewed and comprehensive
+- `needs-update` — new source has materially changed the topic
+
+## Topic Pages (wiki/topics/)
+
+Frontmatter:
+
+```yaml
+---
+type: topic
+up: "[[topics/parent-topic]]"   # omit for root topics
+---
+```
+
+Body: one-line list of related wiki articles with [[wikilinks]].  
+10+ linked articles → consider splitting into sub-topics.  
+Full topic list → `wiki/TOPIC_MAP.md`.
+
+---
 
 ## Workflows
 
