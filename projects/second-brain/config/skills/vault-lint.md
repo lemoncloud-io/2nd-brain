@@ -6,9 +6,9 @@ description: >
   사용자가 직접 요청하는 경우는 드물다.
 ---
 
-# Vault Lint (Hermess-native)
+# Vault Lint (Hermes-native)
 
-이 스킬은 Hermess의 현재 모델이 GPT이든 Claude이든 같은 방식으로 vault 품질을
+이 스킬은 Hermes의 현재 모델이 GPT이든 Claude이든 같은 방식으로 vault 품질을
 점검하도록 만든 provider-agnostic 지시서다.
 
 ## 언제 사용하는가

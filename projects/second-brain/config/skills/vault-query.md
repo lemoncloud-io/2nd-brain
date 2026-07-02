@@ -6,9 +6,9 @@ description: >
   무관한 질문에는 사용하지 않는다.)
 ---
 
-# Vault Query (Hermess-native)
+# Vault Query (Hermes-native)
 
-이 스킬은 Hermess의 현재 모델이 GPT이든 Claude이든 같은 방식으로 wiki 기반
+이 스킬은 Hermes의 현재 모델이 GPT이든 Claude이든 같은 방식으로 wiki 기반
 답변을 생성하도록 만든 provider-agnostic 지시서다.
 
 ## 언제 사용하는가

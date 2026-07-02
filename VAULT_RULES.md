@@ -1,6 +1,6 @@
 # Vault Rules
 
-This vault is an AI Second Brain operated through Hermess and Obsidian.
+This vault is an AI Second Brain operated through Hermes and Obsidian.
 
 These rules are model-neutral. Use them with GPT, Claude, Codex, or any other LLM that can read and edit this vault.
 
@@ -10,7 +10,7 @@ Before any vault operation, read:
 
 1. `wiki/VAULT_MEMORY.md`
 2. `wiki/INDEX.md`
-3. The relevant Hermess skill in `projects/second-brain/config/skills/`
+3. The relevant Hermes skill in `projects/second-brain/config/skills/`
 4. Any matching template in `templates/`
 
 If a task is project-specific, also read the matching `projects/<name>/README.md`.
@@ -123,7 +123,7 @@ different structure.
 
 ## Workflows
 
-Use the Hermess skills as the source of truth:
+Use the Hermes skills as the source of truth:
 
 - `vault-ingest`: process `Clippings/` into `raw/`, `wiki/`, topics, index, and memory.
 - `vault-query`: answer from existing wiki knowledge and save retained answers to `outputs/`.

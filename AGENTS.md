@@ -1,6 +1,6 @@
 # Agent Instructions
 
-This repository is a markdown knowledge vault shared by Hermess, Obsidian, and LLM agents.
+This repository is a markdown knowledge vault shared by Hermes, Obsidian, and LLM agents.
 
 Before editing, read:
 
@@ -9,7 +9,7 @@ Before editing, read:
 3. `wiki/INDEX.md`
 4. Matching files in `templates/` when creating notes or outputs
 
-Use the Hermess vault skills as the source of truth for operational workflows:
+Use the Hermes vault skills as the source of truth for operational workflows:
 
 - `projects/second-brain/config/skills/vault-ingest.md`
 - `projects/second-brain/config/skills/vault-query.md`

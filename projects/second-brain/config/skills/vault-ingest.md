@@ -2,15 +2,15 @@
 name: vault-ingest
 description: >
   사용자의 knowledge vault($VAULT_DIR, 기본 ~/knowledge)에 새로 들어온
-  Clippings를 Hermess의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
+  Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
 ---
 
-# Vault Ingest (Hermess-native)
+# Vault Ingest (Hermes-native)
 
-이 스킬은 Hermess의 현재 모델이 GPT이든 Claude이든 같은 방식으로 동작하도록
+이 스킬은 Hermes의 현재 모델이 GPT이든 Claude이든 같은 방식으로 동작하도록
 작성된 provider-agnostic vault 작업 지시서다. 별도 coding agent에 위임하지 않고,
-가능하면 Hermess가 제공하는 파일 읽기/쓰기 도구로 직접 처리한다.
+가능하면 Hermes가 제공하는 파일 읽기/쓰기 도구로 직접 처리한다.
 
 ## 언제 사용하는가
 
