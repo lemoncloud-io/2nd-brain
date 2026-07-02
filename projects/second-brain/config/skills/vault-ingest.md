@@ -31,10 +31,13 @@ description: >
 4. 기존 `wiki/` 문서와 중복되는 개념은 새 파일을 만들지 말고 기존 문서를 갱신한다.
 5. 새 개념은 `wiki/<slug>.md`로 만든다. 파일명은 영어 소문자 kebab-case를 사용한다.
 6. 모든 wiki 문서는 지정된 frontmatter를 포함한다.
-7. 관련 문서에는 `[[wikilink]]`를 추가한다.
+7. 관련 wiki 문서에는 `[[wikilink]]`를 추가한다. Obsidian alias는
+   `[[note-slug|Alias]]` 형식을 사용하고 pipe 문자 앞에 backslash를 넣지 않는다.
 8. `wiki/topics/`, `wiki/INDEX.md`, `wiki/VAULT_MEMORY.md`를 갱신한다.
 9. 처리 완료된 클리핑은 원문을 보존한 채 `raw/`로 이동한다. 이미 같은 이름이 있으면
    덮어쓰지 말고 `-1`, `-2` 같은 suffix를 붙인다.
+   wiki 문서의 `sources`에는 원문을 `[[...]]` wikilink로 넣지 말고
+   `"raw/<source-file-name>.md"` 경로 문자열로 기록한다.
 10. 마지막 응답에는 다음만 간단히 보고한다.
 
 - 처리한 클리핑 파일
@@ -52,9 +55,12 @@ topics:
   - knowledge-management
 status: draft
 sources:
-  - "[[source-or-related-note]]"
+  - "raw/source-file-name.md"
 ---
 ```
+
+`sources`는 직접 provenance를 위한 필드다. 실제 wiki 문서가 아닌 raw source는
+wikilink로 만들지 않는다.
 
 ## 금지 사항
 

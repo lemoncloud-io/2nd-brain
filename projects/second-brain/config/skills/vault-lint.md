@@ -29,6 +29,8 @@ description: >
    - `status: stub` 문서
    - 고아 문서
    - 깨진 wikilink
+   - `[[note\|Alias]]`처럼 pipe 문자가 escape된 Obsidian alias
+   - `sources`에 raw 파일을 `[[...]]` wikilink로 넣은 경우
    - 중복 개념
    - 서로 모순되는 설명
    - 10개 이상 문서를 가진 과밀 topic page
