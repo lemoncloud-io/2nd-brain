@@ -125,6 +125,7 @@ different structure.
 
 Use the Hermes skills as the source of truth:
 
-- `vault-ingest`: process `Clippings/` into `raw/`, `wiki/`, topics, index, and memory.
+- `vault-ingest`: process `Clippings/` into `raw/`, `wiki/`, topics, index, and memory with the current Hermes model.
+- `vault-ingest-claude`: delegate only ingest to Claude CLI/Claude Code while Hermes handles trigger, lock, verification, and reporting.
 - `vault-query`: answer from existing wiki knowledge and save retained answers to `outputs/`.
 - `vault-lint`: inspect vault quality and update `wiki/VAULT_MEMORY.md`.

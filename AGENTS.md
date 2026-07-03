@@ -12,6 +12,7 @@ Before editing, read:
 Use the Hermes vault skills as the source of truth for operational workflows:
 
 - `projects/second-brain/config/skills/vault-ingest.md`
+- `projects/second-brain/config/skills/vault-ingest-claude.md`
 - `projects/second-brain/config/skills/vault-query.md`
 - `projects/second-brain/config/skills/vault-lint.md`
 
