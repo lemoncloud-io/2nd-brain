@@ -1,4 +1,6 @@
-# knowledge
+# sandbox
+
+Sandbox for testing **Knowledge Ops** Setup by Steve.
 
 Personal knowledge base built with Claude Code — raw sources compiled into structured wiki articles via an automated Reader → Writer pipeline.
 
