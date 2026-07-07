@@ -29,7 +29,18 @@ delegated prompt. The delegated agent must only read or write under that resolve
 
 ## Obsidian CLI
 
-When Obsidian is running, use `/obsidian-cli` skill commands for vault operations (search, link analysis, frontmatter edits). Prefer `obsidian search:context query="..."` over grep for note content, and `obsidian backlinks file=<name>` to check incoming links. For bulk operations across many files, direct file tools (Read/Edit/Write) remain appropriate.
+When an Obsidian CLI is available and Obsidian is running, prefer it for vault operations such as search, link analysis, and frontmatter edits. Otherwise use the Hermes `obsidian` skill's filesystem-first workflow with concrete absolute paths. For bulk operations across many files, direct file tools (Read/Edit/Write) remain appropriate.
+
+## Automation Priority
+
+Ingest and lint automation should prefer Claude Code when the `claude` CLI is installed and authenticated. This is the preferred path for future cron/event-based operation.
+
+If Claude Code is unavailable, blocked, or unauthenticated, do not fail silently. Report the reason and run the Hermes-native fallback workflow:
+
+- ingest fallback → `vault-ingest`
+- lint fallback → `vault-lint`
+
+Before delegating to Claude Code, resolve `VAULT_DIR` to an absolute path and pass that path explicitly in the working directory and prompt. Delegated agents must only read or write under the resolved vault root.
 
 ## Directory Contract
 
@@ -184,11 +195,8 @@ Ingest runs as one daily batch, not per-clipping. Daily brief/close are Hermes-n
 
 Use the Hermes skills as the source of truth:
 
-- `vault-ingest`: process `Clippings/` into `raw/`, `wiki/`, topics, index, and memory with the current Hermes model.
-- `vault-ingest-claude`: delegate only ingest to Claude CLI/Claude Code while Hermes handles trigger, lock, verification, and reporting.
+- `vault-ingest-claude`: preferred ingest path when Claude Code is available; Hermes handles trigger, lock, fallback, verification, and reporting.
+- `vault-ingest`: Hermes-native ingest fallback; process `Clippings/` into `raw/`, `wiki/`, topics, index, and memory with the current Hermes model.
 - `vault-query`: answer from existing wiki knowledge and save retained answers to `outputs/`.
-- `vault-lint`: inspect vault quality and update `wiki/VAULT_MEMORY.md`.
-- `vault-daily-brief`: create today's daily note, carry over yesterday's open loops, propose focus from project deadlines and next actions.
-- `vault-daily-close`: summarize the day's work log, extract open loops, update touched project logs and next actions.
-- `vault-project-review`: weekly scan of all project frontmatter for deadlines, stalls, and archive candidates.
-- `vault-retro`: weekly quality pass — extends `vault-lint` with work-layer checks (stalled projects, neglected ideas, daily gaps, friction points) and proposes skill improvements.
+- `vault-lint`: Claude-first lint orchestration with Hermes-native fallback; inspect vault quality and update `wiki/VAULT_MEMORY.md`.
+- Planned: `vault-daily-brief`, `vault-daily-close`, `vault-project-review`, and `vault-retro` are operating-loop skills that should be added before relying on those workflows in automation.

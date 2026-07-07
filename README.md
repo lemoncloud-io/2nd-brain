@@ -24,13 +24,23 @@ docs/             ← harness config, system specs, agent scaffolding
 
 ## Usage
 
-Drop markdown files into `Clippings/` and run the ingest pipeline via Claude Code:
+This sandbox is the initial environment for a future production knowledge folder. Treat the repository root as `VAULT_DIR` only when the expected vault structure is present (`VAULT_RULES.md`, `wiki/`, `raw/`, `Clippings/`, `outputs/`, and `templates/`). Do not silently fall back to `~/knowledge`.
+
+Drop markdown files into `Clippings/` and run the ingest pipeline:
 
 ```text
 클리핑 처리해줘
 ```
 
-The pipeline moves files to `raw/`, extracts concepts, and creates or updates `wiki/` articles with frontmatter, wikilinks, and topic index entries.
+Automation should prefer Claude Code for ingest when the `claude` CLI is installed and authenticated. If Claude Code is unavailable, the agent falls back to the Hermes-native `vault-ingest` workflow. The pipeline moves files to `raw/`, extracts concepts, and creates or updates `wiki/` articles with frontmatter, wikilinks, and topic index entries.
+
+For explicit delegation, ask:
+
+```text
+Claude에 위임해서 클리핑 처리해줘
+```
+
+Lint follows the same policy: prefer Claude Code for scheduled/delegated lint, then fall back to Hermes-native lint if Claude is unavailable.
 
 ## Query
 

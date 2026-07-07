@@ -1,25 +1,26 @@
 ---
 name: vault-ingest-claude
 description: >
-  사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를
-  Hermes가 직접 수행하지 않고 Claude CLI/Claude Code에 위임한다. Hermes는
-  트리거, 동시 실행 방지, 결과 검증, 요약 보고를 담당한다.
+  사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를 Claude CLI/Claude Code에
+  우선 위임한다. Hermes는 트리거, 동시 실행 방지, Claude 가용성 확인, Hermes-native
+  fallback, 결과 검증, 요약 보고를 담당한다.
 ---
 
 # Vault Ingest Claude (Hermes -> Claude)
 
-이 스킬은 split/hybrid 구성용이다.
+이 스킬은 split/hybrid 구성용이며, cron/event 자동화의 기본 ingest 진입점이다.
 
-- Hermes: 트리거, `VAULT_DIR` 확인, Clippings 존재 확인, lock, Claude 호출, 결과 검증, 보고
+- Hermes: 트리거, `VAULT_DIR` 확인, Clippings 존재 확인, lock, Claude 가용성 확인, Claude 호출, fallback, 결과 검증, 보고
 - Claude: 원문 읽기, 개념 추출, wiki 작성, templates 적용, raw 이동, index/topic/memory 갱신
 
-`vault-query`와 `vault-lint`는 Hermes-native로 유지하고, ingest만 Claude에 위임하고 싶을 때 사용한다.
+Claude Code가 설치되어 있지 않거나 인증되지 않았으면 실패로 끝내지 말고 `vault-ingest` Hermes-native 절차로 fallback한다.
 
 ## 언제 사용하는가
 
-- 사용자가 "클리핑 처리해줘"라고 요청했고 ingest 품질을 Claude에 맡기고 싶을 때
+- 사용자가 "클리핑 처리해줘"라고 요청했고 ingest 품질을 Claude에 우선 맡기고 싶을 때
 - 긴 원문, 복잡한 개념 분해, 다수 wiki 문서 생성이 필요한 경우
 - Hermes의 현재 모델은 GPT/Codex이지만, 자료 컴파일은 Claude Code가 더 적합하다고 판단될 때
+- cron/webhook/event에서 ingest를 자동 실행할 때
 
 ## 절차
 
@@ -41,9 +42,14 @@ Claude 호출 전 `VAULT_DIR`는 반드시 절대경로로 resolve한다. 예를
    비어 있으면 Claude를 호출하지 않고 "처리할 클리핑 없음"으로 종료한다.
 2. `$VAULT_DIR/.locks/`가 없으면 생성하고, `$VAULT_DIR/.locks/vault-ingest.lock`으로
    동시 실행을 방지한다. 이미 lock이 있으면 실행하지 말고 사용자에게 보고한다.
-3. resolve된 `$ABSOLUTE_VAULT_DIR` 루트에서 Claude CLI를 호출한다.
-4. Claude에는 아래 job spec을 그대로 전달한다.
-5. Claude 실행이 끝나면 다음을 검증한다.
+3. Claude Code 가용성을 확인한다.
+   - `command -v claude`가 실패하면 lock을 제거하고 `vault-ingest` Hermes-native 절차로 fallback한다.
+   - `claude --version`이 실패하면 lock을 제거하고 fallback 사유를 보고한 뒤 `vault-ingest`로 fallback한다.
+   - `claude auth status --text`가 실패하면 Claude가 설치되어 있어도 미인증 상태로 보고하고 `vault-ingest`로 fallback한다.
+4. resolve된 `$ABSOLUTE_VAULT_DIR` 루트에서 Claude CLI print mode를 호출한다.
+5. Claude에는 아래 job spec을 그대로 전달한다.
+6. Claude 실행이 실패하면 자동 재시도를 반복하지 않는다. lock을 제거하고 실패 원인을 보고한 뒤 Hermes-native `vault-ingest` fallback을 실행한다.
+7. Claude 실행이 끝나면 다음을 검증한다.
    - Claude가 보고한 작업 경로가 `$ABSOLUTE_VAULT_DIR`와 일치하는지
    - 생성/수정/이동된 모든 파일 경로가 `$ABSOLUTE_VAULT_DIR` 아래인지
    - `Clippings/`가 비었는지
@@ -52,8 +58,8 @@ Claude 호출 전 `VAULT_DIR`는 반드시 절대경로로 resolve한다. 예를
    - `sources`가 `"raw/<source-file-name>.md"` 형식인지
    - Obsidian alias가 `[[note-slug|Alias]]` 형식인지
    - `wiki/INDEX.md`, `wiki/topics/`, `wiki/VAULT_MEMORY.md`가 갱신됐는지
-6. lock을 제거한다.
-7. 사용자에게 처리 파일, 생성/수정 문서, 검증 결과, 남은 이슈를 요약한다.
+8. lock을 제거한다.
+9. 사용자에게 실행 경로(Claude 또는 Hermes fallback), 처리 파일, 생성/수정 문서, 검증 결과, 남은 이슈를 요약한다.
 
 ## Claude job spec
 
@@ -102,7 +108,10 @@ and any unresolved issues.
 
 ```bash
 ABSOLUTE_VAULT_DIR="$(cd "${VAULT_DIR:-$PWD}" && pwd)"
-cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_JOB_SPEC with ABSOLUTE_VAULT_DIR=$ABSOLUTE_VAULT_DIR>" --permission-mode acceptEdits --output-format json
+command -v claude >/dev/null 2>&1 || exit 42
+claude --version >/dev/null 2>&1 || exit 42
+claude auth status --text >/dev/null 2>&1 || exit 42
+cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_JOB_SPEC with ABSOLUTE_VAULT_DIR=$ABSOLUTE_VAULT_DIR>" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Bash" --max-turns 20 --output-format json
 ```
 
 ## 금지 사항
@@ -110,4 +119,5 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_JOB_SPEC with ABSOLUTE_VAULT_DIR=
 - `Clippings/`가 비어 있는데 Claude를 호출하지 않는다
 - lock이 있는데 병렬 실행하지 않는다
 - Claude 실행 실패 시 자동 재시도를 반복하지 않는다
+- Claude 미설치/미인증/실패 시 조용히 종료하지 않는다. lock을 제거하고 Hermes-native fallback 여부를 보고한다
 - Hermes가 Claude 결과 검증 없이 성공으로 보고하지 않는다

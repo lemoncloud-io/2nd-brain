@@ -6,11 +6,15 @@ description: >
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
 ---
 
-# Vault Ingest (Hermes-native)
+# Vault Ingest (Hermes-native fallback)
 
 이 스킬은 Hermes의 현재 모델이 GPT이든 Claude이든 같은 방식으로 동작하도록
 작성된 provider-agnostic vault 작업 지시서다. 별도 coding agent에 위임하지 않고,
 가능하면 Hermes가 제공하는 파일 읽기/쓰기 도구로 직접 처리한다.
+
+자동화의 기본 경로는 `vault-ingest-claude`이며, Claude Code가 설치되어 있지 않거나
+인증되지 않았거나 실패했을 때 이 스킬을 fallback으로 사용한다. 사용자가 명시적으로
+Hermes-native 처리를 요청한 경우에도 이 스킬을 사용한다.
 
 ## 언제 사용하는가
 
