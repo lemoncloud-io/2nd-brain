@@ -70,6 +70,18 @@ gh --version         # 선택
 
 인제스트와 린트는 `claude` CLI가 설치·인증돼 있으면 Claude Code를 우선 사용한다. Claude Code가 없거나 차단·미인증 상태면 조용히 실패하지 않고 이유를 보고한 뒤 Hermes 네이티브 폴백을 실행한다. 파이프라인은 파일을 `raw/`로 옮기고, 개념을 추출하고, frontmatter·위키링크·토픽 인덱스와 함께 `wiki/` 문서를 생성·갱신한다.
 
+### 처음 실행 시 예상 결과
+
+`Clippings/`에 소스 하나(예: 멀티 에이전트 설정 글)를 넣고 실행하면 에이전트가 다음을 수행한다.
+
+- `ingest/<YYYY-MM-DD>-<작업자-slug>` 브랜치를 `master`에서 생성 (같은 날 재실행 시 `-2`, `-3` 접미사)
+- 처리한 클리핑을 내용 변경 없이 `Clippings/` → `raw/`로 이동 (append-only)
+- `templates/`를 적용해 `wiki/` 개념 문서 생성 (예: `multi-agent-orchestration`, `hermes-agent`), 필요 시 `wiki/topics/`에 새 토픽 추가 (예: `ai-agents`)
+- `wiki/INDEX.md`, `wiki/TOPIC_MAP.md`, `wiki/VAULT_MEMORY.md` 갱신
+- 결과를 커밋·push하고 `master` 대상 PR을 자동으로 오픈 (기본 리뷰어 `steve-lemon`)
+
+PR 오픈까지는 확인 없이 진행되지만, PR **merge는 사용자의 명시적 승인**이 있어야 한다. 새로 만들어진 문서는 대개 `stub` 상태이며, 시간 민감하거나 근거가 부족한 주장은 `needs-update`로 표기된다. 실행이 끝나면 처리한 클리핑, 생성·갱신 문서, 남은 이슈, PR 링크가 요약 보고된다.
+
 Claude Code에 강제로 위임하려면:
 
 ```text
