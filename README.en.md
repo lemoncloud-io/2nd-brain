@@ -23,6 +23,23 @@ docs/             ← system docs such as the setup guide
 
 > `raw/` and `archive/` are append-only. `wiki/VAULT_MEMORY.md` and `wiki/INDEX.md` load at the start of every vault operation.
 
+## Requirements
+
+| Tool | Required | Purpose |
+| --- | --- | --- |
+| Git | Required | clone, branch, commit, push |
+| Obsidian | Required | edit the markdown vault, Web Clipper & plugins |
+| Claude CLI (`claude`) | Optional | delegate ingest/lint to Claude Code (falls back to Hermes without it) |
+| GitHub CLI (`gh`) | Optional | create PRs / link GitHub projects from the terminal (web works too) |
+
+Version check:
+
+```bash
+git --version        # required
+claude --version     # optional
+gh --version         # optional
+```
+
 ## Getting Started
 
 1. **Clone the repo and set `VAULT_DIR`** — the repo and path below are examples. After cloning, repoint `origin` to your own/team git, and use `$VAULT_DIR`/`~` relative paths instead of absolute machine paths.
@@ -37,7 +54,7 @@ docs/             ← system docs such as the setup guide
 
 3. **(Optional) Install the Claude CLI** — to delegate ingest/lint to Claude Code, `claude` must be installed and authenticated. Without it, the agent falls back to the Hermes-native workflow.
 
-> Required: Git, Obsidian · Optional: Claude CLI, GitHub CLI (`gh`). For the **full setup and usage guide** — Obsidian Web Clipper, plugins, the PR workflow, and troubleshooting — see [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md).
+> For the **full setup and usage guide** — Obsidian Web Clipper, plugins, the PR workflow, and troubleshooting — see [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md).
 
 ## Vault Root
 

@@ -23,6 +23,23 @@ docs/             ← 설치 가이드 등 시스템 문서
 
 > `raw/`와 `archive/`는 append-only다. `wiki/VAULT_MEMORY.md`와 `wiki/INDEX.md`는 모든 vault 작업 시작 시 로드된다.
 
+## 필수 도구
+
+| 도구 | 필수 | 용도 |
+| --- | --- | --- |
+| Git | 필수 | clone·branch·commit·push |
+| Obsidian | 필수 | 마크다운 vault 편집, Web Clipper·플러그인 |
+| Claude CLI (`claude`) | 선택 | 인제스트·린트를 Claude Code에 위임 (없으면 Hermes 폴백) |
+| GitHub CLI (`gh`) | 선택 | 터미널에서 PR 생성·GitHub 프로젝트 연결 (웹으로 대체 가능) |
+
+버전 확인:
+
+```bash
+git --version        # 필수
+claude --version     # 선택
+gh --version         # 선택
+```
+
 ## 설치 및 시작
 
 1. **저장소 clone 후 `VAULT_DIR` 설정** — 아래 저장소·경로는 예시다. clone 후 origin을 본인/팀 git으로 바꿔 사용하고, 절대경로 대신 `$VAULT_DIR`·`~` 상대경로를 쓴다.
@@ -37,7 +54,7 @@ docs/             ← 설치 가이드 등 시스템 문서
 
 3. **(선택) Claude CLI 설치** — 인제스트/린트를 Claude Code에 위임하려면 `claude`가 설치·인증되어 있어야 한다. 없으면 Hermes 네이티브 워크플로우로 폴백된다.
 
-> 필수: Git, Obsidian · 선택: Claude CLI, GitHub CLI(`gh`). Obsidian Web Clipper 설정, 플러그인, PR 흐름, 문제 해결 등 **자세한 설치·이용 가이드는 [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md)를 참조**한다.
+> Obsidian Web Clipper 설정, 플러그인, PR 흐름, 문제 해결 등 **자세한 설치·이용 가이드는 [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md)를 참조**한다.
 
 ## Vault 루트
 
