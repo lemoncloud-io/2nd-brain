@@ -76,6 +76,14 @@ sources:
 `sources`는 직접 provenance를 위한 필드다. 실제 wiki 문서가 아닌 raw source는
 wikilink로 만들지 않는다.
 
+## GitHub PR 워크플로우
+
+이 fallback 절차는 git/GitHub 작업을 포함하지 않는다 — 파일 처리까지만 담당한다.
+브랜치 생성, 커밋 정리, PR 요청(기본 리뷰어 `steve-lemon`)은 git/`gh` CLI를 실행할
+수 있는 실행 경로(`vault-ingest-claude.md`)의 책임이다. Hermes가 이 fallback을
+실행한 뒤 별도로 git 작업을 하고 싶다면 `vault-ingest-claude.md`의 "GitHub PR
+워크플로우" 절차를 그대로 따른다.
+
 ## 금지 사항
 
 - `git push`, `git reset --hard`, `git clean`, `rm -rf` 실행 금지

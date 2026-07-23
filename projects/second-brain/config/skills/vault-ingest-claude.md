@@ -11,7 +11,7 @@ description: >
 이 스킬은 split/hybrid 구성용이며, cron/event 자동화의 기본 ingest 진입점이다.
 
 - Hermes: 트리거, `VAULT_DIR` 확인, Clippings 존재 확인, lock, Claude 가용성 확인, Claude 호출, fallback, 결과 검증, 보고
-- Claude: 원문 읽기, 개념 추출, wiki 작성, templates 적용, raw 이동, index/topic/memory 갱신
+- Claude: 원문 읽기, 개념 추출, wiki 작성, templates 적용, raw 이동, index/topic/memory 갱신, git 브랜치/커밋 정리, 사용자 확인 후 PR 요청 (자세한 내용은 "GitHub PR 워크플로우" 참고)
 
 Claude Code가 설치되어 있지 않거나 인증되지 않았으면 실패로 끝내지 말고 `vault-ingest` Hermes-native 절차로 fallback한다.
 
@@ -61,6 +61,27 @@ Claude 호출 전 `VAULT_DIR`는 반드시 절대경로로 resolve한다. 예를
 8. lock을 제거한다.
 9. 사용자에게 실행 경로(Claude 또는 Hermes fallback), 처리 파일, 생성/수정 문서, 검증 결과, 남은 이슈를 요약한다.
 
+## GitHub PR 워크플로우
+
+Claude가 ingest를 수행할 때는 파일만 고치는 것이 아니라 결과를 리뷰 가능한 PR로 남긴다. 단계는 다음과 같다.
+
+1. **준비 (브랜치 + 시작 커밋)**
+   - 시작 전 `git status`로 작업 트리가 깨끗한지 확인한다. 이번 ingest와 관련 없는 미커밋 변경이 있으면 처리를 시작하지 말고 사용자에게 보고한다.
+   - 이 vault는 여러 사람이 공용으로 쓰므로, 누가 만든 브랜치인지 브랜치 이름만 보고 알 수 있어야 한다. 작업자 slug를 구한다: `gh api user --jq .login`을 우선 쓰고, 실패하면 `git config user.name`을 소문자·공백을 하이픈으로 바꾼 slug로 대체하고, 그마저도 없으면 `whoami`를 쓴다.
+   - `master`를 기준으로 `ingest/<YYYY-MM-DD>-<작업자-slug>` 형식의 브랜치를 만든다(예: `ingest/2026-07-09-steve-lemon`). 같은 사람이 같은 날 여러 번 실행하면 `-2`, `-3` 접미사를 뒤에 붙인다(예: `ingest/2026-07-09-steve-lemon-2`).
+   - `Clippings/`에 아직 커밋되지 않은 파일이 있으면, 이번에 처리할 파일들만 정리해 별도의 시작 커밋으로 남긴다(예: `chore: stage N clippings for ingest`). 이미 커밋되어 있으면 이 하위 단계는 건너뛰고 그 사실을 최종 보고에 남긴다.
+2. **ingest 처리**: 아래 "Claude job spec"에 따라 실제 컨텐츠 변환을 수행한다(원문에서 개념 추출, wiki 작성/갱신, `raw/` 이동, `wiki/INDEX.md`·`wiki/topics/`·`wiki/VAULT_MEMORY.md` 갱신). 이 단계 자체에서는 커밋하지 않는다.
+3. **결과 커밋**: 처리로 변경된 파일만 스테이징해 하나의 커밋으로 남긴다. 커밋 메시지는 처리한 클리핑 수와 새/갱신 wiki 문서를 요약한다(예: `feat: ingest 3 clippings into wiki (ai-agents, knowledge-management)`). 시작 커밋(선택)과 결과 커밋(필수) 두 개로 정리하고, 중간에 커밋을 더 쪼개지 않는다.
+4. **PR 오픈**: 결과 커밋 뒤 확인을 기다리지 않고 바로 브랜치를 push하고 `gh pr create`로 PR을 연다. base는 `master`, 기본 리뷰어는 `steve-lemon`이다(`gh pr create --base master --reviewer steve-lemon ...`). PR 본문에는 처리한 클리핑, wiki 변경 요약, 남은 needs-update/open question을 적는다.
+5. **완료 보고**: 처리한 클리핑, 생성/갱신 문서, topic/index/memory 갱신, 남은 needs-update/open question, 그리고 열린 PR 링크를 사용자에게 요약해서 보고한다. 이 단계는 사후 보고이며 진행 여부를 묻지 않는다.
+
+### git/PR 관련 금지 사항
+
+- 브랜치 push와 PR 오픈(`gh pr create`)은 확인 없이 자동으로 진행한다. 단, PR을 merge하는 것은 별도의 명시적 사용자 승인 없이는 하지 않는다.
+- `master`/`main`에 직접 push하거나 PR을 자동으로 merge하지 않는다.
+- `git push --force`, `git reset --hard`, `git clean`, `rm -rf` 등 파괴적 명령을 쓰지 않는다.
+- 커밋을 --no-verify로 hook을 건너뛰거나 서명을 생략하지 않는다.
+
 ## Claude job spec
 
 ```text
@@ -94,12 +115,19 @@ Rules:
 - Record raw source provenance as "raw/<source-file-name>.md", not as a raw-file wikilink.
 - Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]].
 - Mark unsupported or time-sensitive claims as needs-update or TODO.
-- Do not run git push, git reset, git clean, rm -rf, or destructive commands.
+- Follow the GitHub PR workflow above: create an `ingest/<date>-<author-slug>` branch
+  from `master` (author-slug from `gh api user --jq .login`, falling back to a
+  slugified `git config user.name`, then `whoami` — this vault is a shared team space,
+  so the branch name must show who ran the ingest), commit the processed result, then
+  push the branch and open a PR automatically (base master, reviewer steve-lemon)
+  without waiting for confirmation.
+- Do not push to master/main, force-push, git reset --hard, git clean, rm -rf, or run
+  other destructive commands. Do not merge the PR yourself.
 
 Final response:
-Report the current working directory, ABSOLUTE_VAULT_DIR, processed clipping files,
-created wiki notes, updated wiki notes, new stubs, topic/index/memory updates,
-and any unresolved issues.
+Report the current working directory, ABSOLUTE_VAULT_DIR, the author-slug used, the branch created, processed
+clipping files, created wiki notes, updated wiki notes, new stubs, topic/index/memory
+updates, any unresolved issues, and the PR URL that was opened (reviewer: steve-lemon).
 ```
 
 ## Claude CLI 호출 예시
@@ -111,7 +139,8 @@ ABSOLUTE_VAULT_DIR="$(cd "${VAULT_DIR:-$PWD}" && pwd)"
 command -v claude >/dev/null 2>&1 || exit 42
 claude --version >/dev/null 2>&1 || exit 42
 claude auth status --text >/dev/null 2>&1 || exit 42
-cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_JOB_SPEC with ABSOLUTE_VAULT_DIR=$ABSOLUTE_VAULT_DIR>" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Bash" --max-turns 20 --output-format json
+AUTHOR_SLUG="$(gh api user --jq .login 2>/dev/null || git config user.name | tr '[:upper:] ' '[:lower:]-' || whoami)"
+cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_JOB_SPEC with ABSOLUTE_VAULT_DIR=$ABSOLUTE_VAULT_DIR, AUTHOR_SLUG=$AUTHOR_SLUG>" --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Bash" --max-turns 20 --output-format json
 ```
 
 ## 금지 사항
