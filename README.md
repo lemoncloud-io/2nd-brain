@@ -4,6 +4,8 @@
 
 Hermes와 Claude Code로 운영하는 Obsidian 기반 AI Second Brain vault.
 
+![screenshot of obsidian as 2nd-brain](screenshot.png)
+
 원문 소스를 인제스트 파이프라인으로 구조화된 wiki 문서로 컴파일하고, 그 wiki를 근거로 질문에 인용 답변을 생성한다. 규칙은 모델 중립적이며, 권위 있는 계약은 [`VAULT_RULES.md`](VAULT_RULES.md)를 따른다.
 
 ## 구조
