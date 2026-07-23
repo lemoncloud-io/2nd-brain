@@ -26,4 +26,6 @@ Loaded at the start of every vault operation. Keep this file under 200 lines.
 
 - Created: 2026-07-08
 - Last Lint Pass: never
-- Known initial issue: the vault starts with one pending clipping and no compiled wiki articles yet.
+- Last Ingest: 2026-07-23 — processed 1 clipping (Hermes + Codex + Claude Code multi-agent setup) into 3 wiki notes under the `ai-agents` topic.
+- Topics so far: `ai-agents`, `knowledge-management`.
+- Open needs-update: Claude Code programmatic-billing change effective 2026-06-15 and related billing caveats (see [[claude-code]]); orchestrator model choice and backup/failover unclear (see [[hermes-agent]]).
