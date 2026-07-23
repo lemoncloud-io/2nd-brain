@@ -1,7 +1,9 @@
 # 2nd Brain(Knowledge Wiki) Setup Guide
 
 작성일: 2026-07-09
-기준 repo: https://github.com/lemoncloud-io/2nd-brain
+초기 셋업 예시 repo: <https://github.com/lemoncloud-io/2nd-brain>
+
+> 이 GitHub 위치는 **초기 부트스트랩용 예시**다. clone한 뒤에는 origin을 본인/팀 소유의 git 저장소로 바꿔 사용한다(아래 3번 참조). 문서 어디에도 개인 머신의 절대경로를 쓰지 말고, 항상 `$VAULT_DIR`, `~`, 또는 저장소 기준 상대경로를 사용한다.
 
 ## 목표
 
@@ -61,7 +63,17 @@ export VAULT_DIR="$HOME/knowledge"
 cd "$VAULT_DIR"
 ```
 
-> `~/knowledge`는 예시 경로일 뿐이다. 핵심은 clone한 폴더를 `VAULT_DIR`로 **명시 지정**하는 것이다. `VAULT_RULES.md`는 어떤 툴도 `~/knowledge`로 조용히 폴백하지 못하게 하므로, 다른 위치에 clone했다면 그 절대경로를 `VAULT_DIR`로 지정하면 된다.
+> `~/knowledge`는 예시 경로일 뿐이다. 핵심은 clone한 폴더를 `VAULT_DIR`로 **명시 지정**하는 것이다. `VAULT_RULES.md`는 어떤 툴도 `~/knowledge`로 조용히 폴백하지 못하게 하므로, 다른 위치에 clone했다면 그 경로를 홈 기준 상대경로(`$HOME/...`)로 `VAULT_DIR`에 지정하면 된다. 개인 머신의 절대경로는 문서에 남기지 않는다.
+
+clone 직후 origin은 예시 repo를 가리킨다. 본인/팀 소유의 git으로 전환한다.
+
+```bash
+git remote set-url origin <YOUR_GIT_REMOTE_URL>   # 예: git@github.com:<you>/<your-vault>.git
+git remote -v                                     # origin이 본인 저장소인지 확인
+git push -u origin master                          # 최초 1회 본인 저장소로 push
+```
+
+이후 clone·push·PR은 모두 본인 저장소를 기준으로 한다. 아래 8~9번의 `lemoncloud-io/2nd-brain`은 예시이므로 본인 저장소 경로로 바꿔 읽는다.
 
 매번 `export`하기 싫으면 shell 설정에 추가한다.
 
@@ -248,7 +260,7 @@ gh pr create \
 
 GitHub CLI가 없으면 웹에서 만든다.
 
-1. https://github.com/lemoncloud-io/2nd-brain 를 연다.
+1. 본인 저장소(GitHub 페이지)를 연다. 예: <https://github.com/lemoncloud-io/2nd-brain>
 2. `Compare & pull request`를 누른다.
 3. base가 `master`, compare가 `docs/knowledge-wiki-setup-guide`인지 확인한다.
 4. 제목과 설명을 적고 PR을 생성한다.

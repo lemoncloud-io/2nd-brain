@@ -25,7 +25,7 @@ docs/             ← 설치 가이드 등 시스템 문서
 
 ## 설치 및 시작
 
-1. **저장소 clone 후 `VAULT_DIR` 설정**
+1. **저장소 clone 후 `VAULT_DIR` 설정** — 아래 저장소·경로는 예시다. clone 후 origin을 본인/팀 git으로 바꿔 사용하고, 절대경로 대신 `$VAULT_DIR`·`~` 상대경로를 쓴다.
 
    ```bash
    git clone https://github.com/lemoncloud-io/2nd-brain.git ~/knowledge

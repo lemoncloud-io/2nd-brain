@@ -25,7 +25,7 @@ docs/             ← system docs such as the setup guide
 
 ## Getting Started
 
-1. **Clone the repo and set `VAULT_DIR`**
+1. **Clone the repo and set `VAULT_DIR`** — the repo and path below are examples. After cloning, repoint `origin` to your own/team git, and use `$VAULT_DIR`/`~` relative paths instead of absolute machine paths.
 
    ```bash
    git clone https://github.com/lemoncloud-io/2nd-brain.git ~/knowledge
