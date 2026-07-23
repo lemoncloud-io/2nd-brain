@@ -4,8 +4,8 @@ Loaded at the start of every vault operation. Keep this file under 200 lines.
 
 ## Vault Identity
 
-- Vault root for this sandbox initialization environment: `/Users/dujung/sandbox`.
-- This sandbox is an initial environment for a future real knowledge folder setup.
+- Vault root is the resolved `$VAULT_DIR` (the cloned repo folder); never hardcode an absolute machine path.
+- This repo is an initial environment for a future real knowledge folder setup.
 - Runtime tools must not silently fall back to `~/knowledge`; use explicit `VAULT_DIR` or a verified vault root.
 
 ## Operating Defaults

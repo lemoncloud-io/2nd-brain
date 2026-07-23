@@ -21,7 +21,7 @@ Active. This project maintains the vault structure, operating rules, and automat
 
 ## Purpose
 
-Use `/Users/dujung/sandbox` as the setup and testing environment for a future production knowledge folder.
+Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing environment for a future production knowledge folder.
 
 ## Current Context
 
