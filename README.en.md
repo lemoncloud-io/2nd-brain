@@ -70,6 +70,18 @@ Ingest runs as one daily batch, not per-clipping. Drop markdown into `Clippings/
 
 Ingest and lint prefer Claude Code when the `claude` CLI is installed and authenticated. If Claude Code is unavailable, blocked, or unauthenticated, the agent reports why and runs the Hermes-native fallback instead of failing silently. The pipeline moves files to `raw/`, extracts concepts, and creates or updates `wiki/` articles with frontmatter, wikilinks, and topic index entries.
 
+### What to expect on the first run
+
+Drop one source into `Clippings/` (e.g. an article on a multi-agent setup) and run it. The agent will:
+
+- Create an `ingest/<YYYY-MM-DD>-<author-slug>` branch off `master` (re-runs on the same day get a `-2`, `-3` suffix)
+- Move each processed clipping from `Clippings/` to `raw/` unchanged (append-only)
+- Create `wiki/` concept articles from `templates/` (e.g. `multi-agent-orchestration`, `hermes-agent`) and add new topics under `wiki/topics/` as needed (e.g. `ai-agents`)
+- Update `wiki/INDEX.md`, `wiki/TOPIC_MAP.md`, and `wiki/VAULT_MEMORY.md`
+- Commit, push, and open a PR against `master` automatically (default reviewer `steve-lemon`)
+
+Opening the PR happens without confirmation, but **merging requires your explicit approval**. New articles usually start as `stub`, and time-sensitive or under-supported claims are flagged `needs-update`. When it finishes, you get a summary of processed clippings, created/updated articles, remaining issues, and the PR link.
+
 To force delegation to Claude Code:
 
 ```text
