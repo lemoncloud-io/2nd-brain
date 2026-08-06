@@ -4,6 +4,7 @@ Root topic map for `wiki/topics/`.
 
 ## Root Topics
 
+- [[wiki/topics/ai-agents|AI Agents]]
 - [[wiki/topics/knowledge-management|Knowledge Management]]
 
 ## Maintenance

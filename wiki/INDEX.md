@@ -4,11 +4,14 @@ This index is the entry point for vault queries and ingest deduplication.
 
 ## Topics
 
+- [[wiki/topics/ai-agents|AI Agents]]
 - [[wiki/topics/knowledge-management|Knowledge Management]]
 
 ## Articles
 
-_No compiled wiki articles yet._
+- [[hermes|Hermes]]
+- [[multi-agent-role-splitting|Multi-Agent Role Splitting]]
+- [[claude-code-headless-mode|Claude Code Headless Mode]]
 
 ## Maintenance
 

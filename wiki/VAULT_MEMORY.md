@@ -34,8 +34,8 @@ bytes, not lines. Durable policy only; 실행 이력은 `docs/vault-ingest-log.m
 
 - Created: 2026-07-08 (vault 제어 파일 초기화 기준)
 - Last Lint Pass: 2026-07-31 — 첫 pass, 정책 정합성 감사 (`outputs/2026-07-31-vault-lint.md`), P0 4 / P1 3 / P2 3 / P3 7
-- Last Ingest: never
-- Volume to date: 0 ingest runs / 0 clippings 처리 — `Clippings/` 미처리 1건, wiki article 0개, topic 1개
+- Last Ingest: 2026-08-06 (sungsu509) — 1 clippings → 3 new / 0 updated wiki notes (PR pending)
+- Volume to date: 1 ingest run / 1 clippings 처리 — `Clippings/` 미처리 0건, wiki article 3개, topic 2개
 - Ingest history: `docs/vault-ingest-log.md` — 실행별 상세, append-only, 세션 시작 시 로드하지 않음
   (repo 문서 승격은 같은 파일 `## Promotions`)
 - Verification queue: `grep -rln "^status: needs-update" wiki/*.md` — 2026-07-31 기준 0건
