@@ -8,3 +8,4 @@ up:
 ## Related Notes
 
 - [[wiki/INDEX|Wiki Index]]
+- [[obsidian-web-clipper|Obsidian Web Clipper]]
