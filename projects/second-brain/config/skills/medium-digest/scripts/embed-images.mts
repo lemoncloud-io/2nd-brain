@@ -7,7 +7,10 @@ import { join } from "node:path";
 const dir = process.argv[2];
 if (!dir) { console.error("usage: node embed-images.mts <date-dir>"); process.exit(2); }
 const src = join(dir, "digest.src.html"), out = join(dir, "digest.html");
-if (!existsSync(src)) copyFileSync(out, src);           // 첫 실행: 현재 digest.html을 원본으로 보존
+if (!existsSync(src)) {
+  if (!existsSync(out)) { console.error(`missing ${out} (expected a Gmail export copied to digest.html)`); process.exit(2); }
+  copyFileSync(out, src);           // 첫 실행: 현재 digest.html을 원본으로 보존
+}
 let html = readFileSync(src, "utf8");
 if (html.includes("--- BODY ---")) html = html.split("--- BODY ---")[1].trimStart();  // Gmail export 헤더 제거
 
