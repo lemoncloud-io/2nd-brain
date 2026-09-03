@@ -1,6 +1,6 @@
 // digest.html의 원격 이미지를 data URI로 인라인 임베딩해 자체 완결 문서로 만든다. 트래킹 픽셀은 제거.
 // `node embed-images.mts <date-dir>` — <date-dir>/digest.src.html(원본 보존) → <date-dir>/digest.html(임베딩판)
-// origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/medium-digest/scripts/embed-images.mts
+// origin: lemoncloud-io/knowledge@2bebda4:projects/second-brain/config/skills/medium-digest/scripts/embed-images.mts
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 
