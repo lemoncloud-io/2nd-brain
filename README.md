@@ -187,7 +187,7 @@ Claude에 위임해서 클리핑 처리해줘
 - `ingest/<YYYY-MM-DD>-<작업자-slug>` 브랜치를 `master`에서 생성 (같은 날 재실행 시 `-2`, `-3` 접미사)
 - 처리한 클리핑을 내용 변경 없이 `Clippings/` → `raw/`로 이동 (파일명만 정규화, [`docs/raw-layout.md`](docs/raw-layout.md))
 - `templates/`를 적용해 `wiki/` 개념 문서 생성 (예: `multi-agent-orchestration`), 필요 시 `wiki/topics/`에 새 토픽 추가
-- `wiki/INDEX.md`·`wiki/TOPIC_MAP.md` 갱신, 이번 실행의 run-log 노트를 `outputs/runs/`에 생성, `wiki/VAULT_MEMORY.md`의 `Last Ingest` 한 줄 교체 (8 KB 예산 유지)
+- `wiki/INDEX.md`·`wiki/TOPIC_MAP.md` 갱신, 이번 실행의 run-log 노트를 `outputs/runs/`에 생성 (`wiki/VAULT_MEMORY.md`는 건드리지 않는다 — 실행 수치는 run-log에서 유추)
 - 결과를 커밋·push하고 `master` 대상 PR을 자동으로 오픈 (리뷰어는 `team-settings.yaml`의 `github.default_reviewer`)
 
 새로 만들어진 문서는 대개 `stub` 상태이며, 시간에 민감하거나 근거가 부족한 주장은 `needs-update`로 표기된다. 실행이 끝나면 처리한 클리핑, 생성·갱신 문서, 남은 이슈, PR 링크가 요약 보고된다.
@@ -248,7 +248,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 
 ## 스킬
 
-각 워크플로우의 진실원은 `projects/second-brain/config/skills/`의 스킬 문서다. 폴더형 스킬(`pdf2md-ingest`, `hwp2md-ingest`, `doc2md-ingest`)은 `.claude/skills/`의 심링크로 Claude Code에 자동 노출된다.
+각 워크플로우의 진실원은 `projects/second-brain/config/skills/`의 스킬 문서다. 폴더형 스킬(`pdf2md-ingest`, `hwp2md-ingest`, `doc2md-ingest`, `medium-digest`)은 `.claude/skills/`의 심링크로 Claude Code에 자동 노출된다.
 
 | 스킬 | 역할 |
 | --- | --- |
@@ -259,6 +259,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 | `hwp2md-ingest` | HWP/HWPX를 MD로 변환해 `Clippings/`에 투입 — 순수 Python 추출(한컴오피스 불필요) 우선, 텍스트 희소 문서는 Claude 비전 전사 폴백. 커밋 불가 문서는 vault 밖 변환 모드 |
 | `doc2md-ingest` | `.doc`/`.docx`를 MD로 변환해 `Clippings/`에 투입 — `.docx`는 pandoc 직행(구조 보존). `.doc`은 LibreOffice(전 플랫폼) 우선, 없으면 Windows는 Word COM·macOS는 textutil(헤딩·목록·표 헤더·이미지 손실, 경고 출력). 커밋 불가 문서는 vault 밖 변환 모드 |
 | `vault-promote` | repo 문서·개인 KB 노트를 wiki + `raw/`로 승격 (클리핑 인제스트와 별도 레인) |
+| `medium-digest` | Gmail의 Medium Daily Digest에서 아티클 목록을 결정론적으로 추출, 로그인된 Chrome으로 본문(member-only 포함) 수집 → 한국어 요약·클리핑 후보 추천. 승인분만 `Clippings/`로 넘겨 인제스트가 이어받음 |
 | `vault-query` | wiki 기반 응답, 보존 답변을 `outputs/`에 저장 |
 | `vault-lint` | Claude 우선 린트 + Hermes 네이티브 폴백 |
 | `vault-weekly-report` | git 전수 통계 기반 주간 보고서 (`areas/weekly/`) |

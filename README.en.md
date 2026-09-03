@@ -187,7 +187,7 @@ Drop one source into `Clippings/` (e.g. an article on a multi-agent setup) and r
 - Create an `ingest/<YYYY-MM-DD>-<author-slug>` branch off `master` (re-runs on the same day get a `-2`, `-3` suffix)
 - Move each processed clipping from `Clippings/` to `raw/` unchanged, normalizing only the filename ([`docs/raw-layout.md`](docs/raw-layout.md))
 - Create `wiki/` concept articles from `templates/` (e.g. `multi-agent-orchestration`) and add new topics under `wiki/topics/` as needed
-- Update `wiki/INDEX.md` and `wiki/TOPIC_MAP.md`, write this run's log as a note under `outputs/runs/`, and replace the single `Last Ingest` line in `wiki/VAULT_MEMORY.md` (8 KB budget)
+- Update `wiki/INDEX.md` and `wiki/TOPIC_MAP.md`, and write this run's log as a note under `outputs/runs/` (`wiki/VAULT_MEMORY.md` is left untouched — run figures are derived from the run logs)
 - Commit, push, and open a PR against `master` automatically (reviewer = `github.default_reviewer` in `team-settings.yaml`)
 
 New articles usually start as `stub`, and time-sensitive or under-supported claims are flagged `needs-update`. When it finishes, you get a summary of processed clippings, created/updated articles, remaining issues, and the PR link.
@@ -244,7 +244,7 @@ Humans and LLMs read the same documents. Each one owns a different layer.
 
 ## Skills
 
-The skill documents in `projects/second-brain/config/skills/` are the source of truth for each workflow. Folder-style skills (`pdf2md-ingest`, `hwp2md-ingest`, `doc2md-ingest`) are exposed to Claude Code automatically through symlinks in `.claude/skills/`.
+The skill documents in `projects/second-brain/config/skills/` are the source of truth for each workflow. Folder-style skills (`pdf2md-ingest`, `hwp2md-ingest`, `doc2md-ingest`, `medium-digest`) are exposed to Claude Code automatically through symlinks in `.claude/skills/`.
 
 | Skill | Role |
 | --- | --- |
@@ -255,6 +255,7 @@ The skill documents in `projects/second-brain/config/skills/` are the source of 
 | `hwp2md-ingest` | Converts HWP/HWPX to Markdown and drops it into `Clippings/` — pure-Python extraction first (no Hancom Office), Claude vision transcription fallback for text-sparse documents; an out-of-vault mode handles documents that must not be committed |
 | `doc2md-ingest` | Converts `.doc`/`.docx` to Markdown and drops it into `Clippings/` — pandoc directly for `.docx` (structure preserved); for `.doc`, LibreOffice first on every platform, otherwise Word COM on Windows or textutil on macOS (headings, lists, table headers, and images are lost — a warning is emitted); an out-of-vault mode handles documents that must not be committed |
 | `vault-promote` | Promotes team/personal repo docs into the vault — reusable concepts to wiki, an original snapshot to `raw/` (a separate lane from clipping ingest) |
+| `medium-digest` | Deterministically extracts the article list from Gmail's Medium Daily Digest, collects bodies (member-only included) through a logged-in Chrome, then summarizes and recommends clipping candidates; only approved items go to `Clippings/` for the regular ingest |
 | `vault-query` | Answer from wiki, save retained answers to `outputs/` |
 | `vault-lint` | Claude-first lint with Hermes-native fallback |
 | `vault-weekly-report` | Weekly report from full git statistics (`areas/weekly/`) |

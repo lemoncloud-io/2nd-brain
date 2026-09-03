@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/scripts/vault_verify.py
+# origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/scripts/vault_verify.py
 """Verify the vault invariants shared by every write lane (ingest, lint, promote).
 
 This is the single post-run check. Skills call it instead of restating the same
@@ -12,10 +12,12 @@ Checks (all lanes):
   1. wiki/VAULT_MEMORY.md is under 8 KB (8192 bytes on disk, not decoded length).
   2. No `- Last <Name>:` marker in memory appears more than once (never appended).
   3. Every `- Last <Name>:` line is at most 200 bytes.
+     (2 and 3 are now guards only: since 2026-09-03 memory stores no per-run markers —
+     `Last Ingest/Lint Pass/Promotion` and `Volume to date` conflicted on every concurrent
+     ingest and are derived from outputs/runs/ and vault_volume.py instead.)
   4. raw/ and archive/ are append-only: no modify/delete/rename against the base ref.
-  5. The `- Volume to date:` line matches the ledger fold (vault_volume.py) —
-     the counters are derived, never hand-incremented. Regenerate with
-     `python3 vault_volume.py --write` after any run that adds notes or run-logs.
+  5. If memory still carries a `- Volume to date:` line it must match the ledger fold
+     (vault_volume.py); an absent line is fine.
   6. Every tracked Markdown file outside raw/ and archive/ has parseable frontmatter.
      Added 2026-08-28 after a merge conflict resolved by keeping both sides put a
      duplicated key and orphaned sequence items into a project README: the text diff
@@ -24,8 +26,10 @@ Checks (all lanes):
      dependency-free so it runs everywhere; when PyYAML is importable a full parse
      runs on top of it, catching what the conservative structural pass lets through.
 
-Lane check: `--lane ingest|lint|promote` additionally requires that lane's marker
-to be present exactly once, so a lane cannot report success without stamping memory.
+Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
+diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
+(ingest, promotion) or a lint report `outputs/*-vault-lint*.md` — so a lane cannot report
+success without leaving its record. (Replaced the memory-marker requirement 2026-09-03.)
 Omit --lane (or use `--lane none`) for a standalone health check.
 
 Base ref: `--base` defaults to HEAD, which only covers an uncommitted working tree.
@@ -60,10 +64,12 @@ MEMORY_MAX_BYTES = 8192
 MARKER_MAX_BYTES = 200
 APPEND_ONLY_DIRS = ["raw", "archive"]
 
-LANE_MARKERS = {
-    "ingest": "Last Ingest",
-    "lint": "Last Lint Pass",
-    "promote": "Last Promotion",
+# Lane → how the run must show up in the diff against --base (path prefix, frontmatter kind
+# or None for a filename match on "-vault-lint").
+LANE_TRACE = {
+    "ingest": ("outputs/runs/", "ingest"),
+    "promote": ("outputs/runs/", "promotion"),
+    "lint": ("outputs/", None),
 }
 
 EXPECTED_DIRS = ["wiki", "raw", "Clippings", "templates"]
@@ -120,13 +126,52 @@ def check_memory(vault: Path, lane: str, defects: list[str]) -> None:
                 f"{MEMORY_REL} has {count} `- {name}:` lines; the line is replaced, never appended"
             )
 
-    if lane != "none":
-        marker = LANE_MARKERS[lane]
-        if counts.get(marker, 0) != 1:
-            defects.append(
-                f"{MEMORY_REL} has {counts.get(marker, 0)} `- {marker}:` lines "
-                f"after a {lane} run (expected exactly 1)"
-            )
+
+
+def _changed_paths(vault: Path, base: str) -> list[str] | None:
+    """Added/modified paths vs base, plus untracked files (a lane may verify pre-commit)."""
+    try:
+        diff = subprocess.run(["git", "diff", "--name-status", base, "--", "outputs"],
+                              cwd=vault, capture_output=True, text=True, timeout=60)
+        untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", "outputs"],
+                                   cwd=vault, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if diff.returncode != 0 or untracked.returncode != 0:
+        return None
+    paths = []
+    for line in diff.stdout.splitlines():
+        status, _, rest = line.partition("\t")
+        if status[:1] in ("A", "M", "R"):
+            paths.append(rest.split("\t")[-1])
+    paths += [p for p in untracked.stdout.splitlines() if p.strip()]
+    return paths
+
+
+def check_lane_trace(vault: Path, base: str, lane: str, defects: list[str]) -> None:
+    """A lane run must leave its record: run-log (ingest/promote) or lint report."""
+    if lane == "none":
+        return
+    prefix, kind = LANE_TRACE[lane]
+    paths = _changed_paths(vault, base)
+    if paths is None:
+        defects.append(f"lane trace check could not run for {lane} (git diff against {base} failed)")
+        return
+    for rel in paths:
+        if not (rel.startswith(prefix) and rel.endswith(".md")):
+            continue
+        if kind is None:
+            if "-vault-lint" in Path(rel).name and rel.count("/") == 1:
+                return
+            continue
+        try:
+            head = (vault / rel).read_text(encoding="utf-8")[:2000]
+        except (OSError, UnicodeDecodeError):
+            continue
+        if re.search(rf"^kind:\s*{kind}\s*$", head, re.M):
+            return
+    what = "lint report outputs/*-vault-lint*.md" if kind is None else f"outputs/runs/ run-log with `kind: {kind}`"
+    defects.append(f"no {what} added or modified against {base} after a {lane} run")
 
 
 def _closes_quote(value: str) -> bool:
@@ -329,9 +374,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Verify shared vault invariants.")
     parser.add_argument(
         "--lane",
-        choices=list(LANE_MARKERS) + ["none"],
+        choices=list(LANE_TRACE) + ["none"],
         default="none",
-        help="lane that just ran; requires its memory marker to be present exactly once",
+        help="lane that just ran; requires its run-log/report in the diff against --base",
     )
     parser.add_argument(
         "--base",
@@ -353,6 +398,7 @@ def main() -> int:
 
     defects: list[str] = []
     check_memory(vault, args.lane, defects)
+    check_lane_trace(vault, base, args.lane, defects)
     check_append_only(vault, base, defects)
     check_frontmatter(vault, defects)
     defects.extend(vault_volume.check(vault))
@@ -365,7 +411,7 @@ def main() -> int:
         return 1
 
     print(
-        f"PASS ({lane_label}, base {base}): memory size, memory markers, "
+        f"PASS ({lane_label}, base {base}): memory size, memory markers, lane trace, "
         "raw/archive append-only, frontmatter structure, volume fold"
     )
     return 0

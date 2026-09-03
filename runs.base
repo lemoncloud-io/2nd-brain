@@ -1,0 +1,62 @@
+filters:
+  and:
+    - type == "run-log"
+    - '!file.inFolder("templates")'
+properties:
+  note.run_date:
+    displayName: Date
+  note.summary:
+    displayName: Summary
+  note.pr:
+    displayName: PR
+  note.new_notes:
+    displayName: New
+  note.updated_notes:
+    displayName: Updated
+views:
+  - type: table
+    name: Runs
+    order:
+      - file.name
+      - kind
+      - author
+      - summary
+      - pr
+    sort:
+      - property: run_date
+        direction: DESC
+      - property: file.name
+        direction: DESC
+  - type: table
+    name: Ingest
+    filters:
+      and:
+        - kind == "ingest"
+    order:
+      - file.name
+      - author
+      - processed
+      - new_notes
+      - updated_notes
+      - summary
+      - pr
+    sort:
+      - property: run_date
+        direction: DESC
+      - property: file.name
+        direction: DESC
+  - type: table
+    name: Promotions
+    filters:
+      and:
+        - kind == "promotion"
+    order:
+      - file.name
+      - author
+      - summary
+      - pr
+    sort:
+      - property: run_date
+        direction: DESC
+      - property: file.name
+        direction: DESC

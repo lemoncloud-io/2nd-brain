@@ -1,0 +1,11 @@
+# Raw Index — raw/ 보존소의 자동 생성 색인. 수동 편집 금지.
+# 재생성: vault 루트에서 python3 projects/second-brain/config/scripts/generate_raw_index.py
+# 계약: docs/raw-layout.md § 색인. 사람용 요약: docs/raw-index.md
+generated: "2026-09-03"
+root_files: 0
+root_cap: 200
+screenshots: 0
+by_month:
+orphans: []
+duplicate_sources: []
+entries:

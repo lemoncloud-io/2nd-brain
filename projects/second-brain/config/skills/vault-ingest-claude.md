@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를 Claude CLI/Claude Code에
   우선 위임한다. Hermes는 트리거, 동시 실행 방지, Claude 가용성 확인, Hermes-native
   fallback, 결과 검증, 요약 보고를 담당한다.
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/vault-ingest-claude.md
+origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-ingest-claude.md
 ---
 
 # Vault Ingest Claude (Hermes -> Claude)
@@ -60,8 +60,8 @@ Claude 호출 전 `VAULT_DIR`는 반드시 절대경로로 resolve한다. 예를
    - 새/수정 wiki 문서가 `templates/` 구조와 frontmatter를 따르는지
    - `sources`가 `"raw/<source-file-name>.md"` 형식인지
    - Obsidian alias가 `[[note-slug|Alias]]` 형식인지
-   - `wiki/INDEX.md`, `wiki/topics/`, `wiki/VAULT_MEMORY.md`가 갱신됐는지
-   - 공유 불변식(memory 크기, `- Last …:` 마커 중복/길이, raw·archive append-only, frontmatter 파싱, Volume 라인의 원장 fold 일치)은
+   - `wiki/INDEX.md`, `wiki/topics/`가 갱신됐는지 (`wiki/VAULT_MEMORY.md`는 건드리지 않는다 — 2026-09-03부터 실행 카운터 없음)
+   - 공유 불변식(memory 크기, raw·archive append-only, frontmatter 파싱, 레인 흔적 = run-log가 diff에 있음)은
      `python3 projects/second-brain/config/scripts/vault_verify.py --lane ingest --base "$(git merge-base HEAD master)"`로 판정한다.
      exit 0이 아니면 성공으로 보고하지 않고 출력된 defect를 그대로 전달한다
    - 이번 실행의 run-log 노트가 `outputs/runs/`에 템플릿대로 생성됐는지 (frontmatter `summary` ≤ 200 bytes), 동결된 `docs/vault-ingest-log.md`를 수정하지 않았는지
@@ -134,13 +134,10 @@ Write this run's log as a new note at outputs/runs/<YYYY-MM-DD>-ingest-<author-s
 (add a -2/-3 suffix for repeat runs the same day) using templates/run-log.md: kind ingest,
 frontmatter summary under 200 bytes, counts and sources/notes lists filled, detail in the body.
 Do NOT append to docs/vault-ingest-log.md — it is a frozen ledger (2026-08-14).
-In wiki/VAULT_MEMORY.md, REPLACE the single existing `- Last Ingest:` line — never add a second one:
-  `- Last Ingest: <YYYY-MM-DD> (<author-slug>) — N clippings -> X new / Y updated wiki notes (PR #<n>)`
-Keep that line under 200 bytes. Regenerate the `Volume to date` line by running
-`python3 projects/second-brain/config/scripts/vault_volume.py --write` — it is a fold over the
-frozen ledger plus outputs/runs/ frontmatter; NEVER hand-edit or hand-increment it
-(vault_verify fails on drift). Refresh the `Verification queue` count, and keep
-the whole file under 8 KB (`wc -c`).
+Do NOT edit wiki/VAULT_MEMORY.md. Since 2026-09-03 it carries no per-run lines (no
+`Last Ingest:`, no `Volume to date`, no verification-queue count) — those conflicted on every
+concurrent ingest branch and are derived from outputs/runs/ and vault_volume.py on demand.
+The run-log note IS this run's record; vault_verify --lane ingest requires it in the diff.
 
 Rules:
 - Do not edit raw file contents.
