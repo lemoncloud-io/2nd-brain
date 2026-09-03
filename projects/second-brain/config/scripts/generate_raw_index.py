@@ -151,9 +151,10 @@ def main() -> None:
         f"root_files: {len(entries)}",
         f"root_cap: {ROOT_CAP_HINT}",
         f"screenshots: {shots}",
-        "by_month:",
+        "by_month:" + (" {}" if not by_month else ""),
     ]
-    yml += [f"  {y(m)}: {n}" for m, n in sorted(by_month.items(), reverse=True)]
+    if by_month:
+        yml += [f"  {y(m)}: {n}" for m, n in sorted(by_month.items(), reverse=True)]
     yml.append("orphans:" + (" []" if not orphans else ""))
     yml += [f"  - {y('raw/' + n)}" for n in orphans]
     yml.append("duplicate_sources:" + (" []" if not dup_urls else ""))
