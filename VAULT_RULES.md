@@ -14,7 +14,7 @@ this file is the contract layer.
 | `raw/` | Processed source originals — web clippings, repo-doc snapshots. Append-only. Contract: `docs/raw-layout.md` |
 | `wiki/` | Concept articles, one concept per file |
 | `wiki/topics/` | Topic index pages |
-| `outputs/` | Query answers, analysis reports, lint results |
+| `outputs/` | Query answers, analysis reports, lint results, per-run logs (`runs/`) |
 | `templates/` | Obsidian and LLM output templates |
 | `projects/` | Project execution context and project-scoped outputs |
 | `projects/<name>/config/` | Project-local skills, prompts, scripts, and tool configuration source files |
@@ -62,13 +62,26 @@ this file is the contract layer.
   (Established 2026-07-24 after a label-file cleanup required a history rewrite.)
 - `wiki/VAULT_MEMORY.md` is capped at 8 KB (`wc -c`); it is loaded every session, so the
   budget is bytes, not lines. A line count is not a load budget — one 3 KB bullet passes
-  "200 lines" and still costs a full load. Verify with `wc -c wiki/VAULT_MEMORY.md` before
-  committing. It holds durable policy plus current state and pointers — never an execution log:
-  - `## Current State`: the `Last Ingest:` line is **replaced** each run, never appended,
-    max 200 bytes
-    (`- Last Ingest: <YYYY-MM-DD> (<author-slug>) — N clippings → X new / Y updated wiki notes (PR #<n>)`).
-  - Per-run narrative is appended to `docs/vault-ingest-log.md`, which is append-only and is
-    **not** loaded at session start. Full detail also stays in the commit and PR body.
+  "200 lines" and still costs a full load. Verify with
+  `python3 projects/second-brain/config/scripts/vault_verify.py` before committing — it is the
+  single checker for this cap, for raw/archive append-only, for the frontmatter of every
+  tracked Markdown file outside raw/ and archive/ staying parseable, and for the lane trace
+  (a run-log or lint report must be in the diff against `--base`); every write lane calls it
+  with `--lane ingest|lint|promote` (aligned 2026-09-03 with the main vault contract).
+  The memory file holds durable policy plus static state and pointers — never an execution
+  log and, since 2026-09-03, **no per-run counters**: the `Last Ingest/Lint Pass/Promotion`
+  and `Volume to date` lines were replaced on every run and conflicted on every concurrent
+  ingest branch. Lanes do not write to memory at all. The same facts are derived on demand:
+  - latest runs → `ls outputs/runs/ | tail` (run-log filename + frontmatter `kind`/`pr`/`processed`)
+  - latest lint → `ls outputs/*-vault-lint*.md | tail -1`
+  - volume → `python3 projects/second-brain/config/scripts/vault_volume.py` (this vault's ledger,
+    if present, + `outputs/runs/` fold, printed, never stored)
+  - `## Current State` keeps only static facts (created, last sync) and these derivation pointers.
+  - Per-run narrative lives in a per-run log note at
+    `outputs/runs/YYYY-MM-DD-<kind>-<author-slug>.md` (template `templates/run-log.md`;
+    browse/filter via `runs.base`; frontmatter `summary` ≤ 200 bytes, detail in the body).
+    `docs/vault-ingest-log.md` is the pre-run-log ledger, frozen — append nothing there.
+    Full detail also stays in the commit and PR body.
   - Project status/goal/next_action is never restated there; `projects/<name>/README.md`
     frontmatter is the source of truth (index: `projects/README.md`).
   - `## Open Threads`: max 5 live vault-level actions, deleted when closed.
