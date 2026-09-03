@@ -13,7 +13,7 @@ tags: []                # 주제 태그 — 새 태그보다 기존 태그 재�
 sources: []
 # notes: 산출/갱신한 wiki 노트 — quoted wikilinks ("[[slug|Alias]]")
 notes: []
-# origin: lemoncloud-io/knowledge@01f358bemplates/run-log.md
+# origin: lemoncloud-io/knowledge@2bebda4:templates/run-log.md
 ---
 
 # {{title}}
