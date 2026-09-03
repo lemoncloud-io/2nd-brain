@@ -3,7 +3,7 @@ name: vault-ingest-once
 description: >
   Claude Code 우선으로 vault Clippings ingest를 한 번 실행하는 원샷 스킬. 세부 규칙은
   vault-ingest-claude.md를 따르고, Claude가 시작 전 단계에서 불가하면 vault-ingest.md로 fallback한다.
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/vault-ingest-once.md
+origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-ingest-once.md
 ---
 
 # Vault Ingest Once
@@ -32,7 +32,7 @@ python3 projects/second-brain/config/scripts/vault_ingest_once.py
 
 `vault-ingest-claude.md`의 검증 기준을 따른다. 최소 확인:
 
-- 공유 불변식(memory 크기, `- Last …:` 마커 중복/길이, raw·archive append-only, frontmatter 파싱)은
+- 공유 불변식(memory 크기, raw·archive append-only, frontmatter 파싱, 레인 흔적 = ingest run-log가 diff에 있음)은
   `vault_ingest_once.py`가 성공 보고 전에 스스로 판정한다 — 스크립트 경로에서는 다시 돌릴 필요가 없다.
   Hermes-native fallback 등 스크립트를 거치지 않은 실행에서는 직접 돌린다:
   `python3 projects/second-brain/config/scripts/vault_verify.py --lane ingest --base "$(git merge-base HEAD master)"`.

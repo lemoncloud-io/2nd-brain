@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/scripts/vault_volume.py
-"""Derive the `- Volume to date:` line in wiki/VAULT_MEMORY.md from the ledgers.
+# origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/scripts/vault_volume.py
+"""Derive the vault volume line (`- Volume to date: …`) from the ledgers.
+
+Since 2026-09-03 wiki/VAULT_MEMORY.md no longer stores this line — every concurrent
+ingest branch rewrote it and the merges conflicted. The counters are derived on demand:
+run the script with no flags to print the current line. `--check`/`--write` still work
+for a vault that keeps the line in memory (they are no-ops when the line is absent).
 
 The volume counters were hand-incremented per run until 2026-08-26 and drifted
 twice (Open Thread closed by this script; recommendation ① in
@@ -25,9 +30,9 @@ fact. Deriving from the local ledger reproduces main's 19 / 38 exactly (its ledg
 19 bullets summing to 38) and yields 0 / 0 in vaults whose ledger is absent or empty.
 
 Usage:
-    python3 vault_volume.py            # print the canonical line
-    python3 vault_volume.py --check    # exit 1 if VAULT_MEMORY disagrees
-    python3 vault_volume.py --write    # replace the line in VAULT_MEMORY in place
+    python3 vault_volume.py            # print the derived line (the normal use since 2026-09-03)
+    python3 vault_volume.py --check    # exit 1 if a stored VAULT_MEMORY line disagrees (absent = ok)
+    python3 vault_volume.py --write    # replace a stored line in place (absent = print only)
 
 Exit codes: 0 ok, 1 mismatch (--check), 2 cannot run.
 """
@@ -189,10 +194,7 @@ def check(vault: Path) -> list[str]:
     vol = compute(vault)
     found = stored_line(vault)
     if found is None:
-        return [
-            f"{MEMORY_REL} has no `- Volume to date:` line; "
-            f"run vault_volume.py --write"
-        ]
+        return []  # memory is de-countered (2026-09-03): nothing stored, nothing to drift
     lineno, line = found
     match = VOLUME_RE.match(line)
     if not match:
@@ -235,7 +237,10 @@ def write(vault: Path) -> str:
             replaced = True
             break
     if not replaced:
-        raise SystemExit(f"vault_volume: no `- Volume to date:` line in {MEMORY_REL}")
+        # De-countered memory (2026-09-03): never insert the line, just report it.
+        print(f"vault_volume: {MEMORY_REL} keeps no Volume line; derived value printed, nothing written",
+              file=sys.stderr)
+        return new_line
     memory.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return new_line
 

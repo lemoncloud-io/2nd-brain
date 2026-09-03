@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@e5a3687:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@8480503:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -13,6 +13,8 @@ raw/는 유입 경로가 다른 4개 레인을 담는다.
 
 - 유입: Obsidian Web Clipper → `Clippings/` → ingest가 이동
   (`projects/second-brain/config/skills/vault-ingest-claude.md`).
+  두 번째 생산자(2026-09-03): `medium-digest` 스킬 — Medium member-only 원문은 **발췌판**으로 투입,
+  `tags`에 `medium-digest` 추가(`projects/second-brain/config/skills/medium-digest/SKILL.md` § 6).
 - frontmatter: clipper 표준 7키 — `title`, `source`(URL), `author`, `created`,
   `published`, `description`, `tags`.
 - 파일명: 이동 시점에 정규화한다 — § 파일명 정규화.
@@ -43,7 +45,7 @@ raw/는 유입 경로가 다른 4개 레인을 담는다.
 
 - capture header는 캡처 **시점에** 붙이는 메타데이터이고, 본문은 원문 그대로 둔다.
   이미 raw/에 들어간 파일에 header를 소급 추가하는 것은 append-only 위반이다 —
-  메타데이터 보충은 색인(`docs/raw-index.md`)이 맡는다.
+  메타데이터 보충은 색인(`docs/raw-index.yml`)이 맡는다.
 
 ### 3. `screenshots/YYYY-MM-DD/`
 
@@ -110,14 +112,23 @@ provenance는 정규화된 이름으로 기록한다. 기존 파일은 소급 re
 
 ## 색인
 
-`docs/raw-index.md`가 raw 루트 파일별 유입일·source·파생 노트 역링크를 담는다.
+색인은 두 파일 + 개인 파일 하나다 (2026-09-03 재편 — 이전에는 `.md` 하나에 전 항목을 실었다).
 
+- **`docs/raw-index.yml`** — 정본. git이 추적하는 raw 루트 파일별 `file`·`added`(첫 git add 일자)·
+  `source`·`refs`(파생 노트 역링크) 항목과 `by_month`·`orphans`·`duplicate_sources` 집계.
+  에이전트·스크립트는 파일별 정보가 필요할 때 이 파일을 읽는다.
+- **`docs/raw-index.md`** — 사람용 요약만: 생성일·파일 수·월별 유입 수·오펀·source URL 중복.
+  파일별 목록은 싣지 않는다(유입이 늘수록 길어져 diff·충돌 비용이 컸다).
+- **`private/raw-index.yml`** — 이 머신에서 git이 추적하지 않는 raw 파일(개인/로컬)만.
+  `private/`는 gitignored라 공유 색인에 섞이지 않는다. 해당 파일이 없으면 생성기가 지운다.
+  (이전 `.md`의 "untracked 유입" 절은 대부분 생성기 결함이었다 — git 기본값 `core.quotepath=true`
+  머신에서 비ASCII 파일명이 8진수 이스케이프돼 매칭에 실패. 2026-09-03 수정, 생성기가 `-c core.quotepath=false`로 실행.)
 - 재생성: vault 루트에서
-  `python3 projects/second-brain/config/scripts/generate_raw_index.py`
-- `vault-lint` 패스가 재생성한다. **수동 편집 금지.**
+  `python3 projects/second-brain/config/scripts/generate_raw_index.py` — 세 파일을 한 번에 쓴다.
+- `vault-lint` 패스가 재생성한다. **수동 편집 금지.** master 머지 충돌이 나면 어느 쪽도 택하지 말고 재생성한다.
 - 색인이 raw/ 밖에 있는 이유: raw/ 안의 index는 매 ingest마다 편집이 필요해
   append-only와 충돌한다.
-- 오펀(참조 0건)·source URL 중복이 발견되면 색인 상단에 표시된다 — lint 리포트로
+- 오펀(참조 0건)·source URL 중복이 발견되면 `.md` 요약과 `.yml` 집계에 표시된다 — lint 리포트로
   올린다.
 
 ## 하지 않기로 한 것 (2026-08-14 결정)
@@ -125,4 +136,4 @@ provenance는 정규화된 이름으로 기록한다. 기존 파일은 소급 re
 - **기존 파일 소급 rename/슬러그화** — 참조 무결 상태에서 실익이 링크 부패 위험보다
   작다.
 - **서브폴더 재구조화**(`raw/YYYY-MM/` 등) — flat 구조가 아직 감당된다. **루트 200건
-  도달 시** 신규분부터 재검토한다 (파일 수는 색인 상단에 표시).
+  도달 시** 신규분부터 재검토한다 (파일 수는 `docs/raw-index.md` 상단에 표시).

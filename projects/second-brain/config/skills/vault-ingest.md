@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)에 새로 들어온
   Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/vault-ingest.md
+origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-ingest.md
 ---
 
 # Vault Ingest (Hermes-native fallback)
@@ -52,10 +52,9 @@ vault 경로를 확인한다.
    `outputs/runs/YYYY-MM-DD-ingest-<author-slug>.md`에 run-log 노트로 작성한다
    (`templates/run-log.md`, frontmatter `summary` ≤ 200 bytes, 상세는 본문).
    동결된 `docs/vault-ingest-log.md`(2026-08-14)에는 append하지 않는다.
-   `wiki/VAULT_MEMORY.md`에는 기존 `- Last Ingest:` 한 줄을 **교체**한다(append 금지, 200 bytes 이하):
-   `- Last Ingest: <YYYY-MM-DD> (<author-slug>) — N clippings -> X new / Y updated wiki notes`
-   `Volume to date` 라인은 `python3 projects/second-brain/config/scripts/vault_volume.py --write`로
-   재생성한다(원장 fold 파생값 — 수동 증분 금지). `Verification queue` 수치를 갱신하고, 프로젝트 상태는 memory에 적지 않는다
+   `wiki/VAULT_MEMORY.md`는 **건드리지 않는다** — 2026-09-03부터 실행 카운터(`Last Ingest`·`Volume to date`·
+   `Verification queue` 수치)를 두지 않는다(동시 ingest마다 충돌). run-log 노트가 이번 실행의 기록이며
+   verify가 diff에서 그것을 요구한다. 프로젝트 상태도 memory에 적지 않는다
    (`projects/<name>/README.md` frontmatter가 진실원). 끝나면
    `python3 projects/second-brain/config/scripts/vault_verify.py --lane ingest --base "$(git merge-base HEAD master)"`가 exit 0인지 확인한다.
 10. 처리 완료된 클리핑은 원문을 보존한 채 `raw/`로 이동한다. 처리 전에 클리핑의

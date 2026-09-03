@@ -4,7 +4,7 @@ description: >
   팀/개인 repo 문서(또는 개인 KB 증류 노트)를 vault로 승격한다 — 재사용 개념을
   wiki로 추출하고 원문 스냅샷을 raw/에 표준 capture header로 보존한다.
   clipping ingest와 레인이 다른 별도 워크플로. 트리거: "/promote", "승격해줘".
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/vault-promote.md
+origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-promote.md
 ---
 
 # Vault Promote (repo 문서 → vault 승격)
@@ -110,10 +110,8 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 7. **log/memory**: 이번 실행을 `outputs/runs/YYYY-MM-DD-promotion-<author-slug>.md`에
    run-log 노트로 작성한다(`templates/run-log.md`, `kind: promotion`, frontmatter `summary`
    ≤ 200 bytes — 처리 대상, 배치 판정과 근거, 탈락과 사유는 본문에). 동결된
-   `docs/vault-ingest-log.md`에는 append하지 않는다. `wiki/VAULT_MEMORY.md`의
-   `- Last Promotion:` 한 줄은 **교체**한다(append 금지, 200 bytes 이하). wiki 노트가
-   추가/삭제됐으므로 `python3 projects/second-brain/config/scripts/vault_volume.py --write`로
-   `Volume to date` 라인을 재생성한다(수동 편집 금지). 끝나면
+   `docs/vault-ingest-log.md`에는 append하지 않는다. `wiki/VAULT_MEMORY.md`는 건드리지 않는다
+   (2026-09-03부터 `Last Promotion`·`Volume to date` 줄 없음 — run-log와 `vault_volume.py`로 유추). 끝나면
    `python3 projects/second-brain/config/scripts/vault_verify.py --lane promote --base "$(git merge-base HEAD master)"`가 exit 0인지 확인한다.
 8. **PR**: `master` 기준 `ingest/<YYYY-MM-DD>-<author-slug>-promote` 브랜치(같은 날 2회째부터
    `-2` suffix). author-slug 결정과 커밋/push/PR 오픈 절차, 금지 사항은
@@ -171,7 +169,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 - wiki 노트를 만들었으면 `wiki/INDEX.md`·`wiki/topics/`가 같이 갱신됐는지, 철회했으면
   두 색인과 `## Related Wiki`에 잔여 링크가 없는지
 - run-log 노트 생성(`kind: promotion`, `summary` ≤ 200 bytes)
-- 공유 불변식(memory 크기, `- Last …:` 마커 중복/길이, 기존 raw/·archive/ 수정·rename·삭제 없음, frontmatter 파싱)은
+- 공유 불변식(memory 크기, 기존 raw/·archive/ 수정·rename·삭제 없음, frontmatter 파싱, 레인 흔적 = `kind: promotion` run-log가 diff에 있음)은
   `python3 projects/second-brain/config/scripts/vault_verify.py --lane promote --base "$(git merge-base HEAD master)"`가 exit 0인지로 판정한다
 
 ## 금지 사항
