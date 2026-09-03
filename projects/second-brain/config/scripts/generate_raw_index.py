@@ -162,8 +162,9 @@ def main() -> None:
         yml.append(f"  - url: {y(url)}")
         yml.append("    files:")
         yml += [f"      - {y('raw/' + n)}" for n in files]
-    yml.append("entries:")
-    yml += emit_entries_yml(sorted(entries, key=lambda e: (e["added"], e["name"]), reverse=True))
+    yml.append("entries:" + (" []" if not entries else ""))
+    if entries:
+        yml += emit_entries_yml(sorted(entries, key=lambda e: (e["added"], e["name"]), reverse=True))
     yml.append("")
     with open(YML_PATH, "w", encoding="utf-8") as fh:
         fh.write("\n".join(yml))
