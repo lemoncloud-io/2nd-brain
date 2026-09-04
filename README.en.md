@@ -56,6 +56,7 @@ This vault inserts a **compile step** in between. Originals are preserved untouc
 | **Private notes** | `private/` is a git-untracked local scratch space, separating personal memos from the shared vault |
 | **GitHub-linked projects** | Tracks external repos as lightweight status/goal notes under `projects/@<org>/<repo>/` |
 | **Agent context budget** | Caps the always-loaded rule set at 8 KB so instructions never crowd out the actual work |
+| **Counter-free memory** | Run and volume counters are derived from the append-only ledgers instead of being stored in memory, so concurrent ingest branches stop colliding (`vault_volume.py`) |
 | **One-line install** | macOS and Windows onboarding scripts handle tool installation, GitHub login, the vault clone, and environment setup (safe to re-run) |
 
 ## How it works
@@ -82,6 +83,7 @@ raw/pdf|hwp|doc/  ← binary originals kept by the conversion skills (extension 
 wiki/             ← concept articles, one concept per file
 wiki/topics/      ← topic index pages (subject clusters)
 outputs/          ← query answers, analysis reports, lint results
+outputs/runs/     ← per-run log notes (the source of truth for ingest, promotion, and maintenance history)
 projects/<name>/  ← per-project execution context, config, and outputs
 areas/            ← ongoing areas: daily/ notes, weekly/ reports, ideas/ notes
 templates/        ← Obsidian + LLM output templates (shared contracts)
@@ -102,8 +104,9 @@ private/          ← personal scratch space (git-untracked)
 | [Obsidian](https://obsidian.md) | Required | edit the markdown vault, Web Clipper & plugins |
 | [Claude CLI](https://claude.com/claude-code) (`claude`) | Optional | delegate ingest/lint to Claude Code (falls back to Hermes without it) |
 | [GitHub CLI](https://cli.github.com) (`gh`) | Optional | create PRs / link GitHub projects from the terminal (web works too) |
-| Python 3 | Optional | one-shot ingest runner (`vault_ingest_once.py`), invariant verifier (`vault_verify.py`), and `raw/` index generation (`generate_raw_index.py`) |
+| Python 3 | Optional | one-shot ingest runner (`vault_ingest_once.py`), invariant verifier (`vault_verify.py`), volume fold (`vault_volume.py`), and `raw/` index generation (`generate_raw_index.py`) |
 | [pandoc](https://pandoc.org) · [uv](https://docs.astral.sh/uv/) | Optional | Needed by the document conversion skills (`doc2md-ingest`, `hwp2md-ingest`); the setup script installs them for you |
+| Node 24+ | Optional | The toolchain pinned by the vault-root `package.json`; TypeScript tools under `projects/*/config/` (the `medium-digest` scripts, for one) build against it |
 
 The setup script below installs all of these, so you only need this list for a manual install. Version check:
 
@@ -240,6 +243,7 @@ Humans and LLMs read the same documents. Each one owns a different layer.
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP (`workspace-mcp`) connection procedure — OAuth credential issuance, `claude mcp add` registration, localhost callback re-auth pitfall |
 | [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | Non-developer onboarding path (setup script → Obsidian → Claude chat) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | Historical execution ledger (frozen — new run logs are notes under `outputs/runs/`) |
+| [`docs/raw-index.yml`](docs/raw-index.yml) · [`docs/raw-index.md`](docs/raw-index.md) | The generated `raw/` index — machine-readable YAML plus a human summary. Never hand-edited; `generate_raw_index.py` rewrites both |
 | [`projects/second-brain/config/team-settings.yaml`](projects/second-brain/config/team-settings.yaml) | Single source for org/personal deployment values |
 
 ## Skills
