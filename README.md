@@ -56,6 +56,7 @@
 | **개인 노트** | `private/`는 git 비추적 로컬 전용 공간 — 팀 vault와 개인 메모를 분리 |
 | **GitHub 프로젝트 연결** | 외부 repo를 `projects/@<org>/<repo>/`에 상태·목표 노트로 가볍게 추적 |
 | **에이전트 컨텍스트 예산 관리** | 매 세션 로드되는 문서를 8 KB로 제한해 규칙이 컨텍스트를 잠식하지 않게 함 |
+| **수치 없는 메모리** | 실행·볼륨 카운터를 메모리에 두지 않고 append-only 원장에서 유도 — 동시 인제스트 브랜치 간 충돌이 사라진다 (`vault_volume.py`) |
 | **한 줄 설치** | macOS·Windows 온보딩 스크립트가 도구 설치·GitHub 로그인·vault clone·환경 설정까지 처리 (재실행 안전) |
 
 ## 동작 방식
@@ -82,6 +83,7 @@ raw/pdf|hwp|doc/  ← 변환 스킬이 보존한 바이너리 원본 (확장자�
 wiki/             ← 개념 문서, 한 개념당 한 파일
 wiki/topics/      ← 토픽 인덱스 페이지 (주제 클러스터)
 outputs/          ← 질의 응답, 분석 리포트, 린트 결과
+outputs/runs/     ← 실행별 run-log 노트 (인제스트·승격·정비 이력의 진실원)
 projects/<name>/  ← 프로젝트별 실행 맥락·설정·산출물
 areas/            ← 지속 영역: daily/ 노트, weekly/ 보고서, ideas/ 노트
 templates/        ← Obsidian + LLM 출력 템플릿 (공유 계약)
@@ -102,8 +104,9 @@ private/          ← 개인 전용 스크래치 (git 비추적)
 | [Obsidian](https://obsidian.md) | 필수 | 마크다운 vault 편집, Web Clipper·플러그인 |
 | [Claude CLI](https://claude.com/claude-code) (`claude`) | 선택 | 인제스트·린트를 Claude Code에 위임 (없으면 Hermes 폴백) |
 | [GitHub CLI](https://cli.github.com) (`gh`) | 선택 | 터미널에서 PR 생성·GitHub 프로젝트 연결 (웹으로 대체 가능) |
-| Python 3 | 선택 | 원샷 인제스트(`vault_ingest_once.py`)·불변식 검증(`vault_verify.py`)·`raw/` 색인 생성(`generate_raw_index.py`) 스크립트 |
+| Python 3 | 선택 | 원샷 인제스트(`vault_ingest_once.py`)·불변식 검증(`vault_verify.py`)·볼륨 집계(`vault_volume.py`)·`raw/` 색인 생성(`generate_raw_index.py`) 스크립트 |
 | [pandoc](https://pandoc.org) · [uv](https://docs.astral.sh/uv/) | 선택 | 문서 변환 스킬(`doc2md-ingest`·`hwp2md-ingest`)용. 설치 스크립트가 함께 설치한다 |
+| Node 24+ | 선택 | 볼트 루트 `package.json`이 고정하는 툴체인 — `projects/*/config/` 아래 TypeScript 도구(`medium-digest` 스크립트 등)가 이걸 기준으로 빌드된다 |
 
 아래 설치 스크립트를 쓰면 이 목록을 직접 설치할 필요가 없다. 수동 설치 시 버전 확인:
 
@@ -244,6 +247,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP(`workspace-mcp`) 연결 절차 — OAuth 자격증명 발급, `claude mcp add` 등록, localhost 콜백 재인증 함정 |
 | [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | 비개발자 온보딩 경로 (설치 스크립트 → Obsidian → Claude 채팅) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | 과거 실행 이력 원장 (동결 — 신규 run-log는 `outputs/runs/`에 노트로 생성) |
+| [`docs/raw-index.yml`](docs/raw-index.yml) · [`docs/raw-index.md`](docs/raw-index.md) | `raw/` 자동 생성 색인 — 기계용 YAML과 사람용 요약. 수동 편집 금지, `generate_raw_index.py`가 재생성 |
 | [`projects/second-brain/config/team-settings.yaml`](projects/second-brain/config/team-settings.yaml) | 조직·개인 배포 값의 단일 출처 |
 
 ## 스킬
