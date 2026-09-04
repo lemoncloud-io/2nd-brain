@@ -1,0 +1,18 @@
+{
+  "name": "vault-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vault-root baseline — pins the Node version this vault's tooling needs, marks the vault root for Node module resolution, and provides the shared toolchain that tools under projects/*/config build against.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "@types/node": "^22.20.1",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "zod": "^3.25.76"
+  }
+}
