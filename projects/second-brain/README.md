@@ -71,6 +71,14 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
   `.gitignore`에 `/node_modules/`를 함께 추가했다. lockfile은 배포하지 않는다(caret 범위).
   origin: lemoncloud-io/knowledge@6d5882e:projects/second-brain/config/devops/ — 원본 유닛의 README가 배포 대상 파일의
   정본 표를 갖는다 (README 자체는 배포하지 않는다).
+- 2026-09-04: 볼트 루트 `package-lock.json` 배포 — `package.json`의 caret 범위만으로는
+  볼트마다 설치 시점의 최신 patch/minor가 깔려 공통 환경이 이름만 공통이 된다. lockfile을
+  같이 두면 같은 트리가 깔리고 `npm ci`로 재현 설치가 된다. **루트에서는 `npm ci`를 쓴다** —
+  `npm install`은 lockfile을 그 자리에서 재작성한다. 다만 lockfile은 메인이 유일 저자인
+  파생물이라 드리프트 추적에서 제외되고 회차마다 덮어쓰므로, 규약을 어겨도 다음 회차에
+  자동 해소된다. `package.json`에는 이 예외가 없다 — 그쪽을 고치면 이 볼트에 대한 배포가
+  중단되고 도구는 로컬 manifest로 옮겨야 한다.
+  origin: lemoncloud-io/knowledge@cae0b0b:projects/second-brain/config/devops/
 
 ## Outputs
 
