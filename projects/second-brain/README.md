@@ -64,6 +64,13 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
   생성하고 `vault-lint`가 재생성·검사하도록 편입.
 - 2026-08-14: 운영 vault(`knowledge`)의 지침 계층을 이 템플릿으로 이식. 조직 고유 값은
   `config/team-settings.yaml`의 플레이스홀더로 중립화했으므로 clone 후 교체가 필요하다.
+- 2026-09-04: 볼트 루트 devops baseline 배포 — `package.json`(Node 24+ `engines` + 공용
+  툴체인 7종: typescript·@types/node·tsx·vitest·zod·@modelcontextprotocol/sdk·jsdom)과
+  `.nvmrc`(24)를 볼트 루트에 둔다. 도구를 만들 때의 공통 환경이며 조직 고유 규약은 담지
+  않는다 — 공개 표준과 공개 npm 패키지만 쓴다. `npm install` 산출물은 커밋 대상이 아니라
+  `.gitignore`에 `/node_modules/`를 함께 추가했다. lockfile은 배포하지 않는다(caret 범위).
+  origin: lemoncloud-io/knowledge@6d5882e:projects/second-brain/config/devops/ — 원본 유닛의 README가 배포 대상 파일의
+  정본 표를 갖는다 (README 자체는 배포하지 않는다).
 
 ## Outputs
 
