@@ -31,7 +31,9 @@ or writing. Read and write only under the resolved root.
   paths (`wiki/INDEX.md`, `raw/<file>.md`); in user-facing docs use `$VAULT_DIR` or
   `~/knowledge`, not resolved paths like `/Users/.../knowledge`.
 - Source provenance is the string `"raw/<source-file-name>.md"`, not a raw-file wikilink.
-- Obsidian aliases are `[[note-slug|Alias]]`. Do not escape the pipe.
+- Obsidian aliases are `[[note-slug|Alias]]`. Do not escape the pipe — except inside a
+  Markdown table cell, where escaping it is required (`[[note-slug\|Alias]]`); an unescaped
+  pipe there splits the cell.
 - Use the matching `templates/` file before inventing a note or output structure.
 
 ## Development Work

@@ -35,7 +35,10 @@ this file is the contract layer.
 - Write new wiki article body prose in Korean. See § Language Convention.
 - Use `[[wikilinks]]` for related wiki concepts. Do not use wikilinks for raw source files
   unless a corresponding wiki source note exists.
-- Use Obsidian aliases as `[[note-slug|Alias]]`; do not escape the pipe character.
+- Use Obsidian aliases as `[[note-slug|Alias]]`; do not escape the pipe character —
+  except inside a Markdown table cell, where escaping it is required
+  (`[[note-slug\|Alias]]`), or the pipe splits the cell. Lint treats an escaped alias
+  inside a table as compliant.
 - Save durable answers under `outputs/` or `projects/<name>/outputs/`; create `outputs/` if
   it does not exist. Query-style answers that should be retained must not finish as
   chat-only output.
@@ -60,6 +63,29 @@ this file is the contract layer.
   files with project-specific rules (keep a synthetic `*.example.*` as the tracked format
   reference), and keep commit messages free of personal-content descriptions.
   (Established 2026-07-24 after a label-file cleanup required a history rewrite.)
+- **Customer or client operational specifics stay out of a public deployment.** A private
+  or team deployment of this vault may ingest client names, incident detail, and
+  operational specifics, but treat them as NDA-grade: never copy such notes into a public
+  repo, template export, or external share without stripping them first. Personal data
+  (phone/ID/plate numbers), credentials, HR/health content, and named evaluations of
+  anyone's staff are removed at ingest time regardless of deployment — keep role-level
+  descriptions only. This vault ships as the public template, so none of that should ever
+  reach it directly.
+- **Per-person compensation never enters any deployment of this vault.** Salary, a personal
+  day/month rate, and per-person cost breakdowns derived from them stay out of tracked
+  files, commit messages, and PR bodies even when a source document states them outright.
+  Keep only what the work needs — role-level assignment, headcount, total person-months,
+  total amount, or a discrepancy between totals — and point at the source document (under
+  its own access control) for per-person detail; never enumerate a per-person product
+  (rate × person-months) that lets a rate be divided back out.
+- **A PR that removes sensitive data is squash-merged, and the removed values are not
+  itemized.** A cleansing commit fixes the tree, not the history — earlier commits on the
+  branch still carry the data, so a plain merge commit would make the pre-cleanse tree an
+  ancestor of the default branch (undoing that needs a history rewrite, which branch
+  protection typically blocks and which breaks every collaborator's clone). State the
+  required merge method in the PR body and confirm it before requesting review — the
+  merger picks it in the GitHub UI. Never list the removed values in the cleansing commit
+  message or PR body; listing them republishes the exposure.
 - `wiki/VAULT_MEMORY.md` is capped at 8 KB (`wc -c`); it is loaded every session, so the
   budget is bytes, not lines. A line count is not a load budget — one 3 KB bullet passes
   "200 lines" and still costs a full load. Verify with
@@ -137,6 +163,9 @@ Documents dated before 2026-08-07 may still point at the old section names.
 
 **Frontmatter links** — in any `related` or `sources`, vault Markdown notes use quoted
 wikilinks (`"[[path|Alias]]"`). `sources` keeps raw paths, URLs, and non-note artifacts as strings.
+An item may carry a trailing note after the link (`"[[path|Alias]] — why it is cited"`):
+the requirement is that the reference *is* a quoted wikilink, not that the string holds
+nothing else. Lint treats the annotated form as compliant.
 
 **Daily notes** — `projects-touched` entries are formatted `"[[projects/<name>/README|<name>]]"`.
 

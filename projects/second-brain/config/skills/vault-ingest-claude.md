@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를 Claude CLI/Claude Code에
   우선 위임한다. Hermes는 트리거, 동시 실행 방지, Claude 가용성 확인, Hermes-native
   fallback, 결과 검증, 요약 보고를 담당한다.
-origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-ingest-claude.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-ingest-claude.md
 ---
 
 # Vault Ingest Claude (Hermes -> Claude)
@@ -12,7 +12,7 @@ origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vaul
 이 스킬은 split/hybrid 구성용이며, cron/event 자동화의 기본 ingest 진입점이다.
 
 - Hermes: 트리거, `VAULT_DIR` 확인, Clippings 존재 확인, lock, Claude 가용성 확인, Claude 호출, fallback, 결과 검증, 보고
-- Claude: 원문 읽기, 개념 추출, wiki 작성, templates 적용, raw 이동, index/topic 갱신, `outputs/runs/`에 run-log 노트 작성(`templates/run-log.md`), `wiki/VAULT_MEMORY.md`의 `Last Ingest` 한 줄 교체, git 브랜치/커밋 정리, 사용자 확인 후 PR 요청 (자세한 내용은 "GitHub PR 워크플로우" 참고)
+- Claude: 원문 읽기, 개념 추출, wiki 작성, templates 적용, raw 이동, index/topic 갱신, `outputs/runs/`에 run-log 노트 작성(`templates/run-log.md`), git 브랜치/커밋 정리, 사용자 확인 후 PR 요청 (자세한 내용은 "GitHub PR 워크플로우" 참고)
 
 Claude Code가 설치되어 있지 않거나 인증되지 않았으면 실패로 끝내지 말고 `vault-ingest` Hermes-native 절차로 fallback한다.
 
@@ -77,14 +77,14 @@ Claude가 ingest를 수행할 때는 파일만 고치는 것이 아니라 결과
    - 이 vault는 여러 사람이 공용으로 쓰므로, 누가 만든 브랜치인지 브랜치 이름만 보고 알 수 있어야 한다. 작업자 slug를 구한다: `gh api user --jq .login`을 우선 쓰고, 실패하면 `git config user.name`을 소문자·공백을 하이픈으로 바꾼 slug로 대체하고, 그마저도 없으면 `whoami`를 쓴다.
    - `master`를 기준으로 `ingest/<YYYY-MM-DD>-<작업자-slug>` 형식의 브랜치를 만든다(예: `ingest/2026-07-09-hong-gildong`). 같은 사람이 같은 날 여러 번 실행하면 `-2`, `-3` 접미사를 뒤에 붙인다(예: `ingest/2026-07-09-hong-gildong-2`).
    - `Clippings/`에 아직 커밋되지 않은 파일이 있으면, 이번에 처리할 파일들만 정리해 별도의 시작 커밋으로 남긴다(예: `chore: stage N clippings for ingest`). 이미 커밋되어 있으면 이 하위 단계는 건너뛰고 그 사실을 최종 보고에 남긴다.
-2. **ingest 처리**: 아래 "Claude job spec"에 따라 실제 컨텐츠 변환을 수행한다(원문에서 개념 추출, wiki 작성/갱신, `raw/` 이동, `wiki/INDEX.md`·`wiki/topics/`·`wiki/TOPIC_MAP.md` 갱신, `outputs/runs/`에 run-log 노트 작성, `wiki/VAULT_MEMORY.md`의 `Last Ingest` 한 줄 교체). 이 단계 자체에서는 커밋하지 않는다.
+2. **ingest 처리**: 아래 "Claude job spec"에 따라 실제 컨텐츠 변환을 수행한다(원문에서 개념 추출, wiki 작성/갱신, `raw/` 이동, `wiki/INDEX.md`·`wiki/topics/`·`wiki/TOPIC_MAP.md` 갱신, `outputs/runs/`에 run-log 노트 작성). `wiki/VAULT_MEMORY.md`는 건드리지 않는다 — 2026-09-03부터 실행 카운터가 없다. 이 단계 자체에서는 커밋하지 않는다.
 3. **결과 커밋**: 처리로 변경된 파일만 스테이징해 하나의 커밋으로 남긴다. 커밋 메시지는 처리한 클리핑 수와 새/갱신 wiki 문서를 요약한다(예: `feat: ingest 3 clippings into wiki (ai-agents, knowledge-management)`). 시작 커밋(선택)과 결과 커밋(필수) 두 개로 정리하고, 중간에 커밋을 더 쪼개지 않는다.
 4. **PR 오픈**: 결과 커밋 뒤 확인을 기다리지 않고 바로 브랜치를 push하고 `gh pr create`로 PR을 연다. base는 `master`, 기본 리뷰어는 `projects/second-brain/config/team-settings.yaml`의 `github.default_reviewer`다(`gh pr create --base master --reviewer <github.default_reviewer 값> ...`). PR 본문에는 처리한 클리핑, wiki 변경 요약, 남은 needs-update/open question을 적는다.
-5. **완료 보고**: 처리한 클리핑, 생성/갱신 문서, topic/index/memory 갱신, 남은 needs-update/open question, 그리고 열린 PR 링크를 사용자에게 요약해서 보고한다. 이 단계는 사후 보고이며 진행 여부를 묻지 않는다.
+5. **완료 보고**: 처리한 클리핑, 생성/갱신 문서, topic/index 갱신, 남은 needs-update/open question, 그리고 열린 PR 링크를 사용자에게 요약해서 보고한다. 이 단계는 사후 보고이며 진행 여부를 묻지 않는다.
 
 ### git/PR 관련 금지 사항
 
-- 브랜치 push와 PR 오픈(`gh pr create`)은 확인 없이 자동으로 진행한다. 단, PR을 merge하는 것은 별도의 명시적 사용자 승인 없이는 하지 않는다.
+- 브랜치 push와 PR 오픈(`gh pr create`)은 확인 없이 자동으로 진행한다. 단, PR을 merge하는 것은 별도의 명시적 사용자 승인 없이는 하지 않는다. 승인 후 머지는 `gh pr merge --squash --delete-branch`로 한다 — repo의 `delete_branch_on_merge`는 볼트마다 다르고(2026-09-04 실측: 5개 repo 중 3개가 꺼져 있었다), 꺼진 repo에서 플래그를 빼면 머지된 브랜치가 원격에 그대로 쌓인다. 플래그를 명시하면 설정과 무관하게 같은 결과가 된다.
 - `master`/`main`에 직접 push하거나 PR을 자동으로 merge하지 않는다.
 - `git push --force`, `git reset --hard`, `git clean`, `rm -rf` 등 파괴적 명령을 쓰지 않는다.
 - 커밋을 --no-verify로 hook을 건너뛰거나 서명을 생략하지 않는다.
@@ -142,7 +142,8 @@ The run-log note IS this run's record; vault_verify --lane ingest requires it in
 Rules:
 - Do not edit raw file contents.
 - Record raw source provenance as "raw/<source-file-name>.md", not as a raw-file wikilink.
-- Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]].
+- Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]] — except inside a
+  Markdown table cell, where the pipe MUST be escaped ([[note-slug\|Alias]]) or it splits the cell.
 - Mark unsupported or time-sensitive claims as needs-update or TODO.
 - Never append a per-run narrative to wiki/VAULT_MEMORY.md: it is loaded every session and capped at
   8 KB. Narrative goes to the run-log note. Do not restate project status in memory either —
@@ -159,9 +160,9 @@ Rules:
 
 Final response:
 Report the current working directory, ABSOLUTE_VAULT_DIR, the author-slug used, the branch created, processed
-clipping files, created wiki notes, updated wiki notes, new stubs, topic/index/memory
-updates, the run-log note path, the resulting `wc -c wiki/VAULT_MEMORY.md`
-value, any unresolved issues, and the PR URL that was opened (reviewer: `github.default_reviewer` from team-settings.yaml).
+clipping files, created wiki notes, updated wiki notes, new stubs, topic/index
+updates, the run-log note path, the `wc -c wiki/VAULT_MEMORY.md` value (it must be
+UNCHANGED and under 8 KB — this run does not write to memory), any unresolved issues, and the PR URL that was opened (reviewer: `github.default_reviewer` from team-settings.yaml).
 ```
 
 ## Claude CLI 호출 예시
