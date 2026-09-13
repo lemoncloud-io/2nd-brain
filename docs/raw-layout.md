@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@8480503:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@18704d0:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -7,7 +7,7 @@ originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근�
 
 ## 레인
 
-raw/는 유입 경로가 다른 4개 레인을 담는다.
+raw/는 유입 경로가 다른 5개 레인을 담는다.
 
 ### 1. 웹 클리핑 (루트 `*.md`)
 
@@ -15,6 +15,9 @@ raw/는 유입 경로가 다른 4개 레인을 담는다.
   (`projects/second-brain/config/skills/vault-ingest-claude.md`).
   두 번째 생산자(2026-09-03): `medium-digest` 스킬 — Medium member-only 원문은 **발췌판**으로 투입,
   `tags`에 `medium-digest` 추가(`projects/second-brain/config/skills/medium-digest/SKILL.md` § 6).
+  세 번째 생산자(2026-09-10): `newsletter-digest` 스킬 — 본문이 메일 안에 있는 뉴스레터를 **발췌판**으로
+  투입(이미지는 옮기지 않는다), `tags`에 `newsletter-digest` 추가
+  (`projects/second-brain/config/skills/newsletter-digest/SKILL.md` § 6).
 - frontmatter: clipper 표준 7키 — `title`, `source`(URL), `author`, `created`,
   `published`, `description`, `tags`.
 - 파일명: 이동 시점에 정규화한다 — § 파일명 정규화.
@@ -62,9 +65,35 @@ raw/는 유입 경로가 다른 4개 레인을 담는다.
   각 스킬은 `projects/second-brain/config/skills/<name>/SKILL.md`.
 - 변환된 MD의 frontmatter가 `source_pdf`·`source_hwp`·`source_doc` 키로 여기를
   가리키고 `source_sha256`으로 동일성을 고정한다. 중복 검사는 이 경로의 존재 여부다.
+- 색인 생성기가 레인별 원본 개수와 **짝 없는 원본**(어느 변환 MD의 `source_<lane>` 키도
+  가리키지 않는 보존 파일)을 집계한다 — 변환 누락이나 키 누락을 lint에서 잡는다.
+  짝 판정은 그 frontmatter 키만 근거로 한다. 스킬 계약서 본문에 `raw/pdf/` 같은 경로
+  문자열이 예시로 자주 등장해, 문서 언급을 짝으로 세면 오탐이 난다.
 - (2026-08-25 명문화. 세 스킬 계약이 같은 규칙을 각자 적고 있어 레인으로 묶었다 —
-  이 시점에 실제 `raw/pdf/`·`raw/hwp/`·`raw/doc/` 디렉터리는 어느 vault에도 아직 없다.
-  첫 변환 잉게스트가 만든다.)
+  이 시점에는 실제 `raw/pdf/`·`raw/hwp/`·`raw/doc/` 디렉터리가 어느 vault에도 없었다.
+  첫 변환 잉게스트가 만든다. 2026-09-04 실측: 파생 볼트 한 곳에 `raw/pdf/` 레인이
+  처음 생겼고, 그 볼트 사본이 먼저 갖고 있던 레인 색인을 회수해 생성기에 반영했다.)
+
+### 5. Slack 추출 (`raw/slack/<channel>.md` · `<channel>--<NN>.md` · 묶음 `small-channels.md`)
+
+- 유입: 개인 knowledge-base 레포에 보관하던 팀 Slack export(DM 제외, 채널만)를 회사 vault로
+  이관하면서 스레드 단위로 선별·추출한 1차 가공본. 원문
+  캡처가 아니라 결정/장애/시스템/용어/컨벤션/담당/타임라인 구조로 이미 추출된 산출물이므로
+  §2(repo-doc 스냅샷)의 "무수정 원문" 원칙은 적용되지 않는다 — 이 파일 자체가 가공물이다.
+- 파일명: 단일 구간 채널은 `<channel>.md`, 여러 구간으로 나뉜 채널은 `<channel>--<NN>.md`
+  (구간 병합은 `--01-02` 처럼 범위 표기), 소형 채널 여러 개는 `small-channels.md` 한 파일로 묶는다.
+- frontmatter: `title`, `source`(워크스페이스+채널), `captured`, `author`, `note`(추출 방식·
+  기간·개인정보 제거 여부 명시).
+- 개인정보(전화번호·주민번호·차량번호)·자격증명(비밀번호·토큰·키)은 추출 단계에서 제거한다.
+  DM은 이 레인에 포함하지 않는다 — 2026-09-04 확정: 상대방 동의 없이 팀 vault에 넣지 않는다.
+- 파생 wiki 노트와 실행 근거는 해당 ingest의 run-log(`outputs/runs/`)를 따라간다.
+- 색인 생성기가 이 레인의 파일 수와 **오펀**(어느 노트도 경로를 언급하지 않는 추출본)을
+  집계한다. 루트 파일과 같은 판정 방식이다 — 이 레인의 파일은 짝 판정 키가 따로 없고,
+  경로 문자열 언급이 유일한 참조 근거다.
+- 계약 소유: 이 레인을 처음 만든 ingest 실행이 이 문서에 명문화. (2026-09-03)
+  (2026-09-06 lint 실측: 레인 생성 시 색인 생성기에 반영되지 않아 30개 파일이 색인·오펀
+  탐지에서 통째로 빠져 있었다 — 요약이 raw/를 152로 보고했으나 실제는 182였다. 새 레인을
+  만들면 생성기 반영이 같은 PR의 몫이다.)
 
 ## Append-only의 정의
 
@@ -116,6 +145,9 @@ provenance는 정규화된 이름으로 기록한다. 기존 파일은 소급 re
 
 - **`docs/raw-index.yml`** — 정본. git이 추적하는 raw 루트 파일별 `file`·`added`(첫 git add 일자)·
   `source`·`refs`(파생 노트 역링크) 항목과 `by_month`·`orphans`·`duplicate_sources` 집계.
+  변환 원본 레인이 있으면 `conversion_originals`(레인별 개수)·`orphan_originals`(짝 없는 원본)이,
+  Slack 레인이 있으면 `slack_files`(개수)·`orphan_slack`(참조 0건)이 더해진다 —
+  해당 레인 디렉터리가 없는 vault에서는 그 절들을 쓰지 않는다.
   에이전트·스크립트는 파일별 정보가 필요할 때 이 파일을 읽는다.
 - **`docs/raw-index.md`** — 사람용 요약만: 생성일·파일 수·월별 유입 수·오펀·source URL 중복.
   파일별 목록은 싣지 않는다(유입이 늘수록 길어져 diff·충돌 비용이 컸다).

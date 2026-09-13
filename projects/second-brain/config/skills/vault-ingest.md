@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)에 새로 들어온
   Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
-origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-ingest.md
+origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-ingest.md
 ---
 
 # Vault Ingest (Hermes-native fallback)
@@ -71,7 +71,7 @@ vault 경로를 확인한다.
 - 생성한 wiki 문서
 - 업데이트한 wiki 문서
 - 새 stub 문서
-- 갱신한 topic/index/memory 파일과 run-log 노트 경로
+- 갱신한 topic/index 파일과 run-log 노트 경로 (memory는 무변경 — 9번 항목)
 - `vault_verify.py --lane ingest --base "$(git merge-base HEAD master)"` 결과 (exit 0이어야 한다 — 아니면 출력된 defect)
 
 ## Wiki frontmatter

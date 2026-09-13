@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
   주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -68,6 +68,8 @@ Task:
   `raw/` and `archive/`.
 - Do not read or edit raw/ file contents.
 - Check frontmatter, template drift, stub notes, orphan notes, broken wikilinks, escaped-pipe aliases, raw-file wikilinks in sources, duplicate concepts, contradictions, and overcrowded topic pages.
+- An escaped pipe INSIDE a Markdown table cell is required, not a violation (VAULT_RULES.md
+  § Core Rules). Only report escaped aliases in prose.
 - Resolve wikilinks in wiki/ only. VAULT_RULES.md, CLAUDE.md, templates/, and
   projects/*/config/skills/ contain syntax EXAMPLES ([[note-slug|Alias]], [[target]], and
   deliberate escaped-pipe counter-examples); do not report those as broken links.
@@ -85,8 +87,11 @@ Task:
   untracked local raw files go to gitignored private/raw-index.yml) by running
   `python3 projects/second-brain/config/scripts/generate_raw_index.py` from the vault root
   (this reads raw/ filenames and frontmatter only — no raw/ content edits). If it surfaces
-  orphan raw files or duplicate source URLs, include them in the lint report. Read
-  docs/raw-index.yml when you need per-file provenance; the .md carries counts only.
+  orphan raw files, duplicate source URLs, unpaired conversion originals (a preserved
+  binary under raw/pdf|hwp|doc that no converted note claims with a source_<lane> key),
+  or orphan Slack extracts (a raw/slack/ file whose path no note mentions),
+  include them in the lint report. Read docs/raw-index.yml when you need per-file
+  provenance; the .md carries counts only.
 - Save the report to outputs/YYYY-MM-DD-vault-lint.md using templates/lint-report.md when available.
 - Do not stamp wiki/VAULT_MEMORY.md: since 2026-09-03 it holds no `Last Lint Pass:`, `Last Ingest:`,
   `Volume to date` or verification-queue count (they conflicted on every concurrent branch). The
@@ -102,7 +107,9 @@ Rules:
 - Do not run git push, git reset, git clean, rm -rf, or destructive commands.
 
 Final response:
-Report current working directory, ABSOLUTE_VAULT_DIR, lint report path, updated memory file, critical issues, stub count, broken link count, and any unresolved issues.
+Report current working directory, ABSOLUTE_VAULT_DIR, lint report path, critical issues, stub count,
+broken link count, and any unresolved issues. Report wiki/VAULT_MEMORY.md only if a contract drift
+forced an edit to it (see above) — a lint pass normally leaves it untouched.
 ```
 
 Claude CLI 예시:
@@ -130,7 +137,9 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
      결손 사유가 본문에 없는 `stub`
    - 고아 문서
    - 깨진 wikilink
-   - `[[note\|Alias]]`처럼 pipe 문자가 escape된 Obsidian alias
+   - `[[note\|Alias]]`처럼 pipe 문자가 escape된 Obsidian alias.
+     단 **마크다운 표 셀 안에서는 escape가 필수**라 위반이 아니다 (`VAULT_RULES.md` § Core Rules) —
+     산문에 있는 것만 보고한다
    - `sources`에 raw 파일을 `[[...]]` wikilink로 넣은 경우
    - 모든 frontmatter에서 `related` 항목 또는 `sources`의 vault Markdown 노트 참조가
      quoted wikilink(`"[[target]]"` 또는 `"[[target|Alias]]"`)가 아닌 경우. 단,
@@ -149,8 +158,10 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
 6. raw 색인을 재생성한다(`docs/raw-index.yml` 정본 + `docs/raw-index.md` 요약, 미추적 로컬 파일은
    gitignored `private/raw-index.yml`): vault 루트에서
    `python3 projects/second-brain/config/scripts/generate_raw_index.py`
-   (raw/ 파일명과 frontmatter만 읽는다 — raw/ 내용 수정 없음). 오펀 raw 파일이나
-   source URL 중복이 표시되면 lint 리포트에 포함한다. 파일별 출처가 필요하면 `.yml`을 읽는다.
+   (raw/ 파일명과 frontmatter만 읽는다 — raw/ 내용 수정 없음). 오펀 raw 파일, source URL 중복,
+   짝 없는 변환 원본(`raw/pdf|hwp|doc`의 보존 파일 중 어느 변환 노트도 `source_<lane>` 키로
+   가리키지 않는 것), slack 레인 오펀(`raw/slack/`의 파일 중 어느 노트도 경로를 언급하지 않는 것)이
+   표시되면 lint 리포트에 포함한다. 파일별 출처가 필요하면 `.yml`을 읽는다.
 7. lint 결과를 `outputs/YYYY-MM-DD-vault-lint.md`에 저장한다.
 8. `wiki/VAULT_MEMORY.md`에는 실행 카운터를 쓰지 않는다(2026-09-03부터 `Last Lint Pass`·`Volume to date`·
    `Verification queue` 수치 없음 — 리포트가 기록이고, 수치는 `ls outputs/*-vault-lint*.md`·`vault_volume.py`로 유추).

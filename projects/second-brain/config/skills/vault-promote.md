@@ -4,7 +4,7 @@ description: >
   팀/개인 repo 문서(또는 개인 KB 증류 노트)를 vault로 승격한다 — 재사용 개념을
   wiki로 추출하고 원문 스냅샷을 raw/에 표준 capture header로 보존한다.
   clipping ingest와 레인이 다른 별도 워크플로. 트리거: "/promote", "승격해줘".
-origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/vault-promote.md
+origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-promote.md
 ---
 
 # Vault Promote (repo 문서 → vault 승격)
@@ -107,7 +107,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 6. **레인 기록**: 승격 실행 상태·정본 관계는 `projects/@<org>/<repo>/<lane>/README.md`에
    둔다 (`docs/github-linked-projects.md` § Lanes — 정본이 repo면 `canonical: repo`,
    KB 증류면 `canonical: kb-distilled`).
-7. **log/memory**: 이번 실행을 `outputs/runs/YYYY-MM-DD-promotion-<author-slug>.md`에
+7. **run-log**: 이번 실행을 `outputs/runs/YYYY-MM-DD-promotion-<author-slug>.md`에
    run-log 노트로 작성한다(`templates/run-log.md`, `kind: promotion`, frontmatter `summary`
    ≤ 200 bytes — 처리 대상, 배치 판정과 근거, 탈락과 사유는 본문에). 동결된
    `docs/vault-ingest-log.md`에는 append하지 않는다. `wiki/VAULT_MEMORY.md`는 건드리지 않는다
