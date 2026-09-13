@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@18704d0:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@0dd4723:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -18,6 +18,8 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   세 번째 생산자(2026-09-10): `newsletter-digest` 스킬 — 본문이 메일 안에 있는 뉴스레터를 **발췌판**으로
   투입(이미지는 옮기지 않는다), `tags`에 `newsletter-digest` 추가
   (`projects/second-brain/config/skills/newsletter-digest/SKILL.md` § 6).
+  이 생산자는 운영자 수신함에 묶여 있어 **메인 볼트 전용**이다 — 파생 볼트에는 스킬이 배포되지 않으므로
+  이 문서의 사본에서는 위 경로가 열리지 않는다. 그 볼트의 레인 1 생산자는 클리퍼와 `medium-digest` 둘이다.
 - frontmatter: clipper 표준 7키 — `title`, `source`(URL), `author`, `created`,
   `published`, `description`, `tags`.
 - 파일명: 이동 시점에 정규화한다 — § 파일명 정규화.

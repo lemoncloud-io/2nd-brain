@@ -3,7 +3,7 @@ name: vault-ingest-once
 description: >
   Claude Code 우선으로 vault Clippings ingest를 한 번 실행하는 원샷 스킬. 세부 규칙은
   vault-ingest-claude.md를 따르고, Claude가 시작 전 단계에서 불가하면 vault-ingest.md로 fallback한다.
-origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-ingest-once.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-ingest-once.md
 ---
 
 # Vault Ingest Once

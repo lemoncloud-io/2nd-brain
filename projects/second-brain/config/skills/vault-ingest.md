@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)에 새로 들어온
   Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
-origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-ingest.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-ingest.md
 ---
 
 # Vault Ingest (Hermes-native fallback)
@@ -48,6 +48,8 @@ vault 경로를 확인한다.
 7. 모든 wiki 문서는 해당 템플릿 또는 지정된 frontmatter를 포함한다.
 8. 관련 wiki 문서에는 `[[wikilink]]`를 추가한다. Obsidian alias는
    `[[note-slug|Alias]]` 형식을 사용하고 pipe 문자 앞에 backslash를 넣지 않는다.
+   **단 마크다운 표 셀 안에서는 escape가 필수다**(`[[note-slug\|Alias]]`) — escape하지 않으면
+   pipe가 셀을 쪼갠다 (`VAULT_RULES.md` § Core Rules).
 9. `wiki/topics/`와 `wiki/INDEX.md`를 갱신한다. 이번 실행 기록은
    `outputs/runs/YYYY-MM-DD-ingest-<author-slug>.md`에 run-log 노트로 작성한다
    (`templates/run-log.md`, frontmatter `summary` ≤ 200 bytes, 상세는 본문).

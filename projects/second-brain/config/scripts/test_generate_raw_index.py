@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/scripts/test_generate_raw_index.py
+# origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/scripts/test_generate_raw_index.py
 """Tests for the conversion-original lanes in generate_raw_index.
 
 Run from the scripts directory:
@@ -117,6 +117,29 @@ class ConversionLanes(unittest.TestCase):
             self.assertNotIn("paired.pdf", yml.split("orphan_originals:")[1])
             self.assertIn("변환 원본", md)
             self.assertIn("raw/pdf/lonely.pdf", md)
+
+    def test_claim_pending_in_clippings_is_not_reported_orphaned(self):
+        """A preserved original tracked ahead of its note is not an orphan.
+
+        A conversion skill writes the converted note to Clippings/ and it stays
+        there until ingest moves it to raw/. The claim must count from either
+        place, or the pre-ingest window reports a false orphan.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "pdf").mkdir()
+            (root / "raw" / "pdf" / "pending.pdf").write_bytes(b"%PDF-1.4\n")
+            (root / "Clippings").mkdir()
+            (root / "Clippings" / "pending.md").write_text(
+                '---\nsource: "file"\nsource_pdf: "raw/pdf/pending.pdf"\n---\n\nbody\n',
+                encoding="utf-8",
+            )
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+
+            self.assertIn("  pdf: 1", yml)
+            self.assertIn("orphan_originals: []", yml)
 
     def test_doc_media_subdir_is_not_counted_as_an_original(self):
         with tempfile.TemporaryDirectory() as tmp:

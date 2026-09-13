@@ -6,7 +6,7 @@ description: >
   전문으로 캐시한 뒤, 요약은 `sidecars/`에 따로 두고 총합 평가 → 클리핑 후보 추천까지 만든다.
   사용자 승인분만 `Clippings/`로 넘겨 기존 vault-ingest-claude가 이어받는다. 개인 읽기
   파이프라인이라 1~5단계 산출은 vault에 커밋하지 않는다(`private/`는 gitignored).
-origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/medium-digest/SKILL.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/medium-digest/SKILL.md
 ---
 
 # medium-digest (Gmail Medium Daily Digest → 요약 → 승인 → Clippings)
@@ -96,9 +96,13 @@ node projects/second-brain/config/skills/medium-digest/scripts/embed-images.mts 
 
 ### 3. 본문 수집 (Chrome)
 - 브라우저가 2개 이상 연결돼 있으면 **`isLocal: true`**를 쓴다(서브에이전트는 사용자에게 묻지 못한다 —
-  로컬 우선, 로컬이 둘이면 먼저 나온 것). `tabs_context_mcp(createIfEmpty=true)`로 탭 1개 확보.
-- `browser_batch`로 아티클마다 `navigate(url)` → `computer(wait, 2초)` → `get_page_text(tabId)` 3연을 묶어
+  로컬 우선, 로컬이 둘이면 먼저 나온 것).
+- **파트마다 자기 탭을 만든다** — `tabs_create_mcp`로 탭을 하나 열고, 그 `tabId`를 이 파트의 모든
+  호출(`navigate`·`computer`·`get_page_text`)에 명시한다. 공용 탭을 쓰면 병렬 파트가 서로의 페이지를
+  읽는다 — 2026-09-09 회차(공용 탭)에서 재실행 4건, 파트별 탭으로 바꾼 09-10 회차에서 0건이었다.
+- `browser_batch`로 아티클마다 `navigate(url)` → `computer(wait, 4초)` → `get_page_text(tabId)` 3연을 묶어
   실행. **wait 필수** — navigate 직후 곧바로 읽으면 직전 페이지(다른 아티클) 본문이 에러 없이 반환된다.
+  2초·3초에서는 재실행이 남았고 4초에서 0건이 됐다(09-08·09-09·09-10 실측, § 변경 이력).
   반환 본문의 첫 제목이 요청 아티클과 일치하는지 반드시 대조한다.
 - batch 크기: 3~5건. `read_min ≥ 10`인 글은 2건 이하(3건이면 응답이 60KB를 넘어 파일로 우회된다).
 - 리다이렉트는 정상(`pub.towardsai.net`, `medium.com/<pub>/…`, `<handle>.medium.com`, 퍼블리케이션 자체 도메인).
@@ -112,7 +116,8 @@ node projects/second-brain/config/skills/medium-digest/scripts/embed-images.mts 
 - `bodies/NN-<slug>.md` frontmatter: digest, n, title, author, publication, url, resolved_url, member_only,
   published, read_min, words_measured, collected, cleaning. 빈 값은 명시적 `null`.
   `cleaning`에는 **제거한 노이즈만** 적는다 — 압축·요약했다고 적을 일이 생기면 3단계를 잘못한 것이다.
-- 끝나면 `tabs_close_mcp`. 병렬 파트끼리 같은 Chrome 프로필을 쓰므로 "not in tab group" 에러는 정상 종료로 간주.
+- 끝나면 자기 탭을 `tabs_close_mcp`로 닫는다. 병렬 파트끼리 같은 Chrome 프로필을 쓰므로
+  "not in tab group" 에러는 정상 종료로 간주.
 
 ### 3b. 요약 사이드카 (`sidecars/NN-<slug>.md`)
 
@@ -211,8 +216,8 @@ frontmatter: `type: medium-digest`, `date`, `digest_message_id`, `articles`(N), 
 - 2026-09-10: 15/15 수집(member-only 12, 페이월 0, partial 0), 승인 3건(#11·#15·#6) 클리핑 →
   wiki 신규 2/갱신 6, PR. **stale-tab 대책 확정** — 파트별 전용 탭 + navigate 후 **wait 4초**로
   재실행 0건·교차 오염 0건. 직전 09-09 회차(공용 탭 + 3초)의 재실행 4건과 대비되므로, 원인은
-  wait 값만이 아니라 **병렬 파트가 탭을 공유한 것**이었다. 3단계의 batch 지시를 "파트마다
-  `tabs_create_mcp`로 자기 탭을 만들고 모든 호출에 그 tabId를 명시, wait 4초"로 읽을 것.
+  wait 값만이 아니라 **병렬 파트가 탭을 공유한 것**이었다. → 2026-09-13 3단계 본문에 반영 완료.
+  그 전까지는 이 줄이 절차 대신 패치 노릇을 했고, 3단계만 읽은 실행자는 알려진 실패를 재현했다.
 - 2026-09-10 부수 관측(중요): **`bodies/` 전문 캐시 미이행이 4회차 연속(09-04·09-07·09-08·09-10)**.
   09-08에 도입한 완화책 — § 디렉터리 계약의 근거(`private/` gitignored·팀 내부 공유·커밋 경계는
   6단계)를 서브에이전트 프롬프트에 명시 — 을 09-10에 그대로 적용했는데도 워커 2기 모두 축자 저장을

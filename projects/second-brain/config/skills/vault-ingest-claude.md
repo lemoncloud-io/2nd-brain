@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를 Claude CLI/Claude Code에
   우선 위임한다. Hermes는 트리거, 동시 실행 방지, Claude 가용성 확인, Hermes-native
   fallback, 결과 검증, 요약 보고를 담당한다.
-origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-ingest-claude.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-ingest-claude.md
 ---
 
 # Vault Ingest Claude (Hermes -> Claude)
@@ -142,7 +142,8 @@ The run-log note IS this run's record; vault_verify --lane ingest requires it in
 Rules:
 - Do not edit raw file contents.
 - Record raw source provenance as "raw/<source-file-name>.md", not as a raw-file wikilink.
-- Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]].
+- Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]] — except inside a
+  Markdown table cell, where the pipe MUST be escaped ([[note-slug\|Alias]]) or it splits the cell.
 - Mark unsupported or time-sensitive claims as needs-update or TODO.
 - Never append a per-run narrative to wiki/VAULT_MEMORY.md: it is loaded every session and capped at
   8 KB. Narrative goes to the run-log note. Do not restate project status in memory either —

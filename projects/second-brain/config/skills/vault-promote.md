@@ -4,7 +4,7 @@ description: >
   팀/개인 repo 문서(또는 개인 KB 증류 노트)를 vault로 승격한다 — 재사용 개념을
   wiki로 추출하고 원문 스냅샷을 raw/에 표준 capture header로 보존한다.
   clipping ingest와 레인이 다른 별도 워크플로. 트리거: "/promote", "승격해줘".
-origin: lemoncloud-io/knowledge@18704d0:projects/second-brain/config/skills/vault-promote.md
+origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-promote.md
 ---
 
 # Vault Promote (repo 문서 → vault 승격)
