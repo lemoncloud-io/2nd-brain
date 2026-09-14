@@ -24,7 +24,7 @@ bytes, not lines. 현재 상태와 포인터만 둔다: 정책은 `VAULT_RULES.m
 `Last Ingest/Lint Pass/Promotion`·`Volume to date` 줄은 매 실행 교체돼 동시 ingest 브랜치마다 충돌했다. 저장소에서 도구로 유추한다:
 
 - Created: 2026-07-08 (vault 제어 파일 초기화 기준)
-- Last Sync: 2026-09-03 — knowledge@8480503 (운영 지침 탈카운터 정렬 + 스킬/스크립트 갱신)
+- Last Sync: 2026-09-03 — @8480503 (운영 지침 탈카운터 정렬 + 스킬/스크립트 갱신)
   대상: VAULT_RULES § Core Rules·CLAUDE § Development Work·raw-layout 색인 3파일 체제·이 파일; 신규 `medium-digest`·`runs.base`.
 - 최근 ingest / promotion / maintenance → `ls outputs/runs/ | tail` (run-log 파일명 `YYYY-MM-DD-<kind>-<author>.md`,
   frontmatter `kind`·`pr`·`processed`·`summary`). `docs/vault-ingest-log.md`는 run-log 도입 전 원장, 동결 — 더 추가하지 않는다.
