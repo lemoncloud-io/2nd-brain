@@ -10,7 +10,7 @@ milestones:
   - name: "Clarify Hermes/Claude automation workflows"
     due: 2026-07-08
     done: true
-  - name: "Sync the operating rule layer from the production vault"
+  - name: "Establish the operating rule layer"
     due: 2026-08-14
     done: true
 next_action: "Run the first clipping ingest and verify raw/wiki/index/memory/ingest-log updates."
@@ -62,23 +62,17 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
 - 2026-08-14: `raw/` 계약 정밀화 — `docs/raw-layout.md` 신설(레인 구분, append-only 정의,
   파일명 정규화, ingest 게이트), `config/scripts/generate_raw_index.py`로 `docs/raw-index.md`를
   생성하고 `vault-lint`가 재생성·검사하도록 편입.
-- 2026-08-14: 운영 vault(`upstream`)의 지침 계층을 이 템플릿으로 이식. 조직 고유 값은
-  `config/team-settings.yaml`의 플레이스홀더로 중립화했으므로 clone 후 교체가 필요하다.
-- 2026-09-04: 볼트 루트 devops baseline 배포 — `package.json`(Node 24+ `engines` + 공용
+- 2026-08-14: 지침 계층 정비. 조직 고유 값은 `config/team-settings.yaml`의
+  플레이스홀더로 중립화했으므로 clone 후 교체가 필요하다.
+- 2026-09-04: 볼트 루트 devops baseline 도입 — `package.json`(Node 24+ `engines` + 공용
   툴체인 7종: typescript·@types/node·tsx·vitest·zod·@modelcontextprotocol/sdk·jsdom)과
   `.nvmrc`(24)를 볼트 루트에 둔다. 도구를 만들 때의 공통 환경이며 조직 고유 규약은 담지
   않는다 — 공개 표준과 공개 npm 패키지만 쓴다. `npm install` 산출물은 커밋 대상이 아니라
-  `.gitignore`에 `/node_modules/`를 함께 추가했다. lockfile은 배포하지 않는다(caret 범위).
-  origin: <upstream>@6d5882e:projects/second-brain/config/devops/ — 원본 유닛의 README가 배포 대상 파일의
-  정본 표를 갖는다 (README 자체는 배포하지 않는다).
-- 2026-09-04: 볼트 루트 `package-lock.json` 배포 — `package.json`의 caret 범위만으로는
-  볼트마다 설치 시점의 최신 patch/minor가 깔려 공통 환경이 이름만 공통이 된다. lockfile을
+  `.gitignore`에 `/node_modules/`를 함께 추가했다. 이 시점에는 lockfile을 두지 않았다(caret 범위).
+- 2026-09-04: 볼트 루트 `package-lock.json` 추가 — `package.json`의 caret 범위만으로는
+  설치 시점의 최신 patch/minor가 깔려 공통 환경이 이름만 공통이 된다. lockfile을
   같이 두면 같은 트리가 깔리고 `npm ci`로 재현 설치가 된다. **루트에서는 `npm ci`를 쓴다** —
-  `npm install`은 lockfile을 그 자리에서 재작성한다. 다만 lockfile은 메인이 유일 저자인
-  파생물이라 드리프트 추적에서 제외되고 회차마다 덮어쓰므로, 규약을 어겨도 다음 회차에
-  자동 해소된다. `package.json`에는 이 예외가 없다 — 그쪽을 고치면 이 볼트에 대한 배포가
-  중단되고 도구는 로컬 manifest로 옮겨야 한다.
-  origin: <upstream>@cae0b0b:projects/second-brain/config/devops/
+  `npm install`은 lockfile을 그 자리에서 재작성한다.
 
 ## Outputs
 
