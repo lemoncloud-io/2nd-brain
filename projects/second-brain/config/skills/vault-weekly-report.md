@@ -7,7 +7,7 @@ description: >
   결과는 areas/weekly/YYYY-MM-DD.md (templates/weekly-report.md 계약)와 같은 이름의
   .html 뷰(templates/weekly-report.html 계약)를 함께 저장하고, 트리거 문구 명령은
   팀 메일 **초안 생성**까지 포함한다 — 발송 버튼은 항상 사용자가 Gmail에서 직접 누른다.
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/vault-weekly-report.md
+origin: lemoncloud-io/knowledge@c872ab87:projects/second-brain/config/skills/vault-weekly-report.md
 ---
 
 # Vault Weekly Report
@@ -147,6 +147,18 @@ PR #126이 다음 주로 이월됐다.)
   권한 분류기에 차단돼 초안 경로로 완주했고, 그 편이 낫다고 판단해 규칙으로 굳혔다.)
 - 실측 기준 (2026-08-12, 첫 보고서 25 KB): Gmail 웹 라이트/다크·모바일 앱 렌더
   통과. Gmail 클리핑 한도는 약 102 KB — 본문이 커지면 발송 전 `wc -c`로 확인한다.
+- **본문은 파일 경로가 아니라 인라인으로 넘어간다 — 그리고 되읽어 대조할 수 없다**
+  (2026-09-14 실측). `draft_gmail_message`에 파일 인자가 없어 HTML 전문을 그대로
+  입력해야 하고, workspace-mcp에는 `drafts.get`/`drafts.list`가 없어 만든 초안을
+  다시 읽을 경로가 없다 (`draft_gmail_message`가 돌려주는 draft ID는 message ID가
+  아니라 `get_gmail_message_content`에 넣으면 `Invalid id value` 400이 난다;
+  `in:drafts`·`is:draft` 검색도 빈 결과다). 따라서 **md·HTML → 초안 사이의 전사
+  충실도를 기계로 보증할 수 없다.**
+
+  그래서 § 트리거 명령 3번의 "Gmail에서 직접 발송하라"는 안내는 편의가 아니라
+  **이 파이프라인의 유일한 검증 지점이다.** 사용자에게 초안 ID만 알리지 말고
+  *발송 전에 렌더를 눈으로 확인할 것*을 함께 알린다. 본문이 커밋본과 다를 수
+  있다는 사실을 숨기지 않는다.
 
 ## 커밋·PR
 

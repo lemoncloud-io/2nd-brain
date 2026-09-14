@@ -36,6 +36,14 @@ or writing. Read and write only under the resolved root.
   pipe there splits the cell.
 - Use the matching `templates/` file before inventing a note or output structure.
 
+## Synced Content
+
+Some files here are copies deployed from an upstream vault. A copy carries an `origin:` stamp,
+or `managed: vault-sync` frontmatter when the sync generated it. Do not edit a copy to fix it.
+When a copy needs to change, reproduce and verify the fix on a scratch copy outside this vault,
+then raise it upstream — the unit's generated README has an `## Upstream` section naming the
+upstream repo and path. The fix returns here in a later sync round.
+
 ## Development Work
 
 This file governs vault operations only. Frontend/backend service development for the
