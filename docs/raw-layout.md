@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@0dd4723:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@fd1a84d2:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -18,8 +18,8 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   세 번째 생산자(2026-09-10): `newsletter-digest` 스킬 — 본문이 메일 안에 있는 뉴스레터를 **발췌판**으로
   투입(이미지는 옮기지 않는다), `tags`에 `newsletter-digest` 추가
   (`projects/second-brain/config/skills/newsletter-digest/SKILL.md` § 6).
-  이 생산자는 운영자 수신함에 묶여 있어 **메인 볼트 전용**이다 — 파생 볼트에는 스킬이 배포되지 않으므로
-  이 문서의 사본에서는 위 경로가 열리지 않는다. 그 볼트의 레인 1 생산자는 클리퍼와 `medium-digest` 둘이다.
+  이 생산자는 운영자 수신함에 묶여 있어 **그 스킬이 있는 볼트에서만** 동작한다 — 스킬이 없는 볼트에서는
+  위 경로가 열리지 않고, 그 볼트의 레인 1 생산자는 클리퍼와 `medium-digest` 둘이다.
 - frontmatter: clipper 표준 7키 — `title`, `source`(URL), `author`, `created`,
   `published`, `description`, `tags`.
 - 파일명: 이동 시점에 정규화한다 — § 파일명 정규화.
@@ -73,8 +73,8 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   문자열이 예시로 자주 등장해, 문서 언급을 짝으로 세면 오탐이 난다.
 - (2026-08-25 명문화. 세 스킬 계약이 같은 규칙을 각자 적고 있어 레인으로 묶었다 —
   이 시점에는 실제 `raw/pdf/`·`raw/hwp/`·`raw/doc/` 디렉터리가 어느 vault에도 없었다.
-  첫 변환 잉게스트가 만든다. 2026-09-04 실측: 파생 볼트 한 곳에 `raw/pdf/` 레인이
-  처음 생겼고, 그 볼트 사본이 먼저 갖고 있던 레인 색인을 회수해 생성기에 반영했다.)
+  첫 변환 잉게스트가 만든다. 2026-09-04 실측: 다른 볼트 한 곳에서 `raw/pdf/` 레인이
+  처음 생겼고, 그 볼트가 먼저 갖고 있던 레인 색인을 생성기에 반영했다.)
 
 ### 5. Slack 추출 (`raw/slack/<channel>.md` · `<channel>--<NN>.md` · 묶음 `small-channels.md`)
 

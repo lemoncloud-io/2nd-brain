@@ -237,9 +237,8 @@ Humans and LLMs read the same documents. Each one owns a different layer.
 | [`CLAUDE.md`](CLAUDE.md) | Session read order, `VAULT_DIR` resolution, hard invariants |
 | [`AGENTS.md`](AGENTS.md) | Agent entry point (model-neutral) |
 | [`wiki/VAULT_MEMORY.md`](wiki/VAULT_MEMORY.md) | Current state and pointers. Loaded every session, **8 KB cap** |
-| [`docs/raw-layout.md`](docs/raw-layout.md) | The four `raw/` lanes (web clippings, screenshots, converted originals, …), append-only definition, filename normalization, index |
+| [`docs/raw-layout.md`](docs/raw-layout.md) | The five `raw/` lanes (web clippings, screenshots, converted originals, …), append-only definition, filename normalization, index |
 | [`docs/github-linked-projects.md`](docs/github-linked-projects.md) | Contract for tracking external GitHub repos |
-| [`docs/agent-skills-registration.md`](docs/agent-skills-registration.md) | The Agent Skills (SKILL.md) standard plus how to register and distribute skills to a team |
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP (`workspace-mcp`) connection procedure — OAuth credential issuance, `claude mcp add` registration, localhost callback re-auth pitfall |
 | [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | Non-developer onboarding path (setup script → Obsidian → Claude chat) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | Historical execution ledger (frozen — new run logs are notes under `outputs/runs/`) |
