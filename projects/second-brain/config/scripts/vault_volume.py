@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/scripts/vault_volume.py
+# origin: lemoncloud-io/knowledge@41ea2ea5:projects/second-brain/config/scripts/vault_volume.py
 """Derive the vault volume line (`- Volume to date: …`) from the ledgers.
 
 Since 2026-09-03 wiki/VAULT_MEMORY.md no longer stores this line — every concurrent
@@ -22,12 +22,13 @@ entry 2026-08-01 — no overlap with run-logs, which start 2026-08-14): one run 
 phrase per bullet.
 
 The baseline is read from the vault the script runs in — it is NOT a constant. It was
-hardcoded (19 runs / 38 clippings, main's measured values) until 2026-08-28, when a
-vault-sync deploy showed why that cannot travel: in a derived vault the constants were
-added unconditionally, so @ssocio reported "21 runs / 40 clippings" off two run-logs of
-its own, and `--write` would have stamped main's history into a team vault's memory as
-fact. Deriving from the local ledger reproduces main's 19 / 38 exactly (its ledger holds
-19 bullets summing to 38) and yields 0 / 0 in vaults whose ledger is absent or empty.
+hardcoded (19 runs / 38 clippings, the measured values of the checkout it was written in)
+until 2026-08-28, when the script was first run elsewhere and showed why those cannot
+travel: in a checkout with a different history the constants were added unconditionally,
+so a vault carrying two run-logs of its own reported "21 runs / 40 clippings", and
+`--write` would have stamped one checkout's history into another vault's memory as fact.
+Deriving from the local ledger reproduces those 19 / 38 exactly (that ledger holds 19
+bullets summing to 38) and yields 0 / 0 in vaults whose ledger is absent or empty.
 
 Usage:
     python3 vault_volume.py            # print the derived line (the normal use since 2026-09-03)
@@ -87,7 +88,8 @@ def fold_ledger(vault: Path) -> tuple[int, int, str | None, str | None]:
     """(runs, clippings, first date, last date) from this vault's frozen ledger.
 
     Zeros and None when the ledger is absent or carries no entries — which is the
-    normal state of a derived vault, and the reason this is not a constant.
+    normal state of a vault with no frozen ingest history, and the reason this is
+    not a constant.
     """
     ledger = vault / LEDGER_REL
     if not ledger.is_file():

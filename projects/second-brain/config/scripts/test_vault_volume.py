@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/scripts/test_vault_volume.py
+# origin: lemoncloud-io/knowledge@41ea2ea5:projects/second-brain/config/scripts/test_vault_volume.py
 """Tests for the ledger baseline fold in vault_volume.
 
 Run from the scripts directory:
@@ -7,7 +7,7 @@ Run from the scripts directory:
     python3 -m unittest test_vault_volume -v
 
 The point of these tests is portability: the baseline must come from the vault the
-script is run in, so a derived vault reports its own history rather than main's.
+script is run in, so each checkout reports its own history rather than a hardcoded one.
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ from vault_volume import check, compute, fold_ledger, write
 
 MAIN = pathlib.Path(__file__).resolve().parents[4]
 
-# The two "main" regression guards below assert main's frozen ledger numbers
-# (19 runs / 38 clippings). MAIN resolves to whatever vault this file is deployed
-# in, so in a derived vault (vault-sync copy) the guards would compare that
-# vault's own ledger against main's constants and fail structurally. Run them
-# only when the local ledger is main's frozen ledger, identified by its final
-# frozen entry. (Found 2026-08-29 when the first vault-sync deploy of this file
-# failed both guards in all three derived vaults.)
+# The two regression guards below assert the frozen ledger numbers of the checkout
+# this file was written in (19 runs / 38 clippings). MAIN resolves to whatever
+# checkout the file actually lives in, so anywhere else the guards would compare
+# that vault's own ledger against those constants and fail structurally. Run them
+# only when the local ledger is that same frozen ledger, identified by its final
+# frozen entry. (Found 2026-08-29 when this file first ran outside the checkout it
+# was written in and failed both guards.)
 _LEDGER = MAIN / "docs" / "vault-ingest-log.md"
 IS_MAIN_LEDGER = _LEDGER.exists() and "- Last Ingest: 2026-08-01" in _LEDGER.read_text(
     encoding="utf-8"
@@ -53,9 +53,9 @@ def runlog(run_date: str, processed: int, kind: str = "ingest") -> str:
 
 
 class LedgerFoldTest(unittest.TestCase):
-    @unittest.skipUnless(IS_MAIN_LEDGER, "main-vault regression guard; not main's ledger")
-    def test_main_ledger_reproduces_the_previously_frozen_constants(self):
-        """Regression guard: main's own numbers must not move with this change."""
+    @unittest.skipUnless(IS_MAIN_LEDGER, "frozen-ledger regression guard; local ledger is a different one")
+    def test_reference_ledger_reproduces_the_previously_frozen_constants(self):
+        """Regression guard: these numbers must not move with this change."""
         runs, clippings, first, last = fold_ledger(MAIN)
         self.assertEqual(runs, 19)
         self.assertEqual(clippings, 38)
@@ -68,7 +68,7 @@ class LedgerFoldTest(unittest.TestCase):
             self.assertEqual(fold_ledger(root), (0, 0, None, None))
 
     def test_ledger_with_no_entries_yields_a_zero_baseline(self):
-        """The derived vaults carry the ledger file with a header and no bullets."""
+        """Some checkouts carry the ledger file with a header and no bullets."""
         with tempfile.TemporaryDirectory() as tmp:
             root = make_vault(tmp, ledger=LEDGER_HEAD)
             self.assertEqual(fold_ledger(root), (0, 0, None, None))
@@ -99,8 +99,8 @@ class LedgerFoldTest(unittest.TestCase):
 
 
 class ComputePortabilityTest(unittest.TestCase):
-    def test_derived_vault_reports_its_own_history_not_mains(self):
-        """The bug this change fixes: main's 19/38 leaking into every derived vault."""
+    def test_vault_reports_its_own_history_not_a_hardcoded_one(self):
+        """The bug this change fixes: one checkout's 19/38 leaking into every other checkout."""
         with tempfile.TemporaryDirectory() as tmp:
             root = make_vault(tmp, ledger=LEDGER_HEAD,
                               runlogs=[runlog("2026-08-20", 1), runlog("2026-08-22", 2)])
@@ -139,8 +139,8 @@ class ComputePortabilityTest(unittest.TestCase):
             self.assertTrue(str(vol["first"]).strip())
             self.assertTrue(str(vol["last"]).strip())
 
-    @unittest.skipUnless(IS_MAIN_LEDGER, "main-vault regression guard; not main's ledger")
-    def test_main_compute_still_starts_from_19_38(self):
+    @unittest.skipUnless(IS_MAIN_LEDGER, "frozen-ledger regression guard; local ledger is a different one")
+    def test_reference_compute_still_starts_from_19_38(self):
         vol = compute(MAIN)
         self.assertGreaterEqual(vol["runs"], 19)
         self.assertGreaterEqual(vol["clippings"], 38)
