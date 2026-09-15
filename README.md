@@ -241,9 +241,8 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 | [`CLAUDE.md`](CLAUDE.md) | 세션 읽기 순서, `VAULT_DIR` 해석, 하드 불변식 |
 | [`AGENTS.md`](AGENTS.md) | 에이전트 진입점 (모델 중립) |
 | [`wiki/VAULT_MEMORY.md`](wiki/VAULT_MEMORY.md) | 현재 상태와 포인터. 매 세션 로드, **8 KB 상한** |
-| [`docs/raw-layout.md`](docs/raw-layout.md) | `raw/` 4개 레인(웹 클리핑·스크린샷·변환 원본 등)·append-only 정의·파일명 정규화·색인 |
+| [`docs/raw-layout.md`](docs/raw-layout.md) | `raw/` 5개 레인(웹 클리핑·스크린샷·변환 원본 등)·append-only 정의·파일명 정규화·색인 |
 | [`docs/github-linked-projects.md`](docs/github-linked-projects.md) | 외부 GitHub repo 추적 계약 |
-| [`docs/agent-skills-registration.md`](docs/agent-skills-registration.md) | Agent Skills(SKILL.md) 표준 스펙과 스킬 등록·팀 배포 레퍼런스 |
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP(`workspace-mcp`) 연결 절차 — OAuth 자격증명 발급, `claude mcp add` 등록, localhost 콜백 재인증 함정 |
 | [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | 비개발자 온보딩 경로 (설치 스크립트 → Obsidian → Claude 채팅) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | 과거 실행 이력 원장 (동결 — 신규 run-log는 `outputs/runs/`에 노트로 생성) |
