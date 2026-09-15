@@ -93,7 +93,7 @@ this file is the contract layer.
   single checker for this cap, for raw/archive append-only, for the frontmatter of every
   tracked Markdown file outside raw/ and archive/ staying parseable, and for the lane trace
   (a run-log or lint report must be in the diff against `--base`); every write lane calls it
-  with `--lane ingest|lint|promote` (aligned 2026-09-03 with the main vault contract).
+  with `--lane ingest|lint|promote` (aligned 2026-09-03).
   The memory file holds durable policy plus static state and pointers — never an execution
   log and, since 2026-09-03, **no per-run counters**: the `Last Ingest/Lint Pass/Promotion`
   and `Volume to date` lines were replaced on every run and conflicted on every concurrent
@@ -102,7 +102,7 @@ this file is the contract layer.
   - latest lint → `ls outputs/*-vault-lint*.md | tail -1`
   - volume → `python3 projects/second-brain/config/scripts/vault_volume.py` (this vault's ledger,
     if present, + `outputs/runs/` fold, printed, never stored)
-  - `## Current State` keeps only static facts (created, last sync) and these derivation pointers.
+  - `## Current State` keeps only static facts (created) and these derivation pointers.
   - Per-run narrative lives in a per-run log note at
     `outputs/runs/YYYY-MM-DD-<kind>-<author-slug>.md` (template `templates/run-log.md`;
     browse/filter via `runs.base`; frontmatter `summary` ≤ 200 bytes, detail in the body).

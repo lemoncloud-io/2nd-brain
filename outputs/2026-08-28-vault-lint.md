@@ -8,9 +8,9 @@ scope: vault
 
 ## Summary
 
-직전 pass(2026-07-31) 이후 4주 만의 두 번째 pass. 그 사이 vault-sync 3회
-(`knowledge@01f358b`·`@45f6b0f`·`@e5a3687`)로 스킬 계층이 크게 바뀌었고, 이번 pass의
-발견은 대부분 그 변화가 계약 문서·인덱스에 아직 반영되지 않은 드리프트다.
+직전 pass(2026-07-31) 이후 4주 만의 두 번째 pass. 그 사이 스킬 계층이 크게
+바뀌었고, 이번 pass의 발견은 대부분 그 변화가 계약 문서·인덱스에 아직
+반영되지 않은 데서 온다.
 
 - 점검 대상: `raw/`·`archive/`를 제외한 tracked Markdown 56개 (`wiki/` 전문, 그 외 frontmatter)
 - 발견: **P1 1건 / P2 3건 / P3 1건** (총 5건). P0 없음
@@ -29,22 +29,21 @@ scope: vault
 frontmatter 블록 자체가 없다 (`name`·`description`·`origin` 전부 결손). 나머지 14개는
 모두 갖추고 있다. `docs/agent-skills-registration.md` § SKILL.md 스펙에서 `name`과
 `description`은 필수 필드이므로, 이 스킬은 Agent Skills 표준에 미달하고 Claude Code의
-스킬 발견에도 잡히지 않는다. `origin` 부재로 upstream 추적도 끊긴다.
+스킬 발견에도 잡히지 않는다.
 
 ### P2
 
 **2. `VAULT_RULES.md`가 동결된 원장을 여전히 run-log 목적지로 규정한다**
 § Core Rules는 "Per-run narrative is appended to `docs/vault-ingest-log.md`"라고 적고
-있으나, `@45f6b0f` sync 이후 실제 계약은 `outputs/runs/<date>-ingest-<slug>.md` 노트
+있으나, 실제 계약은 `outputs/runs/<date>-ingest-<slug>.md` 노트
 생성이고 `docs/vault-ingest-log.md`는 동결이다 (`vault-ingest-claude.md` job spec,
 `vault-ingest-once.md`, `vault-promote.md`가 일관되게 그렇게 규정). **권위 있는 계약
-문서가 스킬과 모순되는 상태**다. 이 파일은 production vault에서 동기화되므로 수정은
-upstream(`lemoncloud-io/knowledge`)이 정본이다.
+문서가 스킬과 모순되는 상태**다.
 
-**3. `wiki/VAULT_MEMORY.md`의 실행 이력 포인터가 같은 드리프트를 반복한다**
+**3. `wiki/VAULT_MEMORY.md`의 실행 이력 포인터가 같은 문제를 반복한다**
 머리말("실행 이력은 `docs/vault-ingest-log.md`")과 § Current State의
 `Ingest history:` 줄이 모두 동결된 원장을 가리킨다. 2번과 같은 원인이며, 이쪽은
-vault 로컬 상태 파일이라 이 저장소에서 바로 고칠 수 있다. 이번 pass에서는 lint 계약상
+vault 로컬 상태 파일이라 바로 고칠 수 있다. 이번 pass에서는 lint 계약상
 `Last Lint Pass:`와 `Verification queue`만 손대므로 수정하지 않고 올린다.
 
 **4. GitHub 연결 프로젝트의 동기화 상태가 36일 낡았다**
@@ -85,8 +84,8 @@ escaped-pipe alias(`[[note\|Alias]]`) 0건, `sources`에 raw 파일을 wikilink�
 
 | # | 조치 | 소관 |
 | --- | --- | --- |
-| 1 | `ollama-local-models.md`에 `name`·`description`·`origin` frontmatter 추가 | 이 저장소에서 수정 가능 — 단, upstream에도 같은 결손이 있으면 그쪽이 정본 |
-| 2 | `VAULT_RULES.md` § Core Rules의 run-log 목적지를 `outputs/runs/`로 정정 | upstream(`lemoncloud-io/knowledge`) 수정 후 sync |
+| 1 | `ollama-local-models.md`에 `name`·`description`·`origin` frontmatter 추가 | 이 저장소에서 수정 가능 |
+| 2 | `VAULT_RULES.md` § Core Rules의 run-log 목적지를 `outputs/runs/`로 정정 | 계약 문서 수정 필요 |
 | 3 | `wiki/VAULT_MEMORY.md`의 실행 이력 포인터 2곳을 `outputs/runs/`로 정정 | 이 저장소, 별도 커밋 (lint 계약 밖) |
 | 4 | `github-project-sync`로 `last_synced`·`next_action` 갱신 제안 → 사용자 승인 | 사용자 승인 사안 |
 | 5 | 첫 인제스트 시 topic page의 `## Related Notes`를 실제 article로 교체 | 인제스트 워크플로우가 자연 해소 |
