@@ -5,7 +5,7 @@ description: >
   코드 분석 → 로컬 개발 계획까지 온보딩할 때 사용한다. "AI Studio 앱을 로컬 개발로
   온보딩해줘", "수출본을 git/vault에 정착시켜줘" 류 요청, 또는 repo에 metadata.json·
   patch*.cjs·react-example 패키지명 같은 AI Studio 흔적이 보일 때 트리거.
-origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/ai-studio-project-onboarding.md
+origin: lemoncloud-io/knowledge@42c8dece:projects/second-brain/config/skills/ai-studio-project-onboarding.md
 ---
 
 # AI Studio Project Onboarding
@@ -117,7 +117,8 @@ superpowers:writing-plans 형식으로 프로젝트 `outputs/`에 저장. 표준
 
 ## Phase 5 — 기록
 
-- 프로젝트 README: `## Status` 온보딩 결과, `## Sync Notes` graphify 규모, `next_action` 갱신.
+- 프로젝트 README: `## Status` 온보딩 결과, `## Sync Notes` graphify 규모, `next_action` 갱신
+  (행위 한 건당 한 문자열, 두 건 이상이면 목록 — `docs/project-next-action.md`).
 - 실행 로그(세션별 표)는 프로젝트 `outputs/`에 — 편차·교훈이 이 스킬의 개정 입력이 된다.
 
 ## 금지 사항

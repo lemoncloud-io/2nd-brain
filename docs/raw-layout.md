@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@fd1a84d2:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@2156ca2a:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -58,23 +58,34 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   `projects/auto-digest-screenshot-via-telegram/config/skills/telegram-screenshot-digest.md`.
 - `<slug>-<short-hash>.<ext>` + 짝 `.ocr.md`, append-only.
 
-### 4. 변환 원본 (`pdf/` · `hwp/` · `doc/`)
+### 4. 변환 원본 (`pdf/` · `hwp/` · `doc/` · `xlsx/`)
 
-- 유입: 바이너리 문서를 MD로 변환해 `Clippings/`에 투입하는 변환 스킬이 **원본 파일을
-  그대로** 보존하는 곳. 확장자 유지, 파일명 무변경, append-only.
+- 유입: 바이너리 문서를 MD로 변환하면서 **원본 파일을 그대로** 보존하는 곳.
+  확장자 유지, 파일명 무변경, append-only.
+- 이 레인의 본질은 **보존된 바이너리 원본**이다. 그것을 만든 것이 전용 변환 스킬이든
+  수동 잉게스트든 **색인 대상이라는 사실은 달라지지 않는다** — 색인에서 빠진 원본은
+  개수에도 짝 판정에도 오펀 탐지에도 잡히지 않아 감사되지 않은 채 남는다.
 - 계약 소유: `pdf2md-ingest` → `raw/pdf/`, `hwp2md-ingest` → `raw/hwp/`,
   `doc2md-ingest` → `raw/doc/` (+ 임베디드 이미지는 `raw/doc/media/<stem>/`).
   각 스킬은 `projects/second-brain/config/skills/<name>/SKILL.md`.
-- 변환된 MD의 frontmatter가 `source_pdf`·`source_hwp`·`source_doc` 키로 여기를
-  가리키고 `source_sha256`으로 동일성을 고정한다. 중복 검사는 이 경로의 존재 여부다.
+  `raw/xlsx/`는 **대응 변환 스킬이 아직 없다** — 수동 잉게스트가 만든 레인이고, 위 셋과
+  달리 계약을 소유한 스킬 문서가 없으므로 이 절이 그 자리를 대신한다.
+- 변환된 MD의 frontmatter가 `source_pdf`·`source_hwp`·`source_doc`·`source_xlsx` 키로
+  여기를 가리키고 `source_sha256`으로 동일성을 고정한다. 중복 검사는 이 경로의 존재 여부다.
 - 색인 생성기가 레인별 원본 개수와 **짝 없는 원본**(어느 변환 MD의 `source_<lane>` 키도
   가리키지 않는 보존 파일)을 집계한다 — 변환 누락이나 키 누락을 lint에서 잡는다.
   짝 판정은 그 frontmatter 키만 근거로 한다. 스킬 계약서 본문에 `raw/pdf/` 같은 경로
-  문자열이 예시로 자주 등장해, 문서 언급을 짝으로 세면 오탐이 난다.
+  문자열이 예시로 자주 등장해, 문서 언급을 짝으로 세면 오탐이 난다. 같은 이유로 자유
+  서술형 `source:` 문자열이 원본 경로를 담고 있어도 짝으로 세지 않는다 — 원본을 가리키는
+  방법은 `source_<lane>` 키 하나다.
 - (2026-08-25 명문화. 세 스킬 계약이 같은 규칙을 각자 적고 있어 레인으로 묶었다 —
   이 시점에는 실제 `raw/pdf/`·`raw/hwp/`·`raw/doc/` 디렉터리가 어느 vault에도 없었다.
   첫 변환 잉게스트가 만든다. 2026-09-04 실측: 다른 볼트 한 곳에서 `raw/pdf/` 레인이
-  처음 생겼고, 그 볼트가 먼저 갖고 있던 레인 색인을 생성기에 반영했다.)
+  처음 생겼고, 그 볼트가 먼저 갖고 있던 레인 색인을 생성기에 반영했다.
+  2026-09-15 실측: 어느 볼트 한 곳의 `raw/xlsx/` 보존 원본이 생성기의 레인 목록에 없어
+  색인·오펀 탐지에서 통째로 빠진 채 발견됐다 — § 레인 5에 기록된 2026-09-06과 **같은
+  유형의 두 번째 사례**다. 새 레인을 만들면 생성기의 레인 목록과 그 테스트를 같은 PR에서
+  함께 고친다.)
 
 ### 5. Slack 추출 (`raw/slack/<channel>.md` · `<channel>--<NN>.md` · 묶음 `small-channels.md`)
 

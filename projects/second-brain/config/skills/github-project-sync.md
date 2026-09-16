@@ -4,7 +4,7 @@ description: >
   vault의 projects/@<org>/<repo> 추적 노트들을 외부 GitHub repo의 현재 상태와
   대조해 변화를 감지하고 변경안을 제안한다. status/goal/next_action의 최종 반영은
   사용자 승인 후에만 수행한다. "상태 동기화해줘" 요청 시 사용한다.
-origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/github-project-sync.md
+origin: lemoncloud-io/knowledge@42c8dece:projects/second-brain/config/skills/github-project-sync.md
 ---
 
 # GitHub Project Sync (동기화)
@@ -41,7 +41,8 @@ origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/gith
    - `gh` 미인증/부재 시 명시적으로 보고하고 중단. 접근 권한이 없는 repo는
      건너뛰고 리포트에 사유를 기록한다.
 3. vault 노트의 frontmatter(`status/goal/next_action/milestones/last_synced`)와
-   본문을 대조해 변화를 감지한다. 감지 대상 예:
+   본문을 대조해 변화를 감지한다. `next_action` 변경안은 행위 한 건당 한 문자열로 낸다 —
+   두 건 이상이면 목록(계약: `docs/project-next-action.md`). 감지 대상 예:
    - repo 문서의 목표·로드맵 변경 → `goal`/`milestones` 갱신 후보
    - 장기간(예: 90일+) 활동 없음 → `status: paused` 후보
    - 아카이브/삭제/이전된 repo → 보고만 하고 `status` 판단은 사용자에게

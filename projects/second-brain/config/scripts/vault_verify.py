@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/scripts/vault_verify.py
+# origin: lemoncloud-io/knowledge@2156ca2a:projects/second-brain/config/scripts/vault_verify.py
 """Verify the vault invariants shared by every write lane (ingest, lint, promote).
 
 This is the single post-run check. Skills call it instead of restating the same
@@ -25,6 +25,10 @@ Checks (all lanes):
      every skill that reads frontmatter. The structural pass (scan_frontmatter) is
      dependency-free so it runs everywhere; when PyYAML is importable a full parse
      runs on top of it, catching what the conservative structural pass lets through.
+  7. Every `next_action` is one action per string — a quoted scalar or a block sequence
+     with each item at most 300 bytes and no `;` joining clauses. Added 2026-09-15 after
+     one project README's value reached 2,091 bytes of `;`-joined clauses; contract in
+     `docs/project-next-action.md`.
 
 Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
 diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
@@ -307,6 +311,102 @@ def scan_frontmatter(text: str, rel_path: str, use_parser: bool = True) -> list[
     return []
 
 
+NEXT_ACTION_MAX_BYTES = 300
+NA_KEY_RE = re.compile(r"^next_action:(?:[ \t]+(.*?))?[ \t]*$")
+NA_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+(.*?)[ \t]*$")
+NA_DOC = "docs/project-next-action.md"
+
+
+def _na_unquote(value: str) -> str:
+    """Strip one layer of matching quotes so the cap measures the text, not the syntax."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _na_item_defects(rel_path: str, lineno: int, where: str, text: str) -> list[str]:
+    defects: list[str] = []
+    size = len(text.encode("utf-8"))
+    if size > NEXT_ACTION_MAX_BYTES:
+        defects.append(
+            f"{rel_path}:{lineno} next_action {where} is {size} bytes "
+            f"(max {NEXT_ACTION_MAX_BYTES}) — one action per item, detail in the body ({NA_DOC})"
+        )
+    if ";" in text:
+        defects.append(
+            f"{rel_path}:{lineno} next_action {where} uses ';' to join clauses — "
+            f"each clause is its own sequence item ({NA_DOC})"
+        )
+    return defects
+
+
+def scan_next_action(text: str, rel_path: str) -> list[str]:
+    """Report `next_action` values that hold more than one action in one string.
+
+    The field is either a quoted scalar (exactly one action) or a block sequence with one
+    action per item; `docs/project-next-action.md` is the contract. Both shapes have always
+    parsed — what this catches is the shape that parses and still cannot be read or edited:
+    the clause pile that reached 2,091 bytes in projects/cloud-voucher/README.md and that
+    the 2026-08-28 merge break happened to land on.
+
+    Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
+    """
+    if not text.startswith(FM_FENCE + "\n"):
+        return []
+
+    lines = text.split("\n")
+    end = None
+    for index in range(1, len(lines)):
+        if lines[index].rstrip() in (FM_FENCE, "..."):
+            end = index
+            break
+    if end is None:
+        return []  # scan_frontmatter owns this defect
+
+    key_at = None
+    for offset in range(1, end):
+        match = NA_KEY_RE.match(lines[offset])
+        if match:
+            key_at = offset
+            break
+    if key_at is None:
+        return []
+
+    value = (NA_KEY_RE.match(lines[key_at]).group(1) or "").strip()
+    lineno = key_at + 1
+
+    if value:
+        if value.startswith("["):
+            if value.replace(" ", "") == "[]":
+                return []  # empty, same as ""
+            return [
+                f"{rel_path}:{lineno} next_action must be a quoted scalar or a block sequence, "
+                f"not an inline flow sequence — one item per line ({NA_DOC})"
+            ]
+        if FM_BLOCK_RE.match(value):
+            return [
+                f"{rel_path}:{lineno} next_action must be a quoted scalar or a block sequence, "
+                f"not a block scalar — a value with line breaks is unreadable in the base "
+                f"table cell ({NA_DOC})"
+            ]
+        return _na_item_defects(rel_path, lineno, "scalar", _na_unquote(value))
+
+    defects: list[str] = []
+    item_no = 0
+    for offset in range(key_at + 1, end):
+        line = lines[offset]
+        if not line.strip():
+            continue
+        item = NA_ITEM_RE.match(line)
+        if not item:
+            break  # a column-0 key ends the sequence; anything else we do not judge
+        item_no += 1
+        defects.extend(
+            _na_item_defects(rel_path, offset + 1, f"item {item_no}", _na_unquote(item.group(1)))
+        )
+    return defects
+
+
 def check_frontmatter(vault: Path, defects: list[str]) -> None:
     """Run the structural check over every tracked Markdown file outside raw/ and archive/."""
     try:
@@ -336,7 +436,11 @@ def check_frontmatter(vault: Path, defects: list[str]) -> None:
         except (OSError, UnicodeDecodeError) as exc:
             defects.append(f"{rel}: could not read for the frontmatter check ({exc})")
             continue
-        defects.extend(scan_frontmatter(text, rel))
+        structural = scan_frontmatter(text, rel)
+        defects.extend(structural)
+        if not structural:
+            # an unparseable block makes the next_action reading meaningless
+            defects.extend(scan_next_action(text, rel))
 
 
 def check_append_only(vault: Path, base: str, defects: list[str]) -> None:
@@ -412,7 +516,7 @@ def main() -> int:
 
     print(
         f"PASS ({lane_label}, base {base}): memory size, memory markers, lane trace, "
-        "raw/archive append-only, frontmatter structure, volume fold"
+        "raw/archive append-only, frontmatter structure, next_action shape, volume fold"
     )
     return 0
 

@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
   주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@42c8dece:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -83,6 +83,10 @@ Task:
   above that size whose body does not state a missing-evidence/coverage reason.
 - In every frontmatter, require `related` items and vault Markdown note references in `sources`
   to be quoted Obsidian wikilinks. Keep raw paths, URLs, and non-note artifacts in `sources` as strings.
+- In project frontmatter, `next_action` holds one action per string — a quoted scalar or a block
+  sequence, each item at most 300 bytes with no `;` joining clauses. `vault_verify.py` reports the
+  breaches; deciding what counts as one action follows `docs/project-next-action.md`. Keep the
+  wording, move the surplus into the body — do not summarise it away.
 - Regenerate the raw index (docs/raw-index.yml canonical + docs/raw-index.md summary;
   untracked local raw files go to gitignored private/raw-index.yml) by running
   `python3 projects/second-brain/config/scripts/generate_raw_index.py` from the vault root
@@ -144,6 +148,9 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
    - 모든 frontmatter에서 `related` 항목 또는 `sources`의 vault Markdown 노트 참조가
      quoted wikilink(`"[[target]]"` 또는 `"[[target|Alias]]"`)가 아닌 경우. 단,
      `sources`의 raw 경로·URL·비노트 파일은 문자열로 유지
+   - 프로젝트 frontmatter의 `next_action`이 한 문자열에 행위를 둘 이상 담은 경우
+     (`vault_verify.py`가 300바이트 초과·`;` 결합을 올린다). 판정과 정비 절차는
+     `docs/project-next-action.md` — **문장은 그대로 옮기고** 넘치는 것은 본문으로 내린다
    - 중복 개념
    - 서로 모순되는 설명
    - 10개 이상 문서를 가진 과밀 topic page
