@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@2156ca2a:projects/second-brain/config/scripts/test_generate_raw_index.py
+# origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/scripts/test_generate_raw_index.py
 """Tests for the conversion-original lanes in generate_raw_index.
 
 Run from the scripts directory:
@@ -36,6 +36,12 @@ def make_vault(tmp: str) -> pathlib.Path:
     return root
 
 
+def write_settings(root: pathlib.Path, text: str) -> None:
+    settings = root / "projects" / "second-brain" / "config"
+    settings.mkdir(parents=True, exist_ok=True)
+    (settings / "team-settings.yaml").write_text(text, encoding="utf-8")
+
+
 def commit_all(root: pathlib.Path) -> None:
     git = ["git", "-C", str(root)]
     subprocess.run(git + ["add", "-A"], check=True)
@@ -47,6 +53,70 @@ def run(root: pathlib.Path) -> str:
     if r.returncode != 0:
         raise AssertionError(f"generator failed: {r.stderr}")
     return r.stdout
+
+
+class SnapshotLane(unittest.TestCase):
+    """docs/raw-layout.md § 레인 2 — raw/<project>/<doc-slug>-<short-commit>.md
+    (team-settings.yaml `raw.snapshot_lanes`에 오른 프로젝트만).
+
+    루트 repo-doc 스냅샷과 같은 노트라 같은 항목 목록에 실린다(유입일·source·역링크·
+    오펀·URL 중복). 다른 점은 루트 파일 수에서 빠진다는 것 하나 — 이 레인은 루트가
+    재구조화 임계(200)를 넘어서 생겼다(2026-10-01).
+    """
+
+    def test_snapshot_lane_is_indexed_but_not_counted_as_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            write_settings(root, 'raw:\n  snapshot_lanes: ["sample-app"]  # lane\n')
+            (root / "raw" / "sample-app").mkdir()
+            (root / "raw" / "root-note.md").write_text(
+                '---\nsource: "https://example.com/a"\n---\n\nbody\n', encoding="utf-8"
+            )
+            (root / "raw" / "sample-app" / "adr-a-1234567.md").write_text(
+                '---\nsource: "example-org/sample-app — docs/adr/a.md"\n---\n\nbody\n',
+                encoding="utf-8",
+            )
+            (root / "raw" / "sample-app" / "adr-b-89abcde.md").write_text(
+                '---\nsource: "example-org/sample-app — docs/adr/b.md"\n---\n\nbody\n',
+                encoding="utf-8",
+            )
+            (root / "wiki" / "n.md").write_text(
+                '---\nsources:\n  - "raw/root-note.md"\n  - "raw/sample-app/adr-a-1234567.md"\n---\n',
+                encoding="utf-8",
+            )
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            md = (root / "docs" / "raw-index.md").read_text(encoding="utf-8")
+            self.assertIn("root_files: 1", yml)
+            self.assertIn("snapshot_files:\n  sample-app: 2", yml)
+            self.assertIn('- file: "raw/sample-app/adr-a-1234567.md"', yml)
+            self.assertNotIn("unknown", yml)  # first-add date found for lane files
+            orphans = yml.split("orphans:")[1].split("duplicate_sources:")[0]
+            self.assertIn("raw/sample-app/adr-b-89abcde.md", orphans)
+            self.assertNotIn("adr-a-1234567", orphans)
+            self.assertIn("루트 파일 1", md)
+            self.assertIn("sample-app 레인 2", md)
+            self.assertIn("raw/sample-app/adr-b-89abcde.md", md)
+
+    def test_no_snapshot_directory_emits_no_snapshot_section(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "root-note.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            md = (root / "docs" / "raw-index.md").read_text(encoding="utf-8")
+            self.assertNotIn("snapshot_files", yml)
+            self.assertNotIn("sample-app 레인", md)
+
+    def test_unreadable_setting_fails_instead_of_dropping_the_lane(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            write_settings(root, "raw:\n  snapshot_lanes:\n    - sample-app\n")
+            r = subprocess.run(["python3", str(SCRIPT)], cwd=root, capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("snapshot_lanes", r.stderr)
 
 
 class SlackLane(unittest.TestCase):

@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
   주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@42c8dece:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -37,7 +37,7 @@ vault 경로를 확인한다.
 4. Claude Code가 가능하면 `$ABSOLUTE_VAULT_DIR` 루트에서 아래 Claude lint job spec을 print mode로 실행한다.
 5. Claude 실행이 실패하면 자동 재시도를 반복하지 않는다. lock을 제거하고 실패 원인을 보고한 뒤 Hermes-native 절차로 fallback한다.
 6. Claude 실행 후에는 결과 파일 존재 여부를 Hermes가 확인하고, 공유 불변식(memory 크기,
-   raw·archive append-only, frontmatter 파싱, 레인 흔적 = lint 리포트가 diff에 있음)은
+   raw·archive append-only, raw 색인 범위, frontmatter 파싱, 레인 흔적 = lint 리포트가 diff에 있음)은
    `python3 projects/second-brain/config/scripts/vault_verify.py --lane lint --base "$(git merge-base HEAD master)"`로 판정한다.
    exit 0이 아니면 성공으로 보고하지 않고 출력된 defect를 그대로 전달한다.
 7. lock을 제거하고 실행 경로(Claude 또는 Hermes fallback)를 보고한다.
@@ -66,6 +66,12 @@ Read first:
 Task:
 - Scan wiki markdown files and topic pages. Scan frontmatter in all other Markdown files except
   `raw/` and `archive/`.
+- **"wiki" here always means the vault-root `wiki/` directory**, never a project-local folder
+  that happens to be named `wiki/` (e.g. `projects/<name>/wiki/`). Project-local wikis carry their
+  own `type`/`status` enums and their own document contract, so lint neither applies the wiki
+  enums to them nor resolves their wikilinks as wiki notes — they are covered by the
+  frontmatter-only scan like any other project file. (Written down 2026-09-17 when
+  a project-local `wiki/` was created and made the bare word ambiguous.)
 - Do not read or edit raw/ file contents.
 - Check frontmatter, template drift, stub notes, orphan notes, broken wikilinks, escaped-pipe aliases, raw-file wikilinks in sources, duplicate concepts, contradictions, and overcrowded topic pages.
 - An escaped pipe INSIDE a Markdown table cell is required, not a violation (VAULT_RULES.md
@@ -87,6 +93,11 @@ Task:
   sequence, each item at most 300 bytes with no `;` joining clauses. `vault_verify.py` reports the
   breaches; deciding what counts as one action follows `docs/project-next-action.md`. Keep the
   wording, move the surplus into the body — do not summarise it away.
+- In project frontmatter, every `milestones` entry names its checkpoint in at most 300 bytes —
+  the name is a label, the evidence goes in the body (`## Milestone Notes`) or in the `outputs/`
+  report the label points at. `vault_verify.py` reports the breaches; deciding what stays in the
+  label follows `docs/project-milestones.md`. Same rule about the wording: move it, do not
+  rewrite it, and drop a clause only after finding it verbatim elsewhere in the note.
 - Regenerate the raw index (docs/raw-index.yml canonical + docs/raw-index.md summary;
   untracked local raw files go to gitignored private/raw-index.yml) by running
   `python3 projects/second-brain/config/scripts/generate_raw_index.py` from the vault root
@@ -96,6 +107,12 @@ Task:
   or orphan Slack extracts (a raw/slack/ file whose path no note mentions),
   include them in the lint report. Read docs/raw-index.yml when you need per-file
   provenance; the .md carries counts only.
+- The lint lane is the ONLY lane that commits docs/raw-index.yml and docs/raw-index.md
+  (docs/raw-layout.md § 색인, 2026-09-29); ingest, promote and every other PR leave them as on
+  their base. Regenerate only on a lint branch cut from up-to-date master (fetch, then branch
+  from the current master): if HEAD does not contain the current master, do not regenerate —
+  report it. When the pass is committed, the two index files go in their own commit, apart
+  from the lint report and any fixes.
 - Save the report to outputs/YYYY-MM-DD-vault-lint.md using templates/lint-report.md when available.
 - Do not stamp wiki/VAULT_MEMORY.md: since 2026-09-03 it holds no `Last Lint Pass:`, `Last Ingest:`,
   `Volume to date` or verification-queue count (they conflicted on every concurrent branch). The
@@ -151,6 +168,10 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
    - 프로젝트 frontmatter의 `next_action`이 한 문자열에 행위를 둘 이상 담은 경우
      (`vault_verify.py`가 300바이트 초과·`;` 결합을 올린다). 판정과 정비 절차는
      `docs/project-next-action.md` — **문장은 그대로 옮기고** 넘치는 것은 본문으로 내린다
+   - 프로젝트 frontmatter의 `milestones` 이름이 라벨이 아니라 기록을 담은 경우
+     (`vault_verify.py`가 300바이트 초과를 올린다). 판정과 정비 절차는
+     `docs/project-milestones.md` — 근거는 본문 `## Milestone Notes`나 outputs/ 리포트로
+     옮기고, 이미 본문에 같은 문장이 있을 때만 지운다
    - 중복 개념
    - 서로 모순되는 설명
    - 10개 이상 문서를 가진 과밀 topic page
@@ -166,9 +187,13 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
    gitignored `private/raw-index.yml`): vault 루트에서
    `python3 projects/second-brain/config/scripts/generate_raw_index.py`
    (raw/ 파일명과 frontmatter만 읽는다 — raw/ 내용 수정 없음). 오펀 raw 파일, source URL 중복,
-   짝 없는 변환 원본(`raw/pdf|hwp|doc`의 보존 파일 중 어느 변환 노트도 `source_<lane>` 키로
+   짝 없는 변환 원본(`raw/pdf|hwp|doc|xlsx`의 보존 파일 중 어느 변환 노트도 `source_<lane>` 키로
    가리키지 않는 것), slack 레인 오펀(`raw/slack/`의 파일 중 어느 노트도 경로를 언급하지 않는 것)이
    표시되면 lint 리포트에 포함한다. 파일별 출처가 필요하면 `.yml`을 읽는다.
+   **색인 두 파일(`docs/raw-index.yml`·`.md`)을 커밋하는 레인은 lint 하나다**(`docs/raw-layout.md`
+   § 색인, 2026-09-29) — ingest·promote 등 다른 PR은 base 그대로 둔다. 재생성은 최신 master에서
+   딴 lint 브랜치에서만 한다(fetch 후 현재 master에서 분기). HEAD가 현재 master를 포함하지 않으면
+   재생성하지 않고 보고한다. 커밋할 때 색인 두 파일은 lint 리포트·수정분과 분리된 별도 커밋 하나로 남긴다.
 7. lint 결과를 `outputs/YYYY-MM-DD-vault-lint.md`에 저장한다.
 8. `wiki/VAULT_MEMORY.md`에는 실행 카운터를 쓰지 않는다(2026-09-03부터 `Last Lint Pass`·`Volume to date`·
    `Verification queue` 수치 없음 — 리포트가 기록이고, 수치는 `ls outputs/*-vault-lint*.md`·`vault_volume.py`로 유추).

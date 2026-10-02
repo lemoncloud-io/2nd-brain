@@ -1,5 +1,5 @@
 # 프로젝트 `next_action` 계약
-<!-- origin: lemoncloud-io/knowledge@42c8dece:docs/project-next-action.md -->
+<!-- origin: lemoncloud-io/knowledge@11357973:docs/project-next-action.md -->
 
 `projects/<name>/README.md`와 `projects/@<org>/<folder>/README.md` frontmatter의 `next_action`
 한 필드가 가질 수 있는 모양·문법·전환 기준. 진입점 요약은 `VAULT_RULES.md` § Note Contracts
@@ -148,4 +148,5 @@ master `edebf80` 기준, `next_action`을 가진 프로젝트 노트 116건의 �
   실제 사고이고, `vault_verify.py`가 잡는 첫 번째 결함이다. merge 충돌을 "양쪽 다 살리기"로
   풀 때 나온다.
 - 항목을 늘리는 것으로 `milestones`를 대신하지 않는다. `milestones`는 프로젝트가 끝날 때까지
-  남는 축이고, `next_action`은 다음 회차에 지워질 줄이다.
+  남는 축이고, `next_action`은 다음 회차에 지워질 줄이다. 그 필드에도 같은 판정이 성문화돼
+  있다 — 이름은 라벨, 근거는 본문(`docs/project-milestones.md`, 2026-09-21 제정).

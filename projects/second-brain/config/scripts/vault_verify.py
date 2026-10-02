@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@2156ca2a:projects/second-brain/config/scripts/vault_verify.py
+# origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/scripts/vault_verify.py
 """Verify the vault invariants shared by every write lane (ingest, lint, promote).
 
 This is the single post-run check. Skills call it instead of restating the same
@@ -29,6 +29,17 @@ Checks (all lanes):
      with each item at most 300 bytes and no `;` joining clauses. Added 2026-09-15 after
      one project README's value reached 2,091 bytes of `;`-joined clauses; contract in
      `docs/project-next-action.md`.
+  8. Every `milestones` entry names its checkpoint in at most 300 bytes — the evidence,
+     numbers and verdicts belong in the body. Added 2026-09-21 after one project README's
+     frontmatter grew to 62% of the file on milestone names up to 4,889 bytes; contract in
+     `docs/project-milestones.md`.
+  9. docs/raw-index.yml and docs/raw-index.md are committed by the lint lane only. A change
+     set that touches either file must touch nothing under raw/ or Clippings/ — an ingest
+     or promote change set always adds raw files, a lint change set never does. Added
+     2026-09-29: the generated date and counts at the top of both files collided between
+     any two raw-touching PRs, and a long-lived PR re-conflicted every time master moved.
+     Only tracked changes count (a lint pass may run beside pending clippings and
+     local-only raw files). Contract in `docs/raw-layout.md` § 색인.
 
 Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
 diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
@@ -77,6 +88,11 @@ LANE_TRACE = {
 }
 
 EXPECTED_DIRS = ["wiki", "raw", "Clippings", "templates"]
+
+# Generated raw index: only the lint lane commits it (docs/raw-layout.md § 색인).
+RAW_INDEX_FILES = ("docs/raw-index.yml", "docs/raw-index.md")
+RAW_INDEX_EXCLUSIVE_DIRS = ("raw/", "Clippings/")
+
 MARKER_RE = re.compile(r"^- (Last [^:]+):")
 
 # Frontmatter structural check. Deliberately dependency-free: PyYAML is absent on
@@ -132,23 +148,36 @@ def check_memory(vault: Path, lane: str, defects: list[str]) -> None:
 
 
 
-def _changed_paths(vault: Path, base: str) -> list[str] | None:
-    """Added/modified paths vs base, plus untracked files (a lane may verify pre-commit)."""
+def _changed_paths(
+    vault: Path,
+    base: str,
+    pathspecs: tuple[str, ...] = ("outputs",),
+    untracked: bool = True,
+) -> list[str] | None:
+    """Added/modified paths vs base, plus untracked files (a lane may verify pre-commit).
+
+    Defaults cover outputs/ with untracked files, which is what the lane trace needs.
+    Paths come back as git prints them — a non-ASCII name is double-quoted with octal
+    escapes (core.quotepath), so callers that match on a prefix strip the quote.
+    """
     try:
-        diff = subprocess.run(["git", "diff", "--name-status", base, "--", "outputs"],
+        diff = subprocess.run(["git", "diff", "--name-status", base, "--", *pathspecs],
                               cwd=vault, capture_output=True, text=True, timeout=60)
-        untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", "outputs"],
-                                   cwd=vault, capture_output=True, text=True, timeout=60)
+        others = None
+        if untracked:
+            others = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", *pathspecs],
+                                    cwd=vault, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError):
         return None
-    if diff.returncode != 0 or untracked.returncode != 0:
+    if diff.returncode != 0 or (others is not None and others.returncode != 0):
         return None
     paths = []
     for line in diff.stdout.splitlines():
         status, _, rest = line.partition("\t")
         if status[:1] in ("A", "M", "R"):
             paths.append(rest.split("\t")[-1])
-    paths += [p for p in untracked.stdout.splitlines() if p.strip()]
+    if others is not None:
+        paths += [p for p in others.stdout.splitlines() if p.strip()]
     return paths
 
 
@@ -176,6 +205,34 @@ def check_lane_trace(vault: Path, base: str, lane: str, defects: list[str]) -> N
             return
     what = "lint report outputs/*-vault-lint*.md" if kind is None else f"outputs/runs/ run-log with `kind: {kind}`"
     defects.append(f"no {what} added or modified against {base} after a {lane} run")
+
+
+def check_raw_index_scope(vault: Path, base: str, defects: list[str]) -> None:
+    """docs/raw-index.* may change only in a lint-lane change set (no raw/, no Clippings/).
+
+    Structural, not by branch name: an ingest or promote change set always adds raw files,
+    a lint change set never does. Untracked files are left out on purpose — a lint pass may
+    run on a machine holding pending clippings or local-only raw files that are not part of
+    the change set. Runs for every lane, like the append-only check.
+    """
+    paths = _changed_paths(
+        vault, base, pathspecs=RAW_INDEX_FILES + RAW_INDEX_EXCLUSIVE_DIRS, untracked=False
+    )
+    if paths is None:
+        defects.append(f"raw index scope check could not run (git diff against {base} failed)")
+        return
+    plain = [p[1:] if p.startswith('"') else p for p in paths]
+    index_changed = [rel for rel in RAW_INDEX_FILES if rel in plain]
+    raw_side = [rel for rel in plain if rel.startswith(RAW_INDEX_EXCLUSIVE_DIRS)]
+    if not index_changed or not raw_side:
+        return
+    defects.append(
+        f"{' and '.join(index_changed)} changed in the same change set as "
+        f"{len(raw_side)} raw/ or Clippings/ path(s) (e.g. {raw_side[0].rstrip(chr(34))}) — "
+        "the raw index is committed by the lint lane only and the next lint pass updates it; "
+        f"restore the base version: git checkout {base} -- {' '.join(RAW_INDEX_FILES)} "
+        "(do not regenerate here — docs/raw-layout.md § 색인)"
+    )
 
 
 def _closes_quote(value: str) -> bool:
@@ -346,7 +403,7 @@ def scan_next_action(text: str, rel_path: str) -> list[str]:
     The field is either a quoted scalar (exactly one action) or a block sequence with one
     action per item; `docs/project-next-action.md` is the contract. Both shapes have always
     parsed — what this catches is the shape that parses and still cannot be read or edited:
-    the clause pile that reached 2,091 bytes in projects/cloud-voucher/README.md and that
+    the clause pile that reached 2,091 bytes in one project README and that
     the 2026-08-28 merge break happened to land on.
 
     Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
@@ -407,6 +464,93 @@ def scan_next_action(text: str, rel_path: str) -> list[str]:
     return defects
 
 
+MILESTONE_MAX_BYTES = 300
+MS_KEY_RE = re.compile(r"^milestones:(?:[ \t]+(.*?))?[ \t]*$")
+MS_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+(.*?)[ \t]*$")
+MS_NAME_RE = re.compile(r"^[ \t]+name:[ \t]*(.*?)[ \t]*$")
+MS_MAP_KEY_RE = re.compile(r"^(name|due|done|status):(?:[ \t]+(.*))?$")
+MS_DOC = "docs/project-milestones.md"
+
+
+def scan_milestones(text: str, rel_path: str) -> list[str]:
+    """Report `milestones` entries whose name carries the record instead of naming it.
+
+    A milestone name is a label: what the checkpoint is, in at most 300 bytes, one line.
+    The evidence — counts, pass tables, deploy rounds, pointers — belongs in the body or in
+    the `outputs/` report the label points at. `docs/project-milestones.md` is the contract.
+    Both item shapes are legal (a plain string, or a mapping with `due`/`done`); what this
+    catches is the shape that parses and still buries the project: the 4,889-byte name that
+    made one README's frontmatter 62% of the file.
+
+    Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
+    """
+    if not text.startswith(FM_FENCE + "\n"):
+        return []
+
+    lines = text.split("\n")
+    end = None
+    for index in range(1, len(lines)):
+        if lines[index].rstrip() in (FM_FENCE, "..."):
+            end = index
+            break
+    if end is None:
+        return []  # scan_frontmatter owns this defect
+
+    key_at = None
+    for offset in range(1, end):
+        if MS_KEY_RE.match(lines[offset]):
+            key_at = offset
+            break
+    if key_at is None:
+        return []
+
+    value = (MS_KEY_RE.match(lines[key_at]).group(1) or "").strip()
+    if value:
+        if value.replace(" ", "") == "[]":
+            return []  # empty
+        if value.startswith("["):
+            return [
+                f"{rel_path}:{key_at + 1} milestones must be a block sequence, not an inline "
+                f"flow sequence — one entry per line ({MS_DOC})"
+            ]
+        return [
+            f"{rel_path}:{key_at + 1} milestones must be a block sequence — an entry per "
+            f"checkpoint, not one value ({MS_DOC})"
+        ]
+
+    defects: list[str] = []
+    item_no = 0
+    for offset in range(key_at + 1, end):
+        line = lines[offset]
+        if not line.strip():
+            continue
+        item = MS_ITEM_RE.match(line)
+        if item:
+            item_no += 1
+            inner = item.group(1)
+            mapping = MS_MAP_KEY_RE.match(inner)
+            if mapping and mapping.group(1) != "name":
+                continue  # a mapping entry whose name: line comes further down
+            name = mapping.group(2) if mapping else inner
+        else:
+            named = MS_NAME_RE.match(line)
+            if not named:
+                if not line[0].isspace():
+                    break  # a column-0 key ends the sequence
+                continue  # due:/done: and anything else we do not judge
+            name = named.group(1)
+        if name is None:
+            continue
+        size = len(_na_unquote(name.strip()).encode("utf-8"))
+        if size > MILESTONE_MAX_BYTES:
+            defects.append(
+                f"{rel_path}:{offset + 1} milestones entry {item_no} names its checkpoint in "
+                f"{size} bytes (max {MILESTONE_MAX_BYTES}) — the name is a label, the record "
+                f"goes in the body ({MS_DOC})"
+            )
+    return defects
+
+
 def check_frontmatter(vault: Path, defects: list[str]) -> None:
     """Run the structural check over every tracked Markdown file outside raw/ and archive/."""
     try:
@@ -439,8 +583,9 @@ def check_frontmatter(vault: Path, defects: list[str]) -> None:
         structural = scan_frontmatter(text, rel)
         defects.extend(structural)
         if not structural:
-            # an unparseable block makes the next_action reading meaningless
+            # an unparseable block makes the next_action/milestones reading meaningless
             defects.extend(scan_next_action(text, rel))
+            defects.extend(scan_milestones(text, rel))
 
 
 def check_append_only(vault: Path, base: str, defects: list[str]) -> None:
@@ -504,6 +649,7 @@ def main() -> int:
     check_memory(vault, args.lane, defects)
     check_lane_trace(vault, base, args.lane, defects)
     check_append_only(vault, base, defects)
+    check_raw_index_scope(vault, base, defects)
     check_frontmatter(vault, defects)
     defects.extend(vault_volume.check(vault))
 
@@ -516,7 +662,8 @@ def main() -> int:
 
     print(
         f"PASS ({lane_label}, base {base}): memory size, memory markers, lane trace, "
-        "raw/archive append-only, frontmatter structure, next_action shape, volume fold"
+        "raw/archive append-only, raw index scope, frontmatter structure, next_action shape, "
+        "milestone names, volume fold"
     )
     return 0
 

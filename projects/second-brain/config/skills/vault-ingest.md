@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)에 새로 들어온
   Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
-origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-ingest.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-ingest.md
 ---
 
 # Vault Ingest (Hermes-native fallback)
@@ -98,7 +98,9 @@ wikilink로 만들지 않는다.
 브랜치 생성, 커밋 정리, PR 요청(리뷰어는 `projects/second-brain/config/team-settings.yaml`의 `github.default_reviewer`)은 git/`gh` CLI를 실행할
 수 있는 실행 경로(`vault-ingest-claude.md`)의 책임이다. Hermes가 이 fallback을
 실행한 뒤 별도로 git 작업을 하고 싶다면 `vault-ingest-claude.md`의 "GitHub PR
-워크플로우" 절차를 그대로 따른다.
+워크플로우" 절차를 그대로 따른다. 이 fallback도 raw 색인 생성기(`generate_raw_index.py`)를
+돌리지 않는다 — `docs/raw-index.*`는 lint 레인만 커밋하고 다음 lint 패스가 갱신한다
+(`docs/raw-layout.md` § 색인).
 
 ## 금지 사항
 
