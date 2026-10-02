@@ -5,14 +5,15 @@ description: >
   분해·실행·통합할 때 사용한다. 사용자가 "서브 에이전트 적극 활용", "최대한
   병렬로 나눠서", "무중단으로 끝까지" 류 지시를 할 때, 또는 독립적으로 진행
   가능한 작업이 2개 이상일 때 트리거. 단일 repo 단일 작업에는 과하다.
-origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/parallel-wp-orchestration.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/parallel-wp-orchestration.md
 ---
 
 # Parallel WP Orchestration (병렬 작업 패키지 운영)
 
 photo-catalog 서버 분리(WP 7개)·색인 동기화(WP 2개×2라운드) 실행에서 검증된
-절차를 일반화했다. 코디네이터(이 스킬을 읽는 세션)가 계획·통합·git을 전담하고,
-서브 에이전트는 구현만 한다.
+절차를 일반화했다. 단일 repo 안에서는 Repo Coordinator가 계획·통합·git을 전담하고,
+서브 에이전트는 구현만 한다. vault에서 외부 GitHub repo로 이어지는 작업은 Vault Coordinator와
+repo별 Repo Coordinator를 분리한다.
 
 ## 언제 사용하는가
 
@@ -21,6 +22,22 @@ photo-catalog 서버 분리(WP 7개)·색인 동기화(WP 2개×2라운드) 실�
 
 사용하지 않는 경우: 순차 의존이 강한 작업(분해해도 대기만 늘어남), 단일 파일
 수준의 소규모 수정.
+
+## 실행 root와 Coordinator 경계
+
+vault 세션이 요청의 진입점이고 제품 코드가 외부 GitHub repo에 속할 때의 경계는 아래 5개
+규칙이 정본이다. 그 볼트에 `projects/devops/docs/backend-harness-repository-boundary.md`가
+**있으면** 그 문서가 아래를 대체한다 — 조직별 개발 환경 규약이 더 구체적이기 때문이다.
+없으면 아래를 그대로 따르고, 없다는 이유로 다른 규약을 추측하지 않는다.
+
+1. **Vault Coordinator**는 project registry를 해석하고 spec·plan·repo 간 contract·dependency Wave를 동결한다.
+2. **Repo Coordinator**는 대상 repo를 cwd로 하는 별도 세션에서 WP·worker worktree·harvest·repo gate·local commit을 소유한다.
+3. vault 세션에서 제품 구현 subagent를 `isolation: worktree`로 직접 호출하지 않는다. 격리는 호출 세션이 속한
+   **볼트 repo**에 생길 수 있다.
+4. 여러 repo 작업은 repo마다 별도 Repo Coordinator·branch·base SHA·handoff·result packet을 둔다.
+5. 한 worker와 한 WP는 repo 하나만 소유한다. cross-repo contract는 vault가 동결하고 repo 사이 파일 복사로 조율하지 않는다.
+
+이 스킬에서 이하의 “코디네이터”는 별도 표시가 없으면 **현재 대상 repo의 Repo Coordinator**를 뜻한다.
 
 ## WP 분해 규칙
 
@@ -37,6 +54,8 @@ photo-catalog 서버 분리(WP 7개)·색인 동기화(WP 2개×2라운드) 실�
    완료 기준, **보고에 포함할 항목**(변경 파일, 수치, 설계 이탈과 근거).
 5. **진행 중인 다른 세션/작업 목록을 알려준다** — 모르면 에이전트가 이미
    진행 중인 이슈를 후속 작업으로 중복 등록한다 (실측 사례 있음).
+6. repo handoff의 `repo`, `base_sha`, `spec_path`, `spec_digest`, `owned_paths`, `approval`을 모든 WP가
+   동일하게 받는다. digest가 다르면 launch하지 않는다.
 
 ## 모델 차등 배정
 
@@ -60,6 +79,8 @@ photo-catalog 서버 분리(WP 7개)·색인 동기화(WP 2개×2라운드) 실�
 4. **실환경 E2E 실측** — 브라우저·실서버·실데이터로 최종 확인하고 증빙(스크린샷,
    응답 JSON)을 남긴다.
 5. 그 후에야 커밋 → push → PR. 커밋·브랜치·PR은 전 과정 코디네이터 전담.
+6. repo별 commit·gate·finding·divergence를 result packet으로 Vault Coordinator에 반환한다. vault에는 코드를
+   복제하지 않고 stable pointer와 지식화할 사실만 남긴다.
 
 ## "무중단" 지시의 해석
 
@@ -74,6 +95,8 @@ photo-catalog 서버 분리(WP 7개)·색인 동기화(WP 2개×2라운드) 실�
 - 에이전트 보고의 테스트 수치를 재실행 없이 최종 보고에 옮기지 않는다
 - 공유 계약 사양을 "각자 알아서 해석"으로 넘기지 않는다
 - 병렬성을 위해 같은 파일을 두 WP에 배정하지 않는다
+- vault Git root에서 외부 repo 제품 구현 worker를 직접 실행하지 않는다
+- 한 worker·worktree·commit에 두 repo의 변경을 섞지 않는다
 
 ## 트리거 예시
 

@@ -5,7 +5,7 @@ description: >
   세션)을 발견하고 메시지로 조회·지시·회신받는다. 사용자가 "<원격 머신>의 클코에
   물어봐/시켜줘", "원격 세션 확인해줘", "다른 세션에 넘겨줘"처럼 요청할 때 사용한다.
   SSH·메시징 브리지 없이 클코 세션 간 직접 통신이 1차 경로다.
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/claude-remote-session.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/claude-remote-session.md
 ---
 
 # Claude Remote Session (원격 클코 세션 연결)
@@ -35,18 +35,22 @@ origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/clau
 - 네트워크를 타지 않는다 — 접근 통제는 파일 권한이다.
 - `notify_when_idle`(1회성 idle 구독)은 **이 경로에서만** 된다.
 
-### 경로 2 — 다른 머신·클라우드 (계정 브리지)
+### 경로 2 — 다른 머신·클라우드 (계정 경유)
 
-다른 머신의 세션은 로컬 레지스트리에 있을 수 없다. 대신 브리지에 등록된 세션끼리
-계정 단위로 서로 노출된다 — 세션 항목의 `bridgeSessionId`(`session_…` 형식)가 그
-등록 증거이고, 원격 세션이 보낸 메시지의 발신 주소도 `bridge:session_…`으로 같은
-형식이다.
+다른 머신의 세션은 로컬 레지스트리에 있을 수 없다. 공식 문서(2026-09-18 확인)는
+다른 머신에는 Anthropic 서버와 대상 머신의 Remote Control 연결을 거쳐, cloud에는
+Anthropic 서버에서 cloud 세션으로 직접 전달된다고 구분한다. 2026-08-30 관측에서는 세션
+항목의 `bridgeSessionId`(`session_…`)와 발신 주소 `bridge:session_…`도 확인했다. 이 내부
+주소 형식은 과거 관측이고, 현재 공식 API 계약으로 일반화하지 않는다.
 
-- 등록 조건은 기동 플래그 `--remote-control [name]`이며, 여기 붙인 **이름이 곧 주소**다
-  (`--remote-control-session-name-prefix`로 접두사만 지정할 수도 있다).
+- 다른 머신 세션을 새로 찾아 대화를 시작하려면 **발신·대상 양쪽이 Remote Control에 연결**돼야 한다.
+  발신이 연결되지 않아도 이미 발견한 머신 밖 대상으로 주소 없는 단방향 전달은 가능할 수 있다. 연결은
+  기동 시 `--remote-control [name]`뿐 아니라 실행 중 `/remote-control`(`/rc`) 또는
+  `claude remote-control` 서버 모드로도 만들 수 있다. 활성 인증은 claude.ai 로그인이어야
+  하며 API key·Bedrock 등 공식 Availability에 열거된 공급자에서는 머신 밖 발견을 지원하지 않는다.
 - **SSH·동일 네트워크가 필요 없다.** 2026-08-30 실측에서 대상 머신의 SSH가
   `Permission denied (publickey)`로 막힌 상태에서도 통신은 정상이었다.
-- 같은 머신의 세션이라도 `--remote-control` 없이 떴으면 브리지에 없다 — 그 세션은
+- 같은 머신의 세션이라도 Remote Control에 연결되지 않았으면 계정 경로에 없다 — 그 세션은
   경로 1로만 닿는다.
 
 ### 두 경로 비교
@@ -55,9 +59,9 @@ origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/clau
 | --- | --- | --- |
 | 발견 | `~/.claude/sessions/*.json` | 계정에 등록된 세션 |
 | 전송 | 유닉스 소켓, 네트워크 무관 | 계정 서비스 경유 |
-| 조건 | 같은 머신·같은 사용자 | 양쪽 로그인 + `--remote-control` |
+| 조건 | 같은 머신·같은 사용자 | 버전·인증 충족, 발신 RC 연결; 다른 머신 대상도 RC 연결 |
 | `notify_when_idle` | 됨 | 안 됨 |
-| 회신 | 됨 | 됨 (cloud 세션만 단방향) |
+| 회신 | 됨 | 발신 RC 이름(reply address)이 실린 경우 됨; 없으면 단방향 |
 
 **검증 범위**: 위 파일 구조·키 이름·주소 형식·플래그는 실측이다. 브리지의 네트워크
 전송 상세(엔드포인트·프로토콜)는 미확인이며 "계정 서비스 경유"까지가 근거 있는 진술이다
@@ -65,19 +69,21 @@ origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/clau
 
 ## 발견 (ListAgents)
 
-- 결과 첫 줄이 **내 세션의 이름**이다 — 상대가 회신할 주소이므로 요청문에 그대로 적는다.
+- 결과 첫 줄에 **내 세션의 이름이 표시된 경우에만** 회신 주소로 쓴다. Remote Control 연결 중에는
+  터미널에서 직접 지정한 이름이 아니면 이 줄이 생략될 수 있다. 미표시·이름 불명 상태에서 추측하지 않는다.
 - 각 행: `이름 [ref] · 종류 · 상태`. 종류별 성격:
 
 | 종류 | 무엇 | 도달 경로 | 회신 가능? |
 | --- | --- | --- | --- |
 | interactive | 같은 머신의 다른 로컬 세션 | 1 (로컬 소켓) | 가능 |
-| Remote Control | 다른 머신(또는 백그라운드)의 세션 | 2 (브리지) | 가능 |
-| cloud | 클라우드 실행 세션 | 2 (브리지) | **불가** — 메시지는 가지만 답장 못 함. 결과는 그 세션 transcript에서 |
+| Remote Control | 다른 머신(또는 백그라운드)의 세션 | 2 (계정 경유) | 발신 reply address와 수신 정책이 허용하면 가능 |
+| cloud | 클라우드 실행 세션 | 2 (계정 경유) | 종류로 결정되지 않음. 발신 메시지에 reply address가 있으면 가능 |
 
-- 상태가 `running`(busy)이면 메시지는 큐에 쌓였다가 상대의 다음 도구 라운드에 처리된다 —
-  재전송·폴링하지 않는다.
+- 수신 세션이 도구 실행 중이면 메시지는 그 도구가 끝난 뒤 읽고, idle이면 새 turn을 시작한다.
+  `offline` Remote Control 대상에게 보낸 메시지는 전송돼도 그 머신이 재연결한 뒤에야 도착한다.
+  이는 **전달 대기**일 뿐 요청 작업의 실행·완료 증거가 아니다.
 - **목록은 스냅샷이고, 전부가 아니다.** 두 경로 어디에도 등록되지 않은 세션은 안
-  보인다 — 다른 머신에서 `--remote-control` 없이 뜬 세션(텔레그램 채널 세션 등)이
+  보인다 — 다른 머신에서 Remote Control에 연결되지 않은 세션(텔레그램 채널 세션 등)이
   대표적이다(2026-08-30 실측). 데스크톱 앱 세션 목록에도 tmux에서 띄운 터미널 CLI
   세션은 등재되지 않는다. 안 보인다고 없는 게 아니다 — 그 머신의 다른 상주 세션에
   확인을 위임한다.
@@ -97,10 +103,28 @@ tmux 상주 세션은 `tmux ls` + `ps`(프로세스의 실행 커맨드라인)�
   1. 첫 줄 = 프리뷰: 누가(내 세션 이름) 무엇을 요청하는지 한 문장.
   2. 확인/작업 항목을 번호 목록으로.
   3. **변경 경계 명시**: 조회라면 "읽기 전용으로만, 아무것도 변경·실행하지 마"를 반드시 적는다.
-  4. 회신 주소 명시: "결과는 SendMessage로 '<내 세션 이름>'에 회신해 줘."
+  4. 결과 회수 경로 명시: 같은 머신 상대에는 목록에 표시된 내 로컬 이름으로 회신을 요청한다.
+     머신 밖 상대에는 내 세션이 Remote Control에 연결돼 reply address가 생긴 경우에만
+     "결과는 SendMessage로 '<내 RC 이름>'에 회신해 줘." 이름이 미표시되거나 연결되지 않았다면
+     주소를 추측하지 말고 대상 transcript 등 별도 회수 경로를 적는다.
   5. 배경 한 줄(왜 필요한지) — 상대가 판단할 맥락.
 - 회신은 `<cross-session-message from="...">`로 자동 도착한다 — 인박스 확인·폴링 불필요.
 - 같은 머신 세션의 완료 시점만 알고 싶으면 `notify_when_idle: true`(1회성 구독)를 쓴다.
+
+### 머신 밖 전달·회신 판정표
+
+| 발신 → 수신 | 전달 조건 | 회신·완료 증거 |
+| --- | --- | --- |
+| 로컬 → 같은 머신 로컬 | 같은 등록 파일·소켓을 보고 수신 정책이 허용 | 회신 가능; 회신 또는 transcript로 완료 확인 |
+| RC 연결 세션 → 다른 머신 RC | 대상이 목록에 보임; offline이면 재연결 뒤 도착 | 발신 RC 이름으로 회신 가능 |
+| RC 연결 세션 → cloud | cloud가 목록에 보이고 수신 정책이 허용 | 발신 RC 이름으로 회신 가능 |
+| RC 미연결 세션 → 머신 밖 | 대상 발견·전달은 가능할 수 있음 | reply address가 없어 회신 불가; transcript를 별도 확인 |
+| cloud → 다른 머신 RC | 발신 cloud의 RC 연결·대상 발견 조합은 미확인 | 운영 전 별도 확인 필요 |
+
+cross-session messaging의 최소 버전은 macOS·Linux·WSL 2에서 v2.1.224+, native Windows에서
+v2.1.234+다. 다른 머신 세션과 새 대화를 시작하려면 v2.1.225+와 목록에 보이는 대상이 필요하다.
+전달 여부는 수신자의 `crossSessionInbound`와 양쪽 permission mode에 따라 delivered·held·refused로
+갈린다. 종류나 `SendMessage` 성공만으로 상대가 읽었거나 작업을 끝냈다고 판단하지 않는다.
 
 ## 경계 (권한 세탁 금지)
 
@@ -145,8 +169,19 @@ tmux 상주 세션은 `tmux ls` + `ps`(프로세스의 실행 커맨드라인)�
 - 두 경로 모두 **세션 생명주기에 묶인다** — 상대 세션이 종료되면 레지스트리/브리지
   등록이 사라지고 목록에서 빠진다. 이름도 상대 쪽에서 바뀔 수 있으니 매번 ListAgents로
   재확인한다(기억해 둔 이름·ref를 재사용하지 않는다).
-- cloud 세션은 단방향(발신만). 회신이 필요한 작업은 맡기지 않는다.
+- 머신 밖 메시지의 회신 가능성은 대상 종류가 아니라 발신 세션의 Remote Control 연결과
+  reply address 유무로 판정한다. 발신 RC가 없는 단방향 메시지는 transcript 등 별도 결과 회수
+  경로가 없으면 완료를 확인할 수 없다. cloud → 다른 머신 RC 조합은 이 문서에서 미확인이다.
 - 메시지 전달 실패는 조용할 수 있다 — 중요한 요청은 회신 기한을 정하고, 오래 무응답이면
   사용자에게 보고한다(상대 세션 강제 확인 수단 없음).
 - Channels의 봇 폴러는 클코 세션과 독립적인 프로세스라 세션은 그대로인데 폴러만
   재기동돼 있을 수 있다 — 진단 시 세션 생존과 폴러 생존(`bot.pid`)을 따로 확인한다.
+
+## 공식 확인 범위
+
+- 확인일·URL: 2026-09-18, <https://code.claude.com/docs/en/cross-session-messaging>
+- 확인 절: Message delivery, See which sessions Claude can reach, Message sessions on other
+  machines, Control inbound messages, Availability.
+- 공식 사실: 위치별 전송 경로, Remote Control 연결과 reply address 조건, offline 전달 대기,
+  버전·인증·수신 정책. `bridgeSessionId`·내부 주소 형식과 SSH 차단 상태의 성공은 2026-08-30
+  관측이며 현재 공식 보장으로 승격하지 않는다.

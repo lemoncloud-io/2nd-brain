@@ -10,7 +10,7 @@ description: >
   희소한 이미지 위주 문서는 D3(페이지 렌더 → Claude 비전 전사)로 간다. wiki화는
   하지 않는다 — 기존 vault-ingest가 이어받는다. 커밋 불가 문서(고객사·개인)는 vault
   밖 변환 모드로 변환만 수행한다. 근거: 2026-08-25 로컬 스모크 실측 (§ 근거·주의).
-origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/doc2md-ingest/SKILL.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/doc2md-ingest/SKILL.md
 ---
 
 # doc2md-ingest (Word DOC/DOCX → Clippings MD)
@@ -30,6 +30,7 @@ origin: lemoncloud-io/knowledge@35cc79f:projects/second-brain/config/skills/doc2
 | `.docx` · `.doc` | **이 스킬** |
 | `.hwp` · `.hwpx` | `hwp2md-ingest` |
 | `.pdf` | `pdf2md-ingest` |
+| `.xlsx` · `.xlsm` | `xlsx2md-ingest` |
 
 "docx를 pdf로 출력해서 pdf2md로 넣는" 우회를 하지 않는다 — 그 경로는 헤딩·표 구조를
 버리고 레이아웃만 남긴다. 이 스킬이 존재하는 이유다.

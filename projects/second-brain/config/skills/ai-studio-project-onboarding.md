@@ -5,7 +5,7 @@ description: >
   코드 분석 → 로컬 개발 계획까지 온보딩할 때 사용한다. "AI Studio 앱을 로컬 개발로
   온보딩해줘", "수출본을 git/vault에 정착시켜줘" 류 요청, 또는 repo에 metadata.json·
   patch*.cjs·react-example 패키지명 같은 AI Studio 흔적이 보일 때 트리거.
-origin: lemoncloud-io/knowledge@42c8dece:projects/second-brain/config/skills/ai-studio-project-onboarding.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/ai-studio-project-onboarding.md
 ---
 
 # AI Studio Project Onboarding
@@ -27,7 +27,9 @@ next_action을 따른다), 일반 GitHub repo 등록만 필요한 경우(`github
 
 - `gh auth status` 인증 완료 — 없으면 중단·보고 (조용한 fallback 금지)
 - `GITHUB_DIR`: 환경변수 우선, 미설정 시 `~/Documents`
-- graphify 설치 (`graphify --version`; 없으면 `projects/graphify/config/tools/verify_graphify.sh`)
+- graphify 설치 (`graphify --version`. 그 볼트에 `projects/graphify/` 가 있으면
+  `config/tools/verify_graphify.sh` 로도 확인한다. 명령도 그 프로젝트도 없으면 Phase 3의
+  graphify 분석은 건너뛰고 코드 리딩으로 대체한다 — 조용히 실패하지 않는다)
 - vault 루트 확인 (`VAULT_RULES.md` 존재; 확신 없으면 사용자에게 확인)
 
 ## 사용자 확인 필수 지점 (자동화해도 유지)

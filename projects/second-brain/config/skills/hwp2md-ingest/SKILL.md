@@ -6,7 +6,7 @@ description: >
   희소 문서는 H3(페이지 렌더 → Claude 비전 전사)로 폴백한다. wiki화는 하지 않는다 —
   기존 vault-ingest가 이어받는다. 커밋 불가 문서(고객사·개인)는 vault 밖 변환 모드로
   변환만 수행한다. 근거: 2026-08-21 로컬 스모크 실측 (§ 근거·주의).
-origin: lemoncloud-io/knowledge@45f6b0f:projects/second-brain/config/skills/hwp2md-ingest/SKILL.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/hwp2md-ingest/SKILL.md
 ---
 
 # hwp2md-ingest (HWP/HWPX → Clippings MD)
@@ -46,7 +46,7 @@ ln -s "$VAULT_DIR/projects/second-brain/config/skills/hwp2md-ingest" \
 1. **커밋 가능성**: 사용자에게 확인 — "이 문서는 팀 공유 vault에 커밋 가능한가?"
    고객사·개인 문서면 정식 잉게스트(§3 산출·마무리)는 중단한다. 변환 자체가 필요한
    경우에는 § vault 밖 변환 모드를 제안하고, 사용자가 그 모드를 명시적으로 선택한
-   경우에만 진행한다. (클바 등 고객사 hwp 서식·계획서가 전형적 해당 사례.)
+   경우에만 진행한다. (고객사 hwp 서식·계획서가 전형적 해당 사례.)
 2. **VAULT_DIR resolve**: 사용자 명시값 > vault 구조(`VAULT_RULES.md`, `wiki/`, `raw/`,
    `Clippings/`, `templates/`)가 확인된 현재 루트 > 그 외에는 사용자에게 질문.
    `~/knowledge` 조용한 fallback 금지. 절대경로로 resolve.

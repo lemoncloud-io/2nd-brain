@@ -4,7 +4,7 @@ description: >
   팀/개인 repo 문서(또는 개인 KB 증류 노트)를 vault로 승격한다 — 재사용 개념을
   wiki로 추출하고 원문 스냅샷을 raw/에 표준 capture header로 보존한다.
   clipping ingest와 레인이 다른 별도 워크플로. 트리거: "/promote", "승격해줘".
-origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vault-promote.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-promote.md
 ---
 
 # Vault Promote (repo 문서 → vault 승격)
@@ -20,14 +20,14 @@ origin: lemoncloud-io/knowledge@0dd4723:projects/second-brain/config/skills/vaul
 2026-07-29 첫 실행 이후 § Promotions 원장에 쌓인 실행들이 보여준 효과는 네 가지다.
 
 - **정본이 흔들려도 읽을 수 있다.** 근거 commit이 미머지 브랜치에 있는 경우가 반복됐고
-  (eureka-flow PR #130, dou-app PR #418·#422), 머지 방식에 따라 그 sha는 남지 않는다.
+  (프론트 repo PR 1건, 앱 repo PR 2건), 머지 방식에 따라 그 sha는 남지 않는다.
   스냅샷 + 캐비앳 + 머지 후 확인 절차가 이 구멍을 닫는다 — 2026-08-12·2026-08-14 두 건이
   실제로 머지 후 sha 유지를 확인하고 캐비앳을 걷었다.
-- **승격 심사가 repo 문서의 게이트가 된다.** 2026-08-12 eureka-flow 승격은 레인의 정본이
-  될 repo 문서가 아예 없다는 것을 드러내 ADR을 먼저 쓰게 만들었다. 2026-08-14 dou-app
+- **승격 심사가 repo 문서의 게이트가 된다.** 2026-08-12 한 프론트 레인 승격은 레인의 정본이
+  될 repo 문서가 아예 없다는 것을 드러내 ADR을 먼저 쓰게 만들었다. 2026-08-14 한 앱 레인
   승격은 올리기 전에 계약과 코드를 대조하다 코드가 문서보다 앞선 지점을 찾아냈다.
-- **repo 경계를 넘는 대조가 가능해진다.** dou-app 레인의 구현 대조표가 chatic-socials-api
-  스펙 R7의 `lastChat` 미구현을 드러냈다. 각 repo 안에만 있었으면 만나지 않는 두 문서다.
+- **repo 경계를 넘는 대조가 가능해진다.** 한 앱 레인의 구현 대조표가 다른 서비스 repo
+  스펙의 한 필드 미구현을 드러냈다. 각 repo 안에만 있었으면 만나지 않는 두 문서다.
 - **탈락 판정이 축적된다.** 실행 저널(PLAN 류), `.gitignore`된 작성자 로컬 문서, 내용이
   같은 다른 판 — 같은 사유가 반복 적용되면서 다음 승격의 판단 비용이 내려갔다. 그래서
   탈락도 사유와 함께 기록한다.
@@ -54,7 +54,9 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
    - **대상을 자동으로 고르지 않는다.** 올릴 문서가 지정되지 않았으면 후보를 나열하고
      사용자 선택을 기다린다 — 나열까지가 자동의 상한이다. 승격은 팀 전체가 읽는 층에
      쓰는 행위라 무엇을 올릴지는 사람이 정한다.
-3. **스냅샷 보존**: `raw/<project>-<doc-slug>-<short-commit>.md`. 본문은 원문 그대로,
+3. **스냅샷 보존**: `raw/<project>-<doc-slug>-<short-commit>.md`. **스냅샷 레인으로 지정한 프로젝트
+   (`team-settings.yaml`의 `raw.snapshot_lanes`)는 `raw/<project>/<doc-slug>-<short-commit>.md`** (접두 없음 — `docs/raw-layout.md` § 레인 2 위치).
+   지정 전에 루트에 들어간 `raw/<project>-*.md`는 옮기지 않는다. 본문은 원문 그대로,
    맨 위에 capture header(YAML frontmatter)만 붙인다 (`docs/raw-layout.md` § repo-doc 스냅샷):
 
    ```yaml
@@ -88,7 +90,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
    **기본값은 레인이다.** 승격 대상이 repo 문서인 이상 대개 그 repo의 실행 컨텍스트이고,
    **wiki 0건이 정상 결과다** — 억지 추출 금지. 그리고 **한 내용을 wiki와 레인으로
    쪼개지 않는다**: 계약의 절반이 wiki에 절반이 레인에 있으면 읽는 사람이 한쪽만 본다.
-   애매하면 레인 하나로 둔다. (2026-08-10 dou-app 실측 — wiki부터 쓴 배치를 두 번 되돌렸고,
+   애매하면 레인 하나로 둔다. (2026-08-10 한 앱 레인 실측 — wiki부터 쓴 배치를 두 번 되돌렸고,
    개념 층에만 있던 서술은 레인 README의 `### 왜 이 모양인가`로 접어 유실 없이 끝났다.)
 
    배치 판정과 그 근거는 7단계 run-log에 남긴다.
@@ -117,6 +119,8 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
    `-2` suffix). author-slug 결정과 커밋/push/PR 오픈 절차, 금지 사항은
    `vault-ingest-claude.md` § GitHub PR 워크플로우를 그대로 따른다 (리뷰어:
    `team-settings.yaml`의 `github.default_reviewer`). PR merge는 사용자 승인 없이 하지 않는다.
+   raw 색인 생성기는 돌리지 않고 `docs/raw-index.*`는 스테이징하지 않는다 — 새 스냅샷은 다음
+   lint 패스가 색인에 올린다(`docs/raw-layout.md` § 색인).
 
 ## KB 증류 노트 델타
 
@@ -169,7 +173,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 - wiki 노트를 만들었으면 `wiki/INDEX.md`·`wiki/topics/`가 같이 갱신됐는지, 철회했으면
   두 색인과 `## Related Wiki`에 잔여 링크가 없는지
 - run-log 노트 생성(`kind: promotion`, `summary` ≤ 200 bytes)
-- 공유 불변식(memory 크기, 기존 raw/·archive/ 수정·rename·삭제 없음, frontmatter 파싱, 레인 흔적 = `kind: promotion` run-log가 diff에 있음)은
+- 공유 불변식(memory 크기, 기존 raw/·archive/ 수정·rename·삭제 없음, `docs/raw-index.*` 무변경, frontmatter 파싱, 레인 흔적 = `kind: promotion` run-log가 diff에 있음)은
   `python3 projects/second-brain/config/scripts/vault_verify.py --lane promote --base "$(git merge-base HEAD master)"`가 exit 0인지로 판정한다
 
 ## 금지 사항

@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@2156ca2a:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@11357973:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -24,10 +24,20 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   `published`, `description`, `tags`.
 - 파일명: 이동 시점에 정규화한다 — § 파일명 정규화.
 
-### 2. repo-doc 스냅샷 (루트 `<project>-<doc-slug>-<short-commit>.md`)
+### 2. repo-doc 스냅샷 (루트 `<project>-<doc-slug>-<short-commit>.md` · `<project>/<doc-slug>-<short-commit>.md`)
 
 - 유입: 팀/개인 repo 문서의 특정 commit 시점 원문 캡처. 주 생산자는 승격 워크플로 —
   `projects/second-brain/config/skills/vault-promote.md` (2026-08-14 명문화).
+- 위치: 기본은 루트 `raw/<project>-<doc-slug>-<short-commit>.md`. **스냅샷 레인으로 지정한 프로젝트만
+  `raw/<project>/<doc-slug>-<short-commit>.md`에 둔다** — 디렉터리가 프로젝트를
+  말하므로 파일명에 `<project>-` 접두를 붙이지 않는다. 지정 전에 루트에 들어간 `raw/<project>-*.md`는
+  append-only라 그대로 두고, 기존 provenance도 그대로 유효하다. 다른 프로젝트는 루트를 쓴다.
+  분리 사유는 § 하지 않기로 한 것의 재검토 기록.
+- 프로젝트 디렉터리는 **목록에 오른 것만** 쓴다. 목록은 볼트마다 다른 값이라
+  `projects/second-brain/config/team-settings.yaml`의 `raw.snapshot_lanes`(한 줄 리스트)에 둔다.
+  늘리려면 그 값을 고친다 — 목록에 없는 디렉터리는 색인·오펀 탐지에서 통째로 빠진다
+  (§ 레인 4·5의 2026-09-06·09-15 사례와 같은 유형). 색인 생성기는 키가 없으면 레인 없음으로,
+  키가 있는데 읽을 수 없으면 실패로 처리한다.
 - 정본이 repo 문서가 아니라 개인 KB 증류 노트면 `source:`에
   `"개인 KB 증류 노트 <slug> (근거: <org/repo>@<commit>)"`으로 적는다
   (레인 README의 `canonical: kb-distilled`와 짝).
@@ -66,10 +76,11 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   수동 잉게스트든 **색인 대상이라는 사실은 달라지지 않는다** — 색인에서 빠진 원본은
   개수에도 짝 판정에도 오펀 탐지에도 잡히지 않아 감사되지 않은 채 남는다.
 - 계약 소유: `pdf2md-ingest` → `raw/pdf/`, `hwp2md-ingest` → `raw/hwp/`,
-  `doc2md-ingest` → `raw/doc/` (+ 임베디드 이미지는 `raw/doc/media/<stem>/`).
+  `doc2md-ingest` → `raw/doc/` (+ 임베디드 이미지는 `raw/doc/media/<stem>/`),
+  `xlsx2md-ingest` → `raw/xlsx/`.
   각 스킬은 `projects/second-brain/config/skills/<name>/SKILL.md`.
-  `raw/xlsx/`는 **대응 변환 스킬이 아직 없다** — 수동 잉게스트가 만든 레인이고, 위 셋과
-  달리 계약을 소유한 스킬 문서가 없으므로 이 절이 그 자리를 대신한다.
+  `raw/xlsx/`는 스킬보다 수동 잉게스트가 먼저 만든 레인이지만, 계약은 `xlsx2md-ingest`가
+  소유한다.
 - 변환된 MD의 frontmatter가 `source_pdf`·`source_hwp`·`source_doc`·`source_xlsx` 키로
   여기를 가리키고 `source_sha256`으로 동일성을 고정한다. 중복 검사는 이 경로의 존재 여부다.
 - 색인 생성기가 레인별 원본 개수와 **짝 없는 원본**(어느 변환 MD의 `source_<lane>` 키도
@@ -170,7 +181,25 @@ provenance는 정규화된 이름으로 기록한다. 기존 파일은 소급 re
   머신에서 비ASCII 파일명이 8진수 이스케이프돼 매칭에 실패. 2026-09-03 수정, 생성기가 `-c core.quotepath=false`로 실행.)
 - 재생성: vault 루트에서
   `python3 projects/second-brain/config/scripts/generate_raw_index.py` — 세 파일을 한 번에 쓴다.
-- `vault-lint` 패스가 재생성한다. **수동 편집 금지.** master 머지 충돌이 나면 어느 쪽도 택하지 말고 재생성한다.
+  **수동 편집 금지.**
+- **커밋 주체는 lint 레인 하나다 (2026-09-29 결정).** `vault-lint` 패스가 최신 master에서 딴
+  브랜치에서 재생성하고, 색인 변경은 그 PR 안의 별도 커밋 하나로 남긴다.
+- **그 밖의 PR은 두 파일을 base 그대로 둔다** — ingest·promote·문서 작업 무엇이든. 생성기를
+  돌리지 않고, 돌렸더라도 `docs/raw-index.yml`·`docs/raw-index.md`를 스테이징하지 않는다.
+  (`private/raw-index.yml`은 gitignored라 이 규칙과 무관하다.)
+- 지연 허용: 색인은 raw/보다 **최대 lint 한 주기만큼 늦을 수 있다.** 그 사이 들어온 raw 파일의
+  오펀·source URL 중복은 다음 lint 리포트가 올린다.
+- 충돌·혼입 해소: lint 아닌 브랜치에 색인 변경이 이미 들어 있거나 master 머지에서 두 파일이
+  충돌하면 **base 쪽으로 되돌린다** — `git checkout <base> -- docs/raw-index.yml docs/raw-index.md`
+  (`<base>`는 `git merge-base HEAD master`, master를 병합하는 도중이면 `master`).
+  lint 아닌 PR 안에서 재생성하지 않는다 — 재생성한 결과가 다음 충돌의 원인이 된다.
+- 왜: 두 파일 상단의 생성일·파일 수는 raw를 건드리는 어떤 두 PR 사이에서도 같은 줄로
+  충돌한다. ingest·promote 커밋까지 재생성하던 때(30일간 master 변경 19회) 오래 열린 PR은
+  master가 움직일 때마다 재충돌했고, 이전 규칙("충돌 시 어느 쪽도 택하지 말고 재생성")은
+  증상 처리였다.
+- 강제: `vault_verify.py`가 색인 두 파일의 변경이 `raw/`·`Clippings/` 변경과 같은 변경 집합에
+  있으면 결함으로 올린다. lint 변경 집합은 브랜치 이름이 아니라 모양으로 판정한다 —
+  `raw/`·`Clippings/`를 건드리지 않는 변경 집합이다.
 - 색인이 raw/ 밖에 있는 이유: raw/ 안의 index는 매 ingest마다 편집이 필요해
   append-only와 충돌한다.
 - 오펀(참조 0건)·source URL 중복이 발견되면 `.md` 요약과 `.yml` 집계에 표시된다 — lint 리포트로
@@ -182,3 +211,10 @@ provenance는 정규화된 이름으로 기록한다. 기존 파일은 소급 re
   작다.
 - **서브폴더 재구조화**(`raw/YYYY-MM/` 등) — flat 구조가 아직 감당된다. **루트 200건
   도달 시** 신규분부터 재검토한다 (파일 수는 `docs/raw-index.md` 상단에 표시).
+  - **재검토 (2026-10-01)**: 루트 221건으로 임계를 처음 넘었다(`outputs/2026-10-01-vault-lint.md`
+    § 이슈 1). 09-29 → 10-01 증가분 51건 중 50건이 한 프로젝트의 승격분이고 승격은 한 회차에 수십 건씩
+    들어온다. 선택지는 flat 유지(임계 상향) · 레인별 서브폴더 · 월별 서브폴더였고, **유입의 대부분을
+    차지하는 그 프로젝트 승격분만 `raw/<project>/`로 분리**하기로 했다(사용자 결정) — § 레인 2.
+    월별 폴더는 레인과 무관한 축이라 기존 레인(slack·screenshots·변환 원본)과 섞이고, 다른
+    유입은 아직 루트에 부담을 주지 않는다. 기존 파일은 소급 이동하지 않으므로 루트 파일 수는
+    221에서 출발하고, 다음 재검토는 루트 **300건** 도달 시다.

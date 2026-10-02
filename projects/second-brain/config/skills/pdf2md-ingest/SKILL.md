@@ -6,7 +6,7 @@ description: >
   제안하고 사용자 확인 후 실행한다. wiki화는 하지 않는다 — 기존 vault-ingest가
   이어받는다. 커밋 불가 문서(고객사·개인)는 vault 밖 변환 모드로 변환만 수행한다.
   근거: projects/pdf2md-bench/outputs/verdict-report.md
-origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/pdf2md-ingest/SKILL.md
+origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/pdf2md-ingest/SKILL.md
 ---
 
 # pdf2md-ingest (PDF → Clippings MD)
@@ -150,7 +150,7 @@ SKILL_DIR="$VAULT_DIR/projects/second-brain/config/skills/pdf2md-ingest"
   diff 기준으로 검증한다 (`VAULT_RULES.md` § Core Rules의 개인 데이터 금지 조항).
 - 완료 보고에 모드 명칭("vault 밖 변환")과 산출 경로를 명시해, 정식 잉게스트로
   오인되지 않게 한다.
-- 실증: 2026-08-20 클라우드 바우처 심화 컨설팅 계획서 9건 (S2 변환 → 기업 노트 재대조,
+- 실증: 2026-08-20 고객사 컨설팅 계획서 9건 (S2 변환 → 기업 노트 재대조,
   vault 커밋은 파생 노트 수정분만).
 
 ## 에러 처리 (fail-closed)
