@@ -5,6 +5,7 @@ topics:
 status: draft
 sources:
   - "https://docs.aws.amazon.com/IAM/latest/UserGuide/id.html"
+  - "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_testing-policies.html"
   - "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html"
   - "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html"
   - "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_identity-vs-resource.html"
@@ -20,6 +21,7 @@ sources:
   - "[[projects/aws-serverless/README|aws-serverless]]"
   - "[[projects/aws-serverless/guides/policy-design|정책 설계 근거]]"
   - "[[projects/aws-serverless/config/skills/aws-iam-access|aws-iam-access]]"
+  - "[[projects/aws-serverless/guides/03-staff-access|3부 실무자 권한]]"
 created: "2026-10-06"
 updated: "2026-10-06"
 ---
@@ -92,6 +94,22 @@ AWS IAM(Identity and Access Management)은 "누가(주체) 어떤 리소스에 �
 
 각 문(Sid)의 이유, 정책으로 못 막아 `verify.sh` 로 넘긴 것, 정책이 못 막는 비용은 [[projects/aws-serverless/guides/policy-design|정책 설계 근거]] 에 있다.
 
+### 실무자 권한 유형 (정책 3개 더)
+
+파이프라인이 선 뒤 데이터를 올리고 읽는 사람에게는 관리자 권한을 나눠 주지 않고, **하는 일에 맞는 그룹 하나**에 넣는다.
+사람마다 사용자 `staff-<영문이름>` 하나, 콘솔 로그인 없이 액세스 키만 쓴다. 세 그룹 모두 `SlsGuardDeny` 를 같이 붙여
+서울 밖 리전·허용목록 밖 서비스·사용자·키·정책 만들기를 막는다 — 그래서 실무자는 자기 키를 재발급하지 못하고 계정 관리자가 한다.
+
+| 그룹 | 붙는 정책 | 하는 일 |
+|---|---|---|
+| `sls-staff-push` | `SlsStaffPush` + `SlsGuardDeny` | 데이터 버킷(`sls-*-data-*`)에 올리기·목록 |
+| `sls-staff-query` | `SlsStaffQuery` + `SlsGuardDeny` | 버킷 읽기, 표(`sls-*-docs`) 읽기, 검색(`aoss:APIAccessAll` — 문서 단위 권한은 OpenSearch 데이터 접근 정책) |
+| `sls-staff-edit` | `SlsStaffQuery` + `SlsStaffEdit` + `SlsGuardDeny` | 조회 + 표 항목 추가·수정·삭제 |
+
+- 신원 정책은 리소스 이름 패턴으로 범위를 좁힌다. 패턴이 넓으면 같은 접두어의 다른 자원에 닿는다 — 알려진 한계는 [[projects/aws-serverless/guides/policy-design|정책 설계 근거]] § 실무자 권한 유형.
+- 검색 권한은 IAM 만으로 끝나지 않는다. OpenSearch Serverless 의 데이터 접근 정책에 그 사용자가 있어야 한다 — [[wiki/aws-opensearch-serverless|Amazon OpenSearch Serverless]].
+- 발급 절차는 [[projects/aws-serverless/guides/03-staff-access|3부 실무자 권한]].
+
 ## Setup Notes
 
 설치 절차는 스킬에 있다. 여기는 이 파이프라인에서 어떻게 설정돼 있는지만 적는다.
@@ -100,6 +118,7 @@ AWS IAM(Identity and Access Management)은 "누가(주체) 어떤 리소스에 �
 - 계정 쪽 설정(루트 MFA, 루트 키 없음, 관리자 사용자 `admin-<이름>`)은 [[projects/aws-serverless/config/skills/aws-account-setup|aws-account-setup]] 의 1·5번이다. `verify.sh` V9 가 `AccountMFAEnabled` 1, `AccountAccessKeysPresent` 0 을 본다.
 - 배포 작업자 환경에서는 `aws configure --profile sls-deployer` 로 등록한다. 명령 전에 `export AWS_PROFILE=sls-deployer AWS_REGION=ap-northeast-2` 를 한다(기본 프로파일이 다른 계정일 수 있다).
 - 템플릿 `Globals.Function.PermissionsBoundary: arn:aws:iam::${AWS::AccountId}:policy/SlsLambdaBoundary` 가 모든 함수 role 에 경계를 붙인다. 스택 이름은 `sls-` 로 시작해야 한다. 그렇지 않으면 role 이름이 `role/sls-*` 를 벗어나 생성이 거부된다.
+- 실무자 정책은 계정에 붙이기 전에 **IAM 정책 시뮬레이터**(custom 모드, `aws iam simulate-custom-policy`)로 그룹 조합별 허용·거부 표를 판정한다. 시뮬레이터는 실제 요청을 보내지 않고 계정을 바꾸지 않지만, 결과가 실제 환경과 다를 수 있어 AWS 는 실환경 확인을 권한다. 이 파이프라인의 판정 스크립트는 `projects/aws-serverless/config/scripts/staff-policy-sim.sh`.
 - 정책을 바꾸면 계정 관리자 자격으로 `aws accessanalyzer validate-policy` 를 돌려 0 finding 을 확인하고, `verify.sh` 를 다시 돌린다. 실측에서 `create-policy-version` 과 정책 시뮬레이터는 존재하지 않는 액션명을 잡지 못했다(3건). IAM 전파 지연 때문에 실호출 음성 확인은 적용 3분 뒤에 한다(88초 뒤 통과한 실측, README § 검증 메모). `SlsGuardDeny` 는 2026-10-02 기준 5,311자로 상한 6,144자까지 약 830자 남았다(정책 설계 근거 § 정책을 바꿀 때).
 
 ## Related Concepts

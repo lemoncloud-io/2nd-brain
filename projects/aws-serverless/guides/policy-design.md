@@ -2,8 +2,8 @@
 
 > `미검증` — 이 이름(`Sls*` 정책 · `sls-` 접두어 · `sls-deployer`)으로는 실계정 재실측 전이다. 같은 구조(정책 문장·조건·verify 검사 동일, 이름만 다름)를 이전 이름으로 실계정에서 검증했다(2026-09-23~09-29). 이 문서의 "실측"은 모두 그 검증 결과다.
 
-정책을 고치려는 사람이 읽는 글이다. 정본 파일은 [`../config/policies/`](../config/policies/) 의 JSON 3개, 판정 스크립트는 [`../config/scripts/verify.sh`](../config/scripts/verify.sh).
-발급 절차는 [02-restricted-key.md](02-restricted-key.md), 계정 쪽 설정(MFA·예산·용량 상한·퍼블릭 차단)은 [01-aws-account-setup.md](01-aws-account-setup.md).
+정책을 고치려는 사람이 읽는 글이다. 정본 파일은 [`../config/policies/`](../config/policies/) 의 JSON 6개(배포 키용 3개 — 이 문서의 대상, 실무자용 3개 — § 실무자 권한 유형), 판정 스크립트는 [`../config/scripts/verify.sh`](../config/scripts/verify.sh).
+발급 절차는 [02-restricted-key.md](02-restricted-key.md), 계정 쪽 설정(MFA·예산·용량 상한·퍼블릭 차단)은 [01-aws-account-setup.md](01-aws-account-setup.md), 실무자 권한 유형은 [03-staff-access.md](03-staff-access.md)(§ 실무자 권한 유형).
 
 ---
 
@@ -13,7 +13,7 @@
 그 밖의 서비스(Bedrock·EC2·RDS 등), 서울 밖 리전, 사용자·키·정책 생성, 다른 역할로 전환, 계정·결제 변경, 데이터 외부 공유·공개 노출, 되돌릴 수 없는 비용 액션은 명시 거부다.
 `AdministratorAccess` 키는 허용목록이 없으니 다 열려 있다는 뜻이라 쓰지 않고(verify.sh V2 가 반려), `PowerUserAccess` 도 Bedrock 이 열려 있어 쓰지 않는다. 허용 밖 서비스 하나(예: Bedrock)가 열려 있는 것만으로 비용 사고가 난다는 것이 이 설계의 출발점이다.
 
-키(그룹 `sls-operators`)에는 Allow·GuardDeny 두 정책만 붙는다. `SlsLambdaBoundary` 는 계정에 이 이름으로 존재만 하면 되고, SAM `Globals.Function.PermissionsBoundary` 가 키가 만드는 모든 함수 role 에 붙인다.
+키(그룹 `sls-operators`)에는 Allow·GuardDeny 두 정책만 붙는다. `SlsLambdaBoundary` 는 계정에 이 이름으로 존재만 하면 되고, SAM `Globals.Function.PermissionsBoundary` 가 키가 만드는 모든 함수 role 에 붙인다. 실무자 유형 정책 3개(§ 실무자 권한 유형)는 배포 키에 붙지 않는다.
 
 ---
 
@@ -77,6 +77,46 @@
 
 ---
 
+## 실무자 권한 유형 — SlsStaffPush · SlsStaffQuery · SlsStaffEdit
+
+배포 키와 별개로, 파이프라인이 선 뒤 실무자(조직의 데이터를 올리고 보는 사람)가 데이터를 직접 쓰게 하는 키 세 종류다. 절차는 [03-staff-access.md](03-staff-access.md)(3부), 정책 원문은 [`../config/policies/`](../config/policies/) 의 `SlsStaff*.json`, 판정 표는 [`../config/scripts/staff-policy-sim.sh`](../config/scripts/staff-policy-sim.sh)(47행 + 린터 3개, 끝 줄 `== result: PASS ==`). 이 절의 실측(2026-10-01~10-02)도 맨 위 주의대로 이전 이름으로 했다. 크기(공백 제외, 2026-10-06): Push 338 · Query 918 · Edit 243자.
+
+| 그룹 | 부착 정책 | 되는 것 |
+|---|---|---|
+| `sls-staff-push` | Push + GuardDeny | 데이터 버킷 `sls-*-data-*` 에 올리기, 파일 이름 보기 |
+| `sls-staff-query` | Query + GuardDeny | 데이터 버킷 읽기(옛 버전 `s3:GetObjectVersion` 포함), 표 `sls-*-docs` 와 그 인덱스 읽기, 검색 읽기(읽기 정책에 든 경우) |
+| `sls-staff-edit` | Query + Edit + GuardDeny | 조회 전부 + 표 항목 `PutItem`·`UpdateItem`·`DeleteItem`·`BatchWriteItem` |
+
+- **수정 = 조회 정책 + 쓰기분 정책.** 읽기를 두 파일에 중복하지 않고 읽기·쓰기 경계가 파일로 보인다. 그래서 Edit 만 붙이면 읽기가 안 된다(판정 표 X1, 실호출 `AccessDeniedException … dynamodb:Query`).
+- **다른 유형의 액션은 `implicitDeny` 다.** S3·DynamoDB·aoss 는 GuardDeny 의 `NotAction` 허용 목록 안이라 Allow 가 없어서 막힌다. `explicitDeny` 는 서울 밖·허용 목록 밖 서비스·IAM 권한 상승뿐이다.
+- **사용자·그룹 규칙.** 사용자는 `staff-<영문이름>`, 콘솔 액세스 없이 액세스 키만. 한 사람이 두 유형이면 사용자를 둘 만들지 않고 그룹 둘에 넣는다. 정책을 사용자에 직접 붙이지 않는다.
+- **검색은 두 겹이다.** IAM 쪽 `aoss:APIAccessAll` 은 `collection/*` 다(컬렉션 ARN 은 이름이 아니라 ID 라 접두사로 못 좁힌다). 어느 컬렉션의 어떤 문서를 읽는지는 데이터 접근 정책 `<컬렉션>-read` 가 정한다. 콘솔 검토 화면에 OpenSearch Serverless "쓰기" 가 보이는 것은 `APIAccessAll` 의 접근 수준 분류 때문이다 — 문서 쓰기·인덱스 삭제는 읽기 정책이 막는다(실호출 403).
+- **스트림 액션은 없다.** `GetRecords` 등은 어느 유형에도 없고, 표 패턴 `table/sls-*-docs` 는 스트림 ARN(`…-docs/stream/…`)에 맞지 않는다. 유형 정책에 스트림 액션을 더하지 않는다.
+- **GuardDeny 를 같이 붙이는 이유** — 허용 목록 밖 서비스·서울 밖 리전·IAM 권한 상승이 `explicitDeny` 로 남아, 누가 실무자 그룹에 넓은 정책(`AdministratorAccess` 등)을 덧붙여도 그 셋은 막힌다. 2부에서 만든 것을 재사용해 V8 이 이미 원문을 대조한다(6,144자 중 5,311자를 써서 실무자용 문을 더할 여유도 적다). 대가는 `DenyIdentityCreationAndPrivilegeEscalation` 이 `iam:CreateAccessKey` 를 거부해 실무자가 자기 키를 만들거나 바꾸지 못한다는 것 — 재발급은 계정 관리자가 하고(3부 7절), 배포 키를 정리할 때 실무자 그룹이 있으면 GuardDeny 를 지우지 않는다.
+- **뺀 유형** — 처리기(Lambda 생성): 코드로 `SlsLambdaBoundary` 범위 전부를 쓸 수 있어 배포 키와 실질 차이가 없다. 대시보드(OpenSearch Dashboards 를 브라우저로 여는 실무자): 콘솔 로그인과 MFA 가 필요해 키만 쓰는 구조와 맞지 않는다 — 대시보드를 만드는 사람은 조회 유형 키로 데이터를 읽어 바깥 도구에서 만든다.
+- **검색 읽기 정책을 스택 밖에 둔 이유** — 실무자 ARN 을 `QueryPrincipalArns` 에 넣으면 스택이 만드는 `<컬렉션>-data` 의 `aoss:*` 전권이 간다. 데이터 접근 정책은 권한을 더하기만 하고 명시 거부가 없어, 그 목록에 든 실무자의 읽기 제한을 다른 정책으로 되돌릴 수 없다. 실무자 목록을 별도 스택 파라미터로 두면 배포 키를 지운 뒤 실무자를 더할 길이 스택 재배포뿐이고, 스택과 콘솔을 섞으면 재배포가 콘솔 수정분을 되돌린다. 그래서 계정 관리자가 콘솔에서 `<컬렉션>-read` 를 만들고 고친다. 템플릿은 바꾸지 않았다.
+- **읽기 정책 실측(2026-10-02)** — ① 없는 사용자 ARN 도 그대로 저장된다(사람이 나갈 때 사용자를 지우기 전에 읽기 정책에서 뺀다) ② 컬렉션이 없어도 콘솔 시각 편집기로 만들어지고, 대상이 빈 정책은 `Principal: there must be a minimum of 1 items` 로 저장되지 않는다 ③ 스택 ② 를 지웠다 같은 컬렉션 이름으로 다시 만들면 정책을 고치지 않아도 이어진다(검색 주소는 바뀐다. 삭제 도중 한 번 저장한 한계가 있다) ④ 더하기·빼기 반영 40~45초 ⑤ `awscurl --service aoss --region ap-northeast-2` 서명을 Serverless 가 받는다(`--region` 을 빼면 이유 없는 403) ⑥ 없는 인덱스의 삭제는 권한과 무관하게 404 라 인덱스 삭제 거부는 빈 인덱스로 판정했다(403).
+- **그 밖의 실측** — 판정 표 47행 + 린터 3 PASS, 변조 대조, V8b 변조·원복·조회 실패 분기(실계정), 유형별 실호출, 콘솔 정책 편집기 린터 세 정책 모두 0, 컬렉션 약 21분 당일 철거.
+
+**알려진 한계** — 정책으로 막지 않고 3부의 안내와 종료 점검(`../config/skills/aws-iam-access.md` § 사용 종료·정리 6번)으로 다룬다. L1·L2 는 판정 표의 NOTE 행이 결과를 고정한다.
+
+| # | 한계 | 근거·대응 |
+|---|---|---|
+| L1 | ARN 의 `*` 는 `/` 까지 삼킨다. 객체 패턴 `sls-*-data-*/*` 가 `sls-` 로 시작하는 **다른 버킷**의 `…-data-…` 키 경로와도 맞아, 적재 키가 그 버킷에 올릴 수 있다 | 판정 표 `sls-other/x-data-y/z` 에 `PutObject`=allowed. 파이프라인 계정의 `sls-` 버킷은 데이터 버킷과 검증용 `sls-probe-*` 뿐 — `sls-` 로 시작하는 다른 버킷을 만들 때 이름과 함께 다시 본다 |
+| L2 | 같은 이유로 `table/sls-*-docs` 가 다른 `sls-` 표의 이름이 `-docs` 로 끝나는 인덱스(`table/sls-x/index/…-docs`)와 맞아 조회·수정 조합이 그 인덱스를 읽는다. 쓰기는 인덱스 리소스 타입이 없어 영향 없다 | 판정 표 `table/sls-test-orders/index/by-docs` 에 `Query`=allowed. 표 이름을 정확히 적으면 닫히지만 배포마다 정책 파일이 달라져 택하지 않았다 |
+| L3 | 스택 ① 이 만든 표가 아니어도 이름이 `sls-<x>-docs` 면 패턴에 맞아 읽기·쓰기가 된다 | 패턴의 정의. `sls-` 접두사는 파이프라인 전용으로 쓴다 |
+| L4 | 스택 이름이 정확히 `sls` 면 표 `sls-docs`·버킷 `sls-data-<계정>` 이 패턴에서 빠져 실무자만 거부된다(닫히는 쪽) | 스택 이름은 `sls-<무엇>` 이어야 한다 |
+| L5 | 계정 고정(`aws:ResourceAccount`)·IP(`aws:SourceIp`) 조건이 없다. 새어 나간 키는 어디서든 쓰이고, 다른 계정이 자기 `sls-*-data-*` 버킷을 버킷 정책으로 열어 주면 적재 키가 거기에 올릴 수 있다 | 의도한 선택(2026-10-01). 대응은 키 비활성화(3부 7절)와 마지막 사용 열 점검(3부 6절) |
+| L6 | 적재: 같은 이름으로 다시 올리면 새 버전이 최신이 되고 검색에도 새 버전이 최신으로 보인다(옛 버전은 남고, 지우기는 못 한다). `s3:ListBucket` 으로 파일 이름이 보인다 | 실호출: 같은 `docId` 의 버전 행 2개. 덮어쓰기 금지 조건(`s3:if-none-match`)은 실측 전이라 넣지 않았다 |
+| L7 | 조회: `s3:GetObject` 가 있는 키는 presigned URL 을 만들 수 있고, 그 URL 은 받은 사람 누구나 최대 7일 연다. `Scan` 은 읽은 만큼 과금된다 | AWS 문서(presigned URL). 수명 제한 조건(`s3:signatureAge`)은 실측 전이라 넣지 않았다 |
+| L8 | 수정: `Scan` + `BatchWriteItem` 으로 표 전체를 지울 수 있고, 스택 ① 표는 시점 복구(PITR)가 꺼져 있다. 지운 행은 계정 관리자나 배포 작업자가 같은 객체 버전의 적재 이벤트를 다시 넣어야 돌아온다. 기존 필드에 다른 타입 값을 쓰면 색인이 실패해 DLQ 알람이 온다 | `stack1-ingest/template.yaml` `PointInTimeRecoveryEnabled: false`. PITR 켜기는 템플릿 변경이라 범위 밖. 다른 타입 값 → DLQ 는 09-23 실측(독성 레코드), 알람 메일 수신은 SNS 발송 사용량 2건으로만 간접 확인(실측) |
+| L9 | 실무자는 자기 키를 재발급하지 못한다 | GuardDeny 병행의 귀결(위). 판정 표의 세 유형 공통 IAM 거부 행(`iam:CreateUser`·`iam:CreateAccessKey`=explicitDeny) |
+| L10 | 실무자 그룹에서 `SlsGuardDeny` 가 빠진 것, `<컬렉션>-read` 에 쓰기 권한이나 `staff-` 밖 주체가 들어간 것은 자동으로 못 잡는다. 배포 키의 그룹 조회는 `SelfInspectionOwnGroup` 이 `group/sls-operators` 에 한정하고, 읽기 정책은 스택 밖이다. V8b 는 정책 원문만 대조한다 | 종료 점검 6번에서 사람이 본다 |
+
+남은 `미검증`: 와일드카드 읽기 정책(`collection/sls-*`·`index/sls-*/*`)은 CLI 로는 저장되지만 콘솔 저장과 실제 권한은 `미검증`(지금은 정확한 컬렉션 이름) · 나간 실무자와 같은 이름으로 사용자를 다시 만들면 명단에 남은 ARN 으로 읽기 권한이 되살아나는지 `미검증`(3부는 지우기 전에 빼라고 적는다) · 콘솔에서 `SlsGuardDeny` 를 지울 때 그룹 부착이 자동으로 떼어지는지 `미검증`(어느 쪽이든 지우지 않는다고 적었다).
+
+---
+
 ## verify 체크 표
 
 ```bash
@@ -84,7 +124,7 @@ config/scripts/verify.sh <profile> <12자리 계정 ID> [사용자명, 기본 sl
 ```
 
 - 키는 `~/.aws/credentials` 프로파일로만 둔다. 필요: AWS CLI v2, python3. 출력의 계정 ID 는 `<acct>` 로 마스킹하고 키 값은 출력하지 않는다.
-- 실행 순서: V1·V2·V2b → V3·V4 시뮬레이션 → V7·V8·V9·V9b·V9c(전부 읽기 전용) → 반려가 하나라도 있으면 여기서 종료 → **그 다음에야** 쓰기 호출 V5·V6. 반려 키로는 대상 계정에 아무것도 쓰지 않는다. 표는 번호순이라 실행 순서와 다르다.
+- 실행 순서: V1·V2·V2b → V3·V4 시뮬레이션 → V7·V8·V8b·V9·V9b·V9c(전부 읽기 전용) → 반려가 하나라도 있으면 여기서 종료 → **그 다음에야** 쓰기 호출 V5·V6. 반려 키로는 대상 계정에 아무것도 쓰지 않는다. 표는 번호순이라 실행 순서와 다르다.
 
 | # | 확인하는 것 | 통과 기준 | 실패 시 |
 |---|---|---|---|
@@ -97,13 +137,14 @@ config/scripts/verify.sh <profile> <12자리 계정 ID> [사용자명, 기본 sl
 | V6 | 서울 스모크(쓰기 — 맨 뒤) | 난수 이름 버킷 생성·객체 put/delete·버킷 삭제(`s3api`, `--expected-bucket-owner`), 로그 그룹 `/sls/probe` 생성/삭제, dynamodb·opensearchserverless·lambda·cloudformation 목록 | 수정 요청(허용목록 누락). 직접 만든 것만 지운다. 로그 그룹 삭제 실패는 NOTE |
 | V7 | Bedrock 실호출 | 서울 `aws bedrock list-foundation-models` 오류에 `explicit deny`(us-east-1 이면 리전 Deny 가 대신 막아 판정이 안 된다) | **반려** |
 | V8 | 정책 원문 diff | 계정의 3개 정책 기본 버전 == 정책 폴더의 JSON(키 정렬 후 비교, 정본은 이 한 벌) | 셋 중 하나라도 다름·조회 불가·원본 없음 → **반려**(Allow 가 넓어진 것도 반려) |
+| V8b | 실무자 유형 정책 원문 diff(있을 때만) | 계정에 `SlsStaffPush`·`SlsStaffQuery`·`SlsStaffEdit` 가 있으면 기본 버전 == 정책 폴더의 JSON. 없으면(`NoSuchEntity`) `NOTE V8b` 한 줄이고 PASS·FAIL 에 세지 않는다 — 실무자 유형은 선택 사항이다 | 다름·원본 없음 → 수정 요청(실무자 정책은 배포 키 권한에 닿지 않아 키 재발급이 조치가 아니다. 배포 키 그룹에 붙었다면 V2 가 반려한다). `NoSuchEntity` 가 아닌 조회 오류 → **반려** |
 | V9 | 계정 위생 | `AccountMFAEnabled` 1, `AccountAccessKeysPresent` 0, 계정 수준 S3 퍼블릭 액세스 차단 4개 `True` | 수정 요청(계정 관리자 조치, 01 § 3.1·3.7) |
 | V9b | `sls-*` role 신뢰 정책 | ARN 에 `:role/sls-` 가 든 모든 role(경로 포함)의 Principal 이 `{"Service":"lambda.amazonaws.com"}` 뿐. 조회 실패는 반려(fail-closed) | 외부 주체 있음 → **반려**(키를 지워도 남는 접근 경로). 재검증 때마다 본다 |
 | V9c | 계정에 원래 있던 자원 | a) 모든 `sls-*` role 이 `SlsLambdaBoundary` 를 달고 있다 b) 서울 Lambda 함수가 전부 `sls-*` role 로 돈다 c) `RoleARN` 이 붙은 스택이 없다 | a·b·c → **반려**. 서울 스택 이름이 `sls-*`·`aws-sam-cli-managed-default` 어느 쪽도 아니면 → 수정 요청(전용 계정이 아님, 계정 관리자에게 확인) |
 
-- 종료 코드: 0 = 전부 통과 · **1 = 반려**(V1·V2·V4·V7·V8·V9b·V9c, 그리고 V2·V2b·V9b·V9c 의 조회 실패) · **2 = 수정 요청**(V2b·V3·V5·V6·V9, V9c 의 스택 이름) · 64 = 인자 오류.
+- 종료 코드: 0 = 전부 통과 · **1 = 반려**(V1·V2·V4·V7·V8·V9b·V9c, 그리고 V2·V2b·V8b·V9b·V9c 의 조회 실패) · **2 = 수정 요청**(V2b·V3·V5·V6·V8b·V9, V9c 의 스택 이름) · 64 = 인자 오류.
 - 코드 기준 예외: V9 의 조회(`get-account-summary`·`s3control get-public-access-block`)가 실패하면 반려가 아니라 수정 요청으로 떨어진다. 스크립트 머리 주석의 "모든 조회 실패 = 반려"와 다르다.
-- 기대 결과: 깨끗한 새 계정에서 **39 PASS · 0 FIX**(PASS 줄 = V1 1 · V2 1 · V2b 2 · V3 7 · V4 15 · V7 1 · V8 3 · V9 2 · V9b 1 · V9c 4 · V5 1 · V6 1). 이전 이름 실측(09-29)은 37 PASS + FIX 2(V2b 활성 키 2개 · V9 루트 MFA 미등록 — 둘 다 계정 상태).
+- 기대 결과: 깨끗한 새 계정에서 **39 PASS · 0 FIX**(PASS 줄 = V1 1 · V2 1 · V2b 2 · V3 7 · V4 15 · V7 1 · V8 3 · V9 2 · V9b 1 · V9c 4 · V5 1 · V6 1). 이전 이름 실측(09-29)은 37 PASS + FIX 2(V2b 활성 키 2개 · V9 루트 MFA 미등록 — 둘 다 계정 상태). 39 는 실무자 유형 정책이 없는 계정 기준이다(그때 `NOTE V8b` 3줄). 실무자 정책 n개가 계정에 있고 원본과 같으면 V8b PASS 가 n줄 더해져 39+n 이다.
 
 시뮬레이션(`iam simulate-principal-policy`, V3·V4)은 손으로 돌리지 않는다. 손으로 돌리면 아래에서 오판한다(실측 09-23).
 

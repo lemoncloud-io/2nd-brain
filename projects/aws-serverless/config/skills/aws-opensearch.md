@@ -5,8 +5,8 @@ description: >
   3단계 — OpenSearch Serverless 컬렉션을 만들고 DynamoDB 변경을 색인해
   검색·집계·시계열 질의를 하는 절차(SAM 스택 ② `stack2-index` 의 배포·비용·컬렉션·매핑·질의·재색인·철거는
   이 스킬, 같은 스택의 스트림·DLQ 쪽은 `aws-dynamodb-stream`). 사용자가 "검색되게 해줘", "월별로 집계해줘",
-  "인덱스 매핑 정해줘", "OpenSearch 비용이 왜 나와", "스택 ② 배포"처럼 요청할 때, 또는 AI 인사이트용 질의를
-  만들 때, 또는 배포한 계정의 OpenSearch·OCU·대시보드가 화제에 오르면 사용한다. 관리형 OpenSearch 도메인
+  "인덱스 매핑 정해줘", "OpenSearch 비용이 왜 나와", "스택 ② 배포", "실무자한테 검색 읽기만 열어 줘"처럼 요청할 때,
+  또는 AI 인사이트용 질의를 만들 때, 또는 배포한 계정의 OpenSearch·OCU·대시보드·실무자 검색 읽기 정책이 화제에 오르면 사용한다. 관리형 OpenSearch 도메인
   (EC2 기반)·Kibana 플러그인 개발은 다루지 않는다.
 ---
 
@@ -29,6 +29,7 @@ DynamoDB Stream ──▶ Lambda index ──_bulk──▶ OpenSearch Serverles
                       │ 실패: bisect·재시도 3·DLQ·알람        인덱스 docs, _id = docId#version
                       └ 첫 호출에 인덱스+매핑 생성
 보안 정책 3종: 암호화(AWS 소유 키) · 네트워크(public) · 데이터 접근(Lambda role + 조회 사용자)
+(스택 밖) 실무자 검색 읽기: 데이터 접근 정책 <컬렉션>-read — 계정 관리자가 콘솔에서 (§ 실무자 읽기 정책)
 ```
 
 - **SEARCH 타입** 고정. TIMESERIES 타입은 사용자 지정 `_id`·update·delete 가 안 되어 MODIFY/REMOVE 를 반영 못 한다.
@@ -64,6 +65,7 @@ DynamoDB Stream ──▶ Lambda index ──_bulk──▶ OpenSearch Serverles
    ```
    검색(term + `.text` match) · 집계(docId 별 건수·bytes) · 시계열(`@timestamp` 1시간 histogram) 결과가 나오면 통과.
 5. 대시보드: Outputs `DashboardEndpoint` 를 브라우저로 — `QueryPrincipalArns` 에 든 IAM 사용자로 콘솔 로그인 상태여야 열린다. 계정 관리자 사용자를 넣어야 관리자가 콘솔에서 자기 데이터를 본다(`sls-deployer` 는 콘솔 로그인이 없다).
+   실무자(3부 `staff-*`)는 `QueryPrincipalArns` 가 아니라 `<컬렉션>-read` 로 검색만 읽는다 — 그 목록은 `aoss:*` 전권이다(§ 실무자 읽기 정책). 실무자 유형에는 대시보드가 없다.
 
 ## 질의 패턴 (AI 인사이트용 — Claude 가 이 틀로 쿼리를 만든다)
 
@@ -108,12 +110,24 @@ npx tsx scripts/reindex.ts <TableName> <IndexFunctionName>
 
 2~4 사이에는 `docs` 로 질의하면 배포 이후 변경이 빠져 보인다 — 다른 사람이 대시보드를 보는 시간을 피한다.
 
+## 실무자 읽기 정책 (`<컬렉션>-read` — 스택 밖, 계정 관리자 관리)
+
+실무자의 조회·수정 유형(`aws-iam-access.md § 실무자 권한 유형`)에게 검색 **읽기만** 주는 데이터 접근 정책. 계정 관리자가 콘솔(OpenSearch Service → Serverless → Security → Data access policies)에서 시각 편집기로 만들고, 실무자를 더하고 빼는 것도 이 정책을 편집해서 한다 — 절차 정본은 `../../guides/03-staff-access.md` 3.4·5절. 내용은 인덱스 `index/<컬렉션>/*` 에 `aoss:ReadDocument`·`aoss:DescribeIndex`, 컬렉션 `collection/<컬렉션>` 에 `aoss:DescribeCollectionItems`, 대상은 `staff-` 사용자 ARN 뿐.
+
+- **스택이 만들지 않는다.** stack2 템플릿은 그대로다. 그래서 스택 ② 재배포·철거와 무관하게 남는다(2026-10-02 실측 — 스택 ② 를 지운 뒤에도 남아 있었다).
+- **같은 이름으로 다시 만든 컬렉션에 그대로 이어진다.** 스택 ② 를 지웠다 같은 `CollectionName` 으로 재배포하면 정책을 고치지 않아도 실무자 검색이 된다(10-02 실측). 검색 주소는 새 컬렉션 ID 로 바뀌므로 실무자에게 새 주소를 알린다 — 새 주소의 첫 호출은 `DNS resolution failure` 가 1분 안쪽으로 날 수 있다.
+- **컬렉션 이름을 바꾸면 새로 만든다.** 정책이 이름을 리소스로 쥐고 있어 옛 이름의 정책은 아무 컬렉션에도 맞지 않는다 — 새 이름으로 `<새 이름>-read` 를 만들고 옛 것을 지운다. 이름은 최대 26자 + `-read` 로 32자 한도 안이다.
+- 컬렉션이 없어도 만들어지고, 없는 사용자 ARN 도 검사 없이 저장된다. 대상이 빈 정책은 저장되지 않는다(마지막 한 명은 정책 삭제). 편집 반영은 실측 40~45초.
+- `<컬렉션>-data`(스택 것, Lambda role·`QueryPrincipalArns` 주체 전권)는 콘솔에서 고치지 않는다 — 실무자를 넣으면 읽기 제한이 사라지고(데이터 접근 정책은 더하기만 된다), Lambda role 을 지우면 색인이 멈춘다. 다음 스택 배포가 템플릿 값으로 되돌린다.
+- 배포 키도 `aoss:*` 라 이 정책을 만들 수는 있지만 만들지 않는다 — 배포 키를 지운 뒤에도 계정 관리자가 관리한다.
+
 ## 실패 모드
 
 | 증상 | 원인 | 대응 |
 |---|---|---|
 | 배포 롤백: `iam:CreateServiceLinkedRole … AWSServiceRoleForAmazonOpenSearchServerless … explicit deny` | 제한 키 정책이 v1(aoss 서비스 연결 role 예외 없음) | 정책 최신본(`../policies/`)으로 갱신 — `aws-iam-access` |
-| 질의 403 | 호출 사용자가 데이터 접근 정책에 없음 | `QueryPrincipalArns` 파라미터에 넣고 재배포 |
+| 질의 403 (계정 관리자·배포 키) | 호출 사용자가 데이터 접근 정책에 없음 | `QueryPrincipalArns` 파라미터에 넣고 재배포 |
+| 실무자 검색 403 `Bad Authorization` | `<컬렉션>-read` 에 그 실무자가 없음, 또는 넣은 직후 반영 대기(실측 40~45초) | 3부 5절로 더하고 1분 뒤 다시. 이유 없는 `403 Forbidden` 이면 `awscurl` 에 `--region ap-northeast-2` 누락이거나 적재 유형 키 |
 | 질의 404 `index_not_found` | 아직 한 건도 색인 안 됨 | 행을 하나 넣고 10초 |
 | `mapper_parsing_exception` → DLQ | 필드 타입 충돌 | 데이터 수정 또는 § 매핑 변경 — `aws-dynamodb-stream.md § DLQ 다루기` |
 | 컬렉션 생성 15분 넘김 | 리전 쪽 지연 | CloudFormation 이벤트 확인, 1시간 넘으면 삭제 후 재시도 |
@@ -142,3 +156,5 @@ npx tsx scripts/reindex.ts <TableName> <IndexFunctionName>
 ## 철거
 
 `../sam/stack2-index` 에서 `sam delete --config-file samconfig.<project>.toml --profile sls-deployer --no-prompts` — 컬렉션·정책·Lambda·DLQ 전부. **스택 ① 보다 먼저.** 삭제 후 과금이 몇 분 안에 멈추는지는 `미검증`(09-27 실측은 다음 날 Cost Explorer 로만 확인) — 사용 종료 전체 순서와 마지막 청구 확인은 `aws-iam-access.md § 사용 종료·정리`.
+
+단 실무자 읽기 정책 `<컬렉션>-read` 는 스택 밖이라 남는다(과금 없음). 같은 이름으로 다시 켤 계획이면 그대로 두고, 실무자 검색도 더는 안 쓸 때는 계정 관리자가 콘솔 Data access policies 에서 그 정책을 열어 **삭제**(확인 칸에 `확인`)하거나 `aws opensearchserverless delete-access-policy --type data --name <컬렉션>-read --profile <admin-profile>`.

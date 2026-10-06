@@ -6,15 +6,16 @@
 #   profile             ~/.aws/credentials 의 프로파일 이름 (키는 여기에만 둔다)
 #   expected-account-id 대상 계정의 12자리 계정 ID (01 § 3.5 콘솔 로그인 URL 의 숫자)
 #   expected-user-name  기본 sls-deployer (02 § 2.3 의 사용자명)
-#   policies-dir        V8 diff 용 원본 JSON 폴더, 기본 <이 스크립트>/../policies (정본은 이 한 벌뿐)
+#   policies-dir        V8·V8b diff 용 원본 JSON 폴더, 기본 <이 스크립트>/../policies (정본은 이 한 벌뿐)
 #
 # 종료 코드: 0 = 전부 통과, 1 = 반려(V1·V2·V4·V7·V8·V9b·V9c, 그리고 모든 조회 실패),
-#           2 = 수정 요청(V2b·V3·V5·V6·V9·V9c 스택 이름), 64 = 인자 오류.
+#           2 = 수정 요청(V2b·V3·V5·V6·V8b·V9·V9c 스택 이름), 64 = 인자 오류.
 # 조회 자체가 실패하면(프로파일 오타·네트워크·CLI 없음 포함) 라벨과 무관하게 반려로 끝난다 — 먼저 `aws sts get-caller-identity --profile <p>` 로 확인.
 # 필요: AWS CLI v2, python3. V5·V6 은 대상 계정에 임시 버킷·로그 그룹을 만들었다 지운다(V5 버킷 삭제 실패는 NOTE, V6 삭제 실패는 V6 FAIL).
-# 순서: 읽기 전용 판정(V1·V2·V2b → V3·V4 시뮬레이션 → V7·V8·V9·V9b·V9c)을 먼저 끝내고, 반려가 나오면
+# 순서: 읽기 전용 판정(V1·V2·V2b → V3·V4 시뮬레이션 → V7·V8·V8b·V9·V9b·V9c)을 먼저 끝내고, 반려가 나오면
 # 그 단계에서 끝낸다. 쓰기 호출(V5 us-east-1 버킷 생성 시도, V6 서울 스모크)은 반려 0 일 때만 맨 뒤에서 돈다
 # — 반려 키로는 대상 계정에 아무것도 쓰지 않는다.
+# V8b 는 실무자 유형 정책(SlsStaff* 3개, 03 안내서)이 계정에 있을 때만 원본과 대조한다 — 없으면 NOTE 한 줄이고 판정에 세지 않는다.
 # 출력의 계정 ID 는 <acct> 로 마스킹한다. 키 값은 절대 출력하지 않는다.
 
 set -u -f   # -f: sim() 의 리소스 "*" 가 파일 글롭으로 풀리지 않게
@@ -30,6 +31,7 @@ export AWS_PROFILE="$PROFILE"
 export AWS_PAGER=""
 REGION=ap-northeast-2
 POLICIES=(SlsServerlessAllow SlsGuardDeny SlsLambdaBoundary)
+STAFF_POLICIES=(SlsStaffPush SlsStaffQuery SlsStaffEdit)
 GROUP=sls-operators
 PROBE_FILE="${TMPDIR:-/tmp}/sls-probe.$$.txt"
 trap 'rm -f "$PROBE_FILE"' EXIT
@@ -206,6 +208,33 @@ for n in "${POLICIES[@]}"; do
   if [[ -z "$ORIG" ]]; then reject V8 "원본 $POLDIR/$n.json 없음 — 대조 불가"
   elif [[ "$LIVE" == "$ORIG" ]]; then pass V8 "$n $VER == 원본"
   else reject V8 "$n $VER 이 원본과 다름"; fi
+done
+
+# ---------- V8b 실무자 유형 정책 원본 diff (계정에 있을 때만 — 실무자 권한은 선택 사항이다, 03 안내서) ----------
+# 다르면 반려가 아니라 수정 요청이다: 실무자 정책은 배포 키 권한에 닿지 않고(배포 그룹에 붙었다면 V2 가 반려한다),
+# 반려의 조치(키 삭제·재발급)가 이 경우에 맞지 않는다. 조회 실패만 이 스크립트의 규칙대로 반려 — "없음" 으로 읽지 않는다.
+for n in "${STAFF_POLICIES[@]}"; do
+  ARN="arn:aws:iam::${ACCT}:policy/$n"
+  if ! VER=$(aws iam get-policy --policy-arn "$ARN" --query Policy.DefaultVersionId --output text 2>&1); then
+    # 오류 코드 자리만 본다 — 다른 오류의 문구에 그 단어가 섞여도 "없음" 으로 읽지 않는다
+    if echo "$VER" | grep -q '(NoSuchEntity)'; then echo "  NOTE V8b — $n 없음(이 유형을 쓰지 않으면 정상 — 판정에 세지 않는다)"
+    else reject V8b "$n 조회 실패: $(echo "$VER" | grep -v '^$' | head -1 | mask)"; fi
+    continue
+  fi
+  # 성공했는데 버전 ID 꼴이 아니면(빈 출력·None·CLI 경고가 섞인 출력) 그대로 쓰지 않는다. stderr 를 같이 받는 것은
+  # 의도한 것이다 — 경고 하나로 반려가 나더라도 못 읽은 것을 읽은 것으로 넘기지 않는다
+  if [[ ! "$VER" =~ ^v[0-9]+$ ]]; then reject V8b "$n 조회 실패(버전 ID 를 읽지 못함): $(echo "$VER" | grep -v '^$' | head -1 | mask)"; continue; fi
+  if ! RAW=$(aws iam get-policy-version --policy-arn "$ARN" --version-id "$VER" --query PolicyVersion.Document --output json 2>&1); then
+    reject V8b "$n $VER 본문 조회 실패: $(echo "$RAW" | grep -v '^$' | head -1 | mask)"; continue
+  fi
+  # 본문은 문(Statement)이 든 JSON 객체여야 한다 — null·{}·[]·잘린 출력은 "다름" 이 아니라 못 읽은 것이다
+  if ! LIVE=$(echo "$RAW" | python3 -c 'import sys,json;d=json.load(sys.stdin);ok=isinstance(d,dict) and bool(d.get("Statement"));print(json.dumps(d,sort_keys=True)) if ok else sys.exit(1)' 2>/dev/null); then
+    reject V8b "$n $VER 조회 실패(본문이 정책 JSON 이 아님): $(echo "$RAW" | mask | head -c 120 | tr '\n' ' ')"; continue
+  fi
+  ORIG=$(python3 -c 'import sys,json;print(json.dumps(json.load(open(sys.argv[1])),sort_keys=True))' "$POLDIR/$n.json" 2>/dev/null)
+  if [[ -z "$ORIG" ]]; then fix V8b "원본 $n.json 이 정책 폴더에 없거나 JSON 이 아님 — 대조 불가"
+  elif [[ "$LIVE" == "$ORIG" ]]; then pass V8b "$n $VER == 원본"
+  else fix V8b "$n $VER 이 원본과 다름 (실무자 정책 — 03 안내서의 정책 파일을 다시 붙여넣는다)"; fi
 done
 
 # ---------- V9 계정 위생 ----------

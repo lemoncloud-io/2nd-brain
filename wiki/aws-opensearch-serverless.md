@@ -19,6 +19,7 @@ sources:
   - "https://docs.aws.amazon.com/opensearch-service/latest/ServerlessAPIReference/API_CreateCollection.html"
   - "[[projects/aws-serverless/README|aws-serverless]]"
   - "[[projects/aws-serverless/config/skills/aws-opensearch|aws-opensearch]]"
+  - "[[projects/aws-serverless/guides/03-staff-access|3부 실무자 권한]]"
 created: "2026-10-06"
 updated: "2026-10-06"
 ---
@@ -72,6 +73,17 @@ AWS 문서의 API 표를 보면 `PUT <index>/_doc/<id>`·`_create/<id>`·`_updat
 
 데이터 접근 정책만으로는 데이터에 닿지 않는다. 주체는 IAM 권한 `aoss:APIAccessAll`·`aoss:DashboardsAccessAll` 도 함께 가져야 하고, 없으면 403 이 난다(AWS 문서). 제어 평면 API(`CreateCollection` 등)는 IAM 이, 데이터 평면 OpenSearch API(`PUT <index>` 등)는 데이터 접근 정책이 다룬다.
 
+### 권한이 합산된다는 것의 의미
+
+데이터 접근 정책에는 명시 거부가 없어서, 한 주체에게 걸린 여러 정책의 권한이 **전부 더해진다**. 한 정책이 `aoss:ReadDocument` 만 주고
+다른 정책이 `aoss:*` 를 주면 그 주체는 모든 동작을 할 수 있다 — 좁은 권한이 넓은 권한을 덮지 못한다(AWS 문서).
+그래서 "읽기만" 줄 사람은 넓은 권한이 걸린 정책에 절대 넣지 않고, 읽기 권한만 담은 **별도 정책**에 넣는다.
+
+- 읽기용 권한: 인덱스에 `aoss:ReadDocument`·`aoss:DescribeIndex`, 컬렉션에 `aoss:DescribeCollectionItems`.
+- 이 권한들은 IAM 액션이 아니라서 IAM 콘솔·정책 시뮬레이터에 나타나지 않는다. 시뮬레이터로 IAM 정책을 판정해도 데이터 접근 정책 쪽은 따로 확인해야 한다.
+- 정책은 컬렉션 **이름 패턴**으로 리소스를 잡는다. 나중에 그 이름으로 만든 컬렉션에도 생성 시점에 권한이 붙는다.
+- 정책을 만들거나 고친 뒤 실제로 적용되기까지 지연이 있다(AWS 문서: 생성 후 약 1분, 수정 후 몇 분. 이 파이프라인 실측 40~45초).
+
 ### `_bulk` 색인과 SigV4
 
 - OpenSearch API 요청은 SigV4 로 서명한다. 서비스 이름은 `aoss` 이고 관리형 도메인의 `es` 와 다르다. 다른 클라이언트로 직접 서명할 때는 `x-amz-content-sha256` 헤더가 필수다.
@@ -95,6 +107,8 @@ AWS 문서의 API 표를 보면 `PUT <index>/_doc/<id>`·`_create/<id>`·`_updat
 
 - 리소스 순서: `EncryptionPolicy`(`<CollectionName>-enc`, `AWSOwnedKey: true`) → `NetworkPolicy`(`<CollectionName>-net`, collection·dashboard `AllowFromPublic: true`) → `Collection`(`Type: SEARCH`, `StandbyReplicas: DISABLED`) → `DataAccessPolicy`(`<CollectionName>-data`, index·collection 에 `aoss:*`).
 - 데이터 접근 주체는 index 함수 role 과 `QueryPrincipalArns` 파라미터(계정 관리자 `admin-<이름>` + `sls-deployer`)다. 함수 role 에는 SAM `Policies` 로 컬렉션 ARN 에 대한 `aoss:APIAccessAll` 을 준다.
+- 실무자(3부 `staff-*`)의 검색 읽기는 스택 밖 데이터 접근 정책 `<CollectionName>-read`(위 읽기용 권한 셋만)로 준다. 실무자를 `QueryPrincipalArns` 에 넣으면 스택의 `<CollectionName>-data` 에 걸린 `aoss:*` 가 더해져 읽기 제한이 사라진다.
+  이 정책은 스택이 만들지 않으므로 스택 ② 를 지워도 남고, 같은 `CollectionName` 으로 다시 배포하면 그대로 이어진다(실측). 실무자의 검색 명령은 `awscurl --service aoss --region ap-northeast-2`. 운영은 [[projects/aws-serverless/config/skills/aws-opensearch|aws-opensearch]] § 실무자 읽기 정책, 발급은 [[projects/aws-serverless/guides/03-staff-access|3부 실무자 권한]].
 - `CollectionName` 은 3~26자, 소문자·숫자·하이픈이다. 보안 정책 이름에 `-data` 가 붙어도 32자 안이어야 하기 때문이다.
 - VPC 엔드포인트는 `ec2:*` 가 필요한데 배포 키가 거부하므로 network 는 public 으로 둔다. 접근은 IAM SigV4 와 데이터 접근 정책으로 막는다.
 - 컬렉션 생성은 실측 3.5분(09-23)이 걸렸고 최대 15분을 잡는다. Outputs 는 `CollectionEndpoint`·`DashboardEndpoint` 다.
