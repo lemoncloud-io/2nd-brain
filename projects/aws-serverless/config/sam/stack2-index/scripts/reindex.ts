@@ -44,8 +44,12 @@ function* scanAll(): Generator<AttrMap> {
   } while (token);
 }
 
+// Lambda's synchronous invoke payload limit is 6 MB; 1 MB headroom covers the stream-record envelope.
+const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
+
 const dir = mkdtempSync(join(tmpdir(), "reindex-"));
 let batch: AttrMap[] = [];
+let batchBytes = 0;
 let total = 0;
 let invokes = 0;
 
@@ -68,11 +72,17 @@ function flush(): void {
   total += batch.length;
   console.log(`${dryRun ? "[dry-run] " : ""}batch ${invokes}: ${batch.length} rows (total ${total})`);
   batch = [];
+  batchBytes = 0;
 }
 
 for (const item of scanAll()) {
+  const size = Buffer.byteLength(JSON.stringify(item));
+  if (size > MAX_PAYLOAD_BYTES) {
+    throw new Error(`row ${JSON.stringify({ docId: item.docId, version: item.version })} is ${size} bytes, over the ${MAX_PAYLOAD_BYTES}-byte invoke limit — reindex it on its own`);
+  }
+  if (batch.length === BATCH || batchBytes + size > MAX_PAYLOAD_BYTES) flush();
   batch.push(item);
-  if (batch.length === BATCH) flush();
+  batchBytes += size;
 }
 flush();
 console.log(`done: ${total} rows in ${invokes} invokes. Verify with scripts/query.ts, then delete the old index if this was a mapping change.`);

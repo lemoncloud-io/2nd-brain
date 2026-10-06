@@ -33,7 +33,9 @@ export const handler = async (event: DynamoDBStreamEvent): Promise<{ indexed: nu
   if (body.errors) {
     const failed = body.items
       .map((it) => Object.values(it)[0])
-      .filter((r) => r.error && r.status !== 404) // delete of a missing doc is fine
+      // a delete of a missing doc is 404 without `error` (result: not_found), so it never lands here;
+      // a 404 *with* `error` (index_not_found_exception) is a real failure and must not checkpoint the stream
+      .filter((r) => r.error)
       .slice(0, 3);
     if (failed.length) throw new Error(`bulk errors: ${JSON.stringify(failed)}`);
   }

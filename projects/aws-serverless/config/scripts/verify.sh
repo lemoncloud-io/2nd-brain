@@ -18,6 +18,8 @@
 # 출력의 계정 ID 는 <acct> 로 마스킹한다. 키 값은 절대 출력하지 않는다.
 
 set -u -f   # -f: sim() 의 리소스 "*" 가 파일 글롭으로 풀리지 않게
+# ${1:?} 는 인자 오류를 64 가 아니라 1(반려와 같은 값)로 끝내므로 먼저 개수를 본다
+[[ $# -ge 2 ]] || { echo "사용: $0 <profile> <expected-account-id> [expected-user-name] [policies-dir]"; exit 64; }
 PROFILE="${1:?profile}"
 EXPECT_ACCT="${2:?expected-account-id (12 digits)}"
 EXPECT_USER="${3:-sls-deployer}"

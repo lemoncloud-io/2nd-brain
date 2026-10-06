@@ -31,7 +31,7 @@ AWS CLI 프로파일(`sls-deployer`)로만 쓴다. 정책은 파이프라인에 
 
 사람이 따라 하는 화면 안내는 `../../guides/02-restricted-key.md`(2부), 붙여넣을 정책 JSON 3개는 `../policies/`. 요지 (Claude 가 옆에서 같이 볼 때 이 순서로):
 
-1. **IAM → 정책 → 정책 생성 → JSON 탭** → 기본 내용 지우고 `SlsServerlessAllow.json` 붙여넣기 → 이름 동일하게 → 생성. `SlsGuardDeny.json`·`SlsLambdaBoundary.json` 도 같게. 문(Statement) 개수 **10·13·4** 확인 — 눈대중용이고, 정본 대조는 검증 V8 이 JSON 전문으로 한다.
+1. **IAM → 정책 → 정책 생성 → JSON 탭** → 기본 내용 지우고 `SlsServerlessAllow.json` 붙여넣기 → 이름 동일하게 → 생성. `SlsGuardDeny.json`·`SlsLambdaBoundary.json` 도 같게. 문(Statement) 개수 **10·15·5** 확인 — 눈대중용이고, 정본 대조는 검증 V8 이 JSON 전문으로 한다.
 2. **사용자 그룹 → 그룹 생성** `sls-operators` → Allow·GuardDeny **둘만** 체크(Boundary 는 붙이지 않는다).
 3. **사용자 → 사용자 생성** `sls-deployer` → **콘솔 액세스는 체크하지 않음**(CLI 전용) → 그룹 `sls-operators` 추가. 직접 부착·인라인 정책 없이.
 4. 사용자 → **보안 자격 증명 → 액세스 키 만들기 → CLI** → 설명 태그 → 두 값 복사. **12자리 계정 ID**(검증 인자)와 관리자 사용자 **ARN**(스택 ② `QueryPrincipalArns`)도 적어 둔다.
