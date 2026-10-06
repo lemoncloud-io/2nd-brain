@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sls stack 1 - S3 upload -> Lambda (ingest) -> DynamoDB.
+  Stack name MUST start with "sls-" so the auto-generated Lambda role matches the
+  SlsServerlessAllow policy path (role/sls-*).
+
+Parameters:
+  AlarmEmail:
+    Type: String
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+$"
+    Description: Required. E-mail that receives the dead-letter alarm (confirm the SNS subscription mail after deploy).
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 256
+    Tracing: PassThrough
+    # Caps what any function role in this stack can do, whatever policy is attached to it.
+    # The deployer key may only create/modify roles that carry this boundary (policy v3).
+    PermissionsBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/SlsLambdaBoundary"
+
+Resources:
+  # ---- data bucket: private, encrypted (SSE-S3), versioned ----
+  DataBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-data-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # ---- TLS only (Security Hub S3.5): Deny-only, so BPA does not treat it as public ----
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt DataBucket.Arn
+              - !Sub "${DataBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  # ---- document table: one row per (docId, version), stream feeds stack 2 ----
+  DocTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-docs"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: docId, AttributeType: S }
+        - { AttributeName: version, AttributeType: S }
+      KeySchema:
+        - { AttributeName: docId, KeyType: HASH }
+        - { AttributeName: version, KeyType: RANGE }
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+  # ---- dead-letter queue + alarm ----
+  IngestDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-ingest-dlq"
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-alarms"
+
+  AlarmSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  IngestDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-ingest-dlq-not-empty"
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - { Name: QueueName, Value: !GetAtt IngestDlq.QueueName }
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # ---- ingest function ----
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        # cjs, not esm: an esm bundle that includes the AWS SDK dies at init with
+        # 'Dynamic require of "node:https" is not supported' (measured 2026-09-23).
+        Format: cjs
+        Target: es2022
+        Minify: true
+        Sourcemap: false
+        EntryPoints: [src/ingest.ts]
+    Properties:
+      Handler: ingest.handler
+      Description: S3 ObjectCreated -> DynamoDB row per (docId, version)
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DocTable
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref DocTable
+        # bucket referenced by name pattern, not !Ref, to avoid the bucket<->function cycle
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:GetObjectVersion]
+              Resource: !Sub "arn:aws:s3:::${AWS::StackName}-data-${AWS::AccountId}/*"
+      EventInvokeConfig:
+        MaximumRetryAttempts: 2
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
+            Destination: !GetAtt IngestDlq.Arn
+      Events:
+        Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DataBucket
+            Events: s3:ObjectCreated:*
+
+  IngestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${IngestFunction}"
+      RetentionInDays: 14
+
+Outputs:
+  BucketName:
+    Value: !Ref DataBucket
+  TableName:
+    Value: !Ref DocTable
+  TableStreamArn:
+    Description: Paste into stack 2 parameter TableStreamArn
+    Value: !GetAtt DocTable.StreamArn
+  IngestFunctionName:
+    Value: !Ref IngestFunction
+  DlqUrl:
+    Value: !Ref IngestDlq

@@ -1,0 +1,15 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "ap-northeast-2",
+      "eventTime": "2026-01-01T00:00:00.000Z",
+      "eventName": "ObjectCreated:Put",
+      "s3": {
+        "bucket": { "name": "BUCKET", "arn": "arn:aws:s3:::BUCKET" },
+        "object": { "key": "sample.json", "size": 24, "eTag": "0" }
+      }
+    }
+  ]
+}

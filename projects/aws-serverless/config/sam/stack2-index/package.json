@@ -1,0 +1,24 @@
+{
+  "name": "sls-stack2-index",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "query": "tsx scripts/query.ts"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@aws-sdk/credential-provider-node": "^3.700.0",
+    "@aws-sdk/util-dynamodb": "^3.700.0",
+    "@opensearch-project/opensearch": "^3.0.0"
+  }
+}
