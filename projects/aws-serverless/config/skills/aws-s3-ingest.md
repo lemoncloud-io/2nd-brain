@@ -10,6 +10,8 @@ description: >
 
 # AWS S3 Ingest (S3 → Lambda → DynamoDB)
 
+> 개념: [Amazon S3](../../../../wiki/aws-s3.md) · [AWS Lambda](../../../../wiki/aws-lambda.md) · [Amazon DynamoDB](../../../../wiki/aws-dynamodb.md) — 이 스킬은 절차만 다룬다.
+
 파일을 S3에 올리는 순간 Lambda가 깨어나 DynamoDB에 "이 파일이 언제·어떤 크기로 들어왔고,
 JSON이면 내용이 무엇인지"를 한 행으로 남긴다. 서버 없이, 올린 만큼만 과금된다.
 스택 ② (`aws-dynamodb-stream` → `aws-opensearch`)가 이 행을 받아 검색·집계한다.

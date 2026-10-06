@@ -1,5 +1,7 @@
 # 정책 설계 근거 — SlsServerlessAllow · SlsGuardDeny · SlsLambdaBoundary
 
+> 개념: [AWS IAM](../../../wiki/aws-iam.md)
+
 > `미검증` — 이 이름(`Sls*` 정책 · `sls-` 접두어 · `sls-deployer`)으로는 실계정 재실측 전이다. 같은 구조(정책 문장·조건·verify 검사 동일, 이름만 다름)를 이전 이름으로 실계정에서 검증했다(2026-09-23~09-29). 이 문서의 "실측"은 모두 그 검증 결과다.
 
 정책을 고치려는 사람이 읽는 글이다. 정본 파일은 [`../config/policies/`](../config/policies/) 의 JSON 6개(배포 키용 3개 — 이 문서의 대상, 실무자용 3개 — § 실무자 권한 유형), 판정 스크립트는 [`../config/scripts/verify.sh`](../config/scripts/verify.sh).

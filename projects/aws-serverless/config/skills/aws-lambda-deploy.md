@@ -10,6 +10,8 @@ description: >
 
 # AWS Lambda Deploy (SAM · Node.js 22 · TypeScript)
 
+> 개념: [AWS Lambda](../../../../wiki/aws-lambda.md) · [AWS SAM](../../../../wiki/aws-sam.md) — 이 스킬은 절차만 다룬다.
+
 Lambda는 "이벤트가 오면 함수 하나가 잠깐 돌고 꺼지는" 실행 방식이다. 서버·OS·패치·스케일 관리가 없다.
 이 프로젝트의 모든 Lambda는 **SAM 템플릿 + esbuild 번들 TypeScript** 한 가지 방식으로만 만든다 —
 콘솔에서 코드를 직접 고치지 않는다(다음 배포가 덮어쓴다).

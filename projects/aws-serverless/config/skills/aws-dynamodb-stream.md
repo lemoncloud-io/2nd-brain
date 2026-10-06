@@ -10,6 +10,8 @@ description: >
 
 # AWS DynamoDB + Stream (테이블 설계 · 변경 스트림 → Lambda)
 
+> 개념: [Amazon DynamoDB](../../../../wiki/aws-dynamodb.md) · [AWS Lambda](../../../../wiki/aws-lambda.md) — 이 스킬은 절차만 다룬다.
+
 DynamoDB는 "키로 넣고 키로 꺼내는" 관리형 NoSQL이다. 서버·용량 계획 없이 온디맨드로 쓴 만큼 낸다.
 **Stream** 을 켜면 모든 INSERT·MODIFY·REMOVE 가 24시간 보관되는 변경 로그로 나오고, Lambda가
 그걸 받아 OpenSearch에 색인한다. 그래서 DynamoDB는 "원본 저장", OpenSearch는 "검색·집계" —

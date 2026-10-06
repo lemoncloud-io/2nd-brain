@@ -11,6 +11,8 @@ description: >
 
 # AWS IAM Access (배포 키 발급 · 검증)
 
+> 개념: [AWS IAM](../../../../wiki/aws-iam.md) — 이 스킬은 절차만 다룬다.
+
 배포 대상 계정에 **정책 3개 → 그룹 1개(정책 2개 연결) → 사용자 1개 → Access Key 1개** 를 만들고, 그 키를 배포 작업자 환경의
 AWS CLI 프로파일(`sls-deployer`)로만 쓴다. 정책은 파이프라인에 필요한 서비스만 허용하고(허용목록), 그 밖의 모든 서비스·계정 변경·권한 확장은
 명시 거부하며, 키가 만드는 Lambda role 에는 권한 경계(permissions boundary)를 강제한다. Bedrock·EC2·SageMaker 가 열린 키는 사고 경로다.

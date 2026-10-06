@@ -12,6 +12,8 @@ description: >
 
 # AWS OpenSearch Serverless (색인 · 질의 · 시계열)
 
+> 개념: [Amazon OpenSearch Serverless](../../../../wiki/aws-opensearch-serverless.md) — 이 스킬은 절차만 다룬다.
+
 OpenSearch 는 전문 검색 + 집계 엔진이다. Serverless 판은 노드·샤드·버전 관리가 없고 OCU(연산 단위)
 시간당 과금이다. 이 파이프라인에서는 DynamoDB 가 원본, OpenSearch 는 **질의 전용 사본** —
 지워도 DynamoDB 에서 다시 만들 수 있다.

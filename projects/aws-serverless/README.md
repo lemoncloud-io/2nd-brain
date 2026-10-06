@@ -95,7 +95,20 @@ S3 (원본 업로드)
 3. stack1·stack2 를 배포 키로 배포·스모크·철거해 본다.
 4. 리소스 이름 접두어(`sls-`)는 정책·SAM 템플릿·`verify.sh` 세 곳이 같이 바뀌어야 한다.
 
+## 개념 (wiki)
+
+각 구성 요소가 무엇이고 왜 쓰는지는 wiki 에 있다. 이 프로젝트의 문서·스킬은 절차만 다룬다.
+
+| 구성 요소 | wiki | 관련 스킬 |
+|---|---|---|
+| 전체 구조·설계 원칙 | [서버리스 데이터 파이프라인](../../wiki/serverless-data-pipeline.md) | — |
+| 원본 보관·이벤트 | [Amazon S3](../../wiki/aws-s3.md) | `aws-s3-ingest` |
+| 처리 함수 | [AWS Lambda](../../wiki/aws-lambda.md) | `aws-lambda-deploy` |
+| 저장·스트림 | [Amazon DynamoDB](../../wiki/aws-dynamodb.md) | `aws-dynamodb-stream` |
+| 검색·집계 | [Amazon OpenSearch Serverless](../../wiki/aws-opensearch-serverless.md) | `aws-opensearch` |
+| 권한·키 | [AWS IAM](../../wiki/aws-iam.md) | `aws-account-setup` · `aws-iam-access` |
+| 배포 | [AWS SAM](../../wiki/aws-sam.md) | `aws-lambda-deploy` |
+
 ## Related
 
 - [`../devops/README.md`](../devops/README.md) — 개발 절차 진입점 (언제 로컬, 언제 이 파이프라인)
-- [`../../wiki/serverless-data-pipeline.md`](../../wiki/serverless-data-pipeline.md) — 개념 설명 (S3·Lambda·DynamoDB·OpenSearch·IAM·SAM 문서로 이어짐)

@@ -1,5 +1,7 @@
 # 3부 — 실무자 권한 (적재·조회·수정)
 
+> 더 알아보기: [AWS IAM](../../../wiki/aws-iam.md) · [Amazon OpenSearch Serverless](../../../wiki/aws-opensearch-serverless.md)
+
 소요: 정책·그룹·사용자·키 약 25분(실무자 3명 기준) + 검색 읽기 정책 약 5분 · 필요한 것: 실무자용 정책 파일 3개(`../config/policies/` 폴더의 `SlsStaff…` 파일) · 2부에서 만든 `SlsGuardDeny` · 1부에서 만든 관리자 사용자
 
 언제 하나: 배포 작업자가 파일 보관소·표·검색 엔진을 만들어 둔 뒤, 조직의 실무자가 직접 쓰기 시작할 때입니다. 사용 기간 중에도, 끝난 뒤에도 할 수 있습니다.
