@@ -9,6 +9,8 @@
 | 프로젝트 | 상태 | 목적 |
 |---------|------|------|
 | [second-brain](second-brain/) | active | 이 vault의 구조·워크플로우 지속 개선 (3-루프 가동) |
+| [devops](devops/) | active | 개발 작업 진입 절차 — 로컬/서버리스 구분, 서버리스는 표준 파이프라인으로 |
+| [aws-serverless](aws-serverless/) | active | S3 → Lambda → DynamoDB → OpenSearch 서버리스 파이프라인 레퍼런스 (계정·배포 키·검증·SAM·스킬) |
 | [@lemoncloud-io](@lemoncloud-io/) | 1 repos | GitHub 연결 프로젝트 |
 
 > 상태·마감·다음 행동의 진실원은 각 프로젝트 README의 frontmatter다. 루트 `projects.base` 대시보드에서 집계된다. 완료(`done`) 프로젝트는 `archive/projects/`로 이동한다.

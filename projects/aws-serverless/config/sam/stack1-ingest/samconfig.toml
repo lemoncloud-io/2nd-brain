@@ -1,0 +1,18 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "sls-<project>-ingest"
+region = "ap-northeast-2"
+# profile: pass on the command line (`sam deploy --profile sls-deployer`), never commit one here
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+# AlarmEmail: who gets the DLQ alarm mail (required)
+parameter_overrides = "AlarmEmail=\"<alarm-email>\""

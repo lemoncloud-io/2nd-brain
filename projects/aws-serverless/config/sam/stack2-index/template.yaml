@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sls stack 2 - DynamoDB Stream -> Lambda (index) -> OpenSearch Serverless (SEARCH collection).
+  Stack name MUST start with "sls-" (Lambda role path restriction, see stack 1).
+  Collection creation took 3.5 minutes in the field test (allow up to 15). The collection bills per OCU-hour while it exists.
+
+Parameters:
+  TableStreamArn:
+    Type: String
+    AllowedPattern: "^arn:aws:dynamodb:ap-northeast-2:[0-9]{12}:table/sls-[^/]+/stream/.+$"
+    Description: Stack 1 output TableStreamArn (arn:aws:dynamodb:ap-northeast-2:<account>:table/sls-.../stream/<ts>). Validated here so a placeholder fails before the collection is created.
+  CollectionName:
+    Type: String
+    Default: sls-docs
+    AllowedPattern: "^[a-z][a-z0-9-]{2,25}$"
+    Description: 3-26 chars, lowercase, digits, hyphens (security policy names add "-data" and must stay within 32)
+  IndexName:
+    Type: String
+    Default: docs
+    AllowedPattern: "^[a-z0-9][a-z0-9_.-]{0,127}$"
+    Description: OpenSearch index name (lowercase; validated here because a bad name only fails at runtime, in the DLQ)
+  TimestampField:
+    Type: String
+    Default: eventTime
+    Description: Row field (dotted path allowed, e.g. data.ts) copied to @timestamp; falls back to ingestedAt
+  QueryPrincipalArns:
+    Type: CommaDelimitedList
+    Description: >-
+      Required. IAM user/role ARNs allowed to query the collection and open the dashboard,
+      comma separated: the account admin user (01 section 3.5) and the deployer user.
+      Must all belong to THIS account - CloudFormation cannot pattern-check a CommaDelimitedList, and a
+      foreign-account ARN here is a data-access grant that survives deleting the deployer key.
+  AlarmEmail:
+    Type: String
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+$"
+    Description: Required. E-mail that receives the dead-letter alarm (confirm the SNS subscription mail after deploy).
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    Timeout: 60
+    MemorySize: 512
+    # Same boundary as stack 1: the deployer key can only create roles that carry it (policy v3).
+    PermissionsBoundary: !Sub "arn:aws:iam::${AWS::AccountId}:policy/SlsLambdaBoundary"
+
+Resources:
+  # ---- OpenSearch Serverless: encryption -> network -> collection -> data access ----
+  EncryptionPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub "${CollectionName}-enc"
+      Type: encryption
+      Policy: !Sub '{"Rules":[{"ResourceType":"collection","Resource":["collection/${CollectionName}"]}],"AWSOwnedKey":true}'
+
+  NetworkPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub "${CollectionName}-net"
+      Type: network
+      # Public endpoint for the field test; access is still gated by IAM + the data access policy.
+      # A VPC endpoint needs ec2:* which the deployer policy denies - extend the policy if you need it.
+      Policy: !Sub '[{"Rules":[{"ResourceType":"collection","Resource":["collection/${CollectionName}"]},{"ResourceType":"dashboard","Resource":["collection/${CollectionName}"]}],"AllowFromPublic":true}]'
+
+  Collection:
+    Type: AWS::OpenSearchServerless::Collection
+    DependsOn: [EncryptionPolicy, NetworkPolicy]
+    Properties:
+      Name: !Ref CollectionName
+      Type: SEARCH # not TIMESERIES: that type forbids custom _id, update and delete
+      StandbyReplicas: DISABLED # halves the minimum OCU bill; fine for a single-AZ test
+      Description: sls pipeline documents
+
+  DataAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: !Sub "${CollectionName}-data"
+      Type: data
+      Policy: !Sub
+        - '[{"Rules":[{"ResourceType":"index","Resource":["index/${CollectionName}/*"],"Permission":["aoss:*"]},{"ResourceType":"collection","Resource":["collection/${CollectionName}"],"Permission":["aoss:*"]}],"Principal":["${Principals}"]}]'
+        - Principals: !Join
+            - '","'
+            - - !GetAtt IndexFunctionRole.Arn
+              - !Join ['","', !Ref QueryPrincipalArns]
+
+  # ---- dead-letter queue + alarm ----
+  IndexDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-index-dlq"
+      MessageRetentionPeriod: 1209600
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-alarms"
+
+  AlarmSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  IndexDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-index-dlq-not-empty"
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - { Name: QueueName, Value: !GetAtt IndexDlq.QueueName }
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # ---- index function ----
+  IndexFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs # esm + bundled AWS SDK fails at init ("Dynamic require of node:https")
+        Target: es2022
+        Minify: true
+        Sourcemap: false
+        EntryPoints: [src/index.ts]
+    Properties:
+      Handler: index.handler
+      Description: DynamoDB Stream -> OpenSearch Serverless _bulk
+      Environment:
+        Variables:
+          COLLECTION_ENDPOINT: !GetAtt Collection.CollectionEndpoint
+          INDEX_NAME: !Ref IndexName
+          TIMESTAMP_FIELD: !Ref TimestampField
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: aoss:APIAccessAll
+              Resource: !GetAtt Collection.Arn
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt IndexDlq.Arn
+      Events:
+        TableStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !Ref TableStreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 5
+            BisectBatchOnFunctionError: true
+            MaximumRetryAttempts: 3
+            DestinationConfig:
+              OnFailure:
+                Destination: !GetAtt IndexDlq.Arn
+
+  IndexLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${IndexFunction}"
+      RetentionInDays: 14
+
+Outputs:
+  CollectionEndpoint:
+    Value: !GetAtt Collection.CollectionEndpoint
+  DashboardEndpoint:
+    Value: !GetAtt Collection.DashboardEndpoint
+  IndexName:
+    Value: !Ref IndexName
+  IndexFunctionName:
+    Value: !Ref IndexFunction
+  DlqUrl:
+    Value: !Ref IndexDlq

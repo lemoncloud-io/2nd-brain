@@ -1,0 +1,276 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyEverythingOutsideAllowlist",
+      "Effect": "Deny",
+      "NotAction": [
+        "s3:*",
+        "lambda:*",
+        "dynamodb:*",
+        "aoss:*",
+        "logs:*",
+        "cloudwatch:*",
+        "sqs:*",
+        "sns:*",
+        "cloudformation:*",
+        "iam:*",
+        "sts:GetCallerIdentity",
+        "ce:Get*",
+        "ce:Describe*",
+        "budgets:View*",
+        "budgets:Describe*",
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey",
+        "kms:CreateGrant"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyIdentityCreationAndPrivilegeEscalation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateUser",
+        "iam:DeleteUser",
+        "iam:CreateAccessKey",
+        "iam:DeleteAccessKey",
+        "iam:UpdateAccessKey",
+        "iam:CreateLoginProfile",
+        "iam:UpdateLoginProfile",
+        "iam:CreateGroup",
+        "iam:DeleteGroup",
+        "iam:AddUserToGroup",
+        "iam:RemoveUserFromGroup",
+        "iam:AttachUserPolicy",
+        "iam:DetachUserPolicy",
+        "iam:PutUserPolicy",
+        "iam:AttachGroupPolicy",
+        "iam:DetachGroupPolicy",
+        "iam:PutGroupPolicy",
+        "iam:PutUserPermissionsBoundary",
+        "iam:DeleteUserPermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:CreateInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:CreateVirtualMFADevice",
+        "iam:DeactivateMFADevice",
+        "sts:AssumeRole",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:CreateSAMLProvider",
+        "iam:UpdateSAMLProvider"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyRoleWriteWithoutLambdaBoundary",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PermissionsBoundary": "arn:aws:iam::*:policy/SlsLambdaBoundary"
+        }
+      }
+    },
+    {
+      "Sid": "DenyRoleWriteOutsideSlsPath",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:UpdateRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "NotResource": "arn:aws:iam::*:role/sls-*"
+    },
+    {
+      "Sid": "DenyPassRoleOutsideSlsPath",
+      "Effect": "Deny",
+      "Action": "iam:PassRole",
+      "NotResource": "arn:aws:iam::*:role/sls-*"
+    },
+    {
+      "Sid": "DenyRolesWithPath",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:UpdateRole",
+        "iam:TagRole"
+      ],
+      "Resource": "arn:aws:iam::*:role/*/*"
+    },
+    {
+      "Sid": "DenyPassRoleToOtherServices",
+      "Effect": "Deny",
+      "Action": "iam:PassRole",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "DenyAttachingManagedPoliciesOutsideLambdaSet",
+      "Effect": "Deny",
+      "Action": "iam:AttachRolePolicy",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole",
+            "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole",
+            "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyServiceLinkedRoleExceptOpenSearchServerless",
+      "Effect": "Deny",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "iam:AWSServiceName": "observability.aoss.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "DenyCostBombsInsideAllowedServices",
+      "Effect": "Deny",
+      "Action": [
+        "aoss:UpdateAccountSettings",
+        "aoss:CreateCollectionGroup",
+        "aoss:UpdateCollectionGroup",
+        "lambda:PutProvisionedConcurrencyConfig",
+        "dynamodb:CreateTableReplica",
+        "dynamodb:UpdateTableReplicaAutoScaling",
+        "dynamodb:CreateGlobalTable",
+        "dynamodb:UpdateGlobalTable",
+        "dynamodb:UpdateGlobalTableSettings",
+        "dynamodb:UpdateGlobalTableVersion",
+        "lambda:PutFunctionRecursionConfig",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutObjectRetention",
+        "s3:PutObjectLegalHold",
+        "dynamodb:PurchaseReservedCapacityOfferings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyPublicExposureAndExfiltration",
+      "Effect": "Deny",
+      "Action": [
+        "s3:PutAccountPublicAccessBlock",
+        "dynamodb:ExportTableToPointInTime",
+        "logs:PutSubscriptionFilter",
+        "lambda:AddLayerVersionPermission"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCrossAccountSharingInsideAllowedServices",
+      "Effect": "Deny",
+      "Action": [
+        "dynamodb:PutResourcePolicy",
+        "dynamodb:DeleteResourcePolicy",
+        "sqs:AddPermission",
+        "sns:AddPermission",
+        "logs:PutResourcePolicy",
+        "logs:PutDestination",
+        "logs:PutDestinationPolicy",
+        "logs:PutAccountPolicy",
+        "logs:CreateExportTask",
+        "aoss:CreateSecurityConfig",
+        "aoss:UpdateSecurityConfig",
+        "s3:PutBucketAcl",
+        "s3:PutObjectAcl",
+        "s3:PutObjectVersionAcl",
+        "s3:PutBucketOwnershipControls",
+        "s3:CreateAccessPoint",
+        "s3:PutAccessPointPolicy",
+        "s3:PutInventoryConfiguration",
+        "s3:PutAnalyticsConfiguration",
+        "s3:PutBucketLogging",
+        "s3:PutReplicationConfiguration"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyUnauthenticatedFunctionUrl",
+      "Effect": "Deny",
+      "Action": [
+        "lambda:CreateFunctionUrlConfig",
+        "lambda:UpdateFunctionUrlConfig"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "lambda:FunctionUrlAuthType": "NONE"
+        }
+      }
+    },
+    {
+      "Sid": "DenyLambdaPermissionOutsideServiceSet",
+      "Effect": "Deny",
+      "Action": "lambda:AddPermission",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "lambda:Principal": [
+            "s3.amazonaws.com",
+            "sns.amazonaws.com",
+            "sqs.amazonaws.com",
+            "events.amazonaws.com",
+            "logs.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyOutsideSeoulRegion",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "sts:*",
+        "ce:*",
+        "budgets:*",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "ap-northeast-2"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "sls-<project>-index"
+region = "ap-northeast-2"
+# profile: pass on the command line (`sam deploy --profile sls-deployer`), never commit one here
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
+# TableStreamArn: stack 1 output. QueryPrincipalArns: account admin + deployer user ARNs (comma separated).
+parameter_overrides = "TableStreamArn=\"<stack1 output TableStreamArn>\" QueryPrincipalArns=\"arn:aws:iam::<account-id>:user/admin-<name>,arn:aws:iam::<account-id>:user/sls-deployer\" CollectionName=\"sls-<project>-docs\" AlarmEmail=\"<alarm-email>\""
