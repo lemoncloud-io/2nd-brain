@@ -54,7 +54,7 @@ S3 (원본 업로드)
   v4 는 일정 매출 이상 조직에 유료 라이선스라 기본 구성으로 쓰지 않았다.
 - **스택 경계** — stack1 = 저장·전처리, stack2 = 색인. stack2 는 stack1 의 `TableStreamArn` 을 ImportValue 가 아니라
   **파라미터**로 받는다(콘솔에서 값을 붙여넣을 수 있게).
-- **컬렉션 타입은 SEARCH.** TIMESERIES 는 사용자 지정 `_id`·업데이트·삭제를 지원하지 않아 DynamoDB 의 MODIFY/REMOVE 를
+- **컬렉션 타입은 SEARCH.** TIMESERIES 는 사용자 지정 `_id` 쓰기·업데이트를 지원하지 않아 DynamoDB 의 MODIFY/REMOVE 를 같은 문서에
   반영하지 못한다. 시계열은 SEARCH 컬렉션 + `@timestamp` 필드(원천 `TimestampField` 파라미터, 기본 `eventTime`)로 푼다.
 - **멱등** — docId = S3 key, version = S3 versionId. `PutItem` 은 `attribute_not_exists(docId)` 조건부라 같은 (docId, version)
   재실행은 건너뛴다(버저닝을 끈 버킷에 같은 키를 다시 올리면 갱신되지 않는다). OpenSearch `_id` = `docId#version` 이라 재색인도 멱등.
@@ -62,7 +62,7 @@ S3 (원본 업로드)
 - **실패 처리** — ingest 는 비동기 2회 재시도 후 OnFailure → SQS DLQ. index 는 batch 100 · BisectBatchOnFunctionError ·
   재시도 3 · OnFailure → DLQ. DLQ 깊이 > 0 이면 CloudWatch 알람 → SNS 이메일. Stream 은 24시간 지나면 유실되므로
   재색인 절차(DynamoDB Scan → bulk)를 스킬에 둔다.
-- **네트워크** — OpenSearch Serverless 네트워크 정책에는 IP 허용목록이 없다(VPC 엔드포인트 또는 public, `미검증`).
+- **네트워크** — OpenSearch Serverless 네트워크 정책에는 IP 허용목록이 없다 — 정책 문법이 `AllowFromPublic`·`SourceVPCEs`·`SourceServices` 뿐이다(AWS 문서).
   VPC 엔드포인트는 `ec2:*` 가 필요해 기본 정책이 막는다 — 필요하면 정책을 넓힌다.
 - **범위 밖** — 업무 API(API Gateway), EventBridge 일정, 대시보드, 서비스별 맞춤 로직. 정책 허용목록에도 API Gateway 는 없다.
 
@@ -94,3 +94,4 @@ S3 (원본 업로드)
 ## Related
 
 - [`../devops/README.md`](../devops/README.md) — 개발 절차 진입점 (언제 로컬, 언제 이 파이프라인)
+- [`../../wiki/serverless-data-pipeline.md`](../../wiki/serverless-data-pipeline.md) — 개념 설명 (S3·Lambda·DynamoDB·OpenSearch·IAM·SAM 문서로 이어짐)

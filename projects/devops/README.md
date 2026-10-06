@@ -67,3 +67,4 @@ next_action: "실제 개발 요청 1건으로 이 진입 순서를 밟아 보고
 ## Related
 
 - [aws-serverless](../aws-serverless/README.md) — 서버리스 파이프라인 레퍼런스 (안내서·정책·검증·SAM·스킬)
+- [서버리스 데이터 파이프라인](../../wiki/serverless-data-pipeline.md) — 구조·서비스 개념 설명 (wiki)
