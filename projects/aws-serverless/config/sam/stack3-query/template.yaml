@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  sls stack 3 (OPTIONAL) - Athena query path over stack 1's sidecar NDJSON
+  (s3://<data bucket>/sidecar/<source>/<YYYY-MM-DD>/<file>.jsonl). Creates a results bucket,
+  an Athena workgroup with a per-query scan cutoff, and a Glue database. Tables are created
+  with DDL (skills/aws-athena.md). Deploy only for companies that opt in; stacks 1 and 2 do not
+  depend on it. Needs policy SlsAthenaAllow on the deploying key. Stack name MUST be
+  "sls-<company>-query": the workgroup takes the stack name and the key may only touch
+  workgroup/sls-*.
+
+Parameters:
+  DataBucketName:
+    Type: String
+    AllowedPattern: "^sls-[a-z0-9-]+-data-[0-9]{12}$"
+    Description: Required. Stack 1 output BucketName (the bucket that holds sidecar/).
+  DatabaseName:
+    Type: String
+    AllowedPattern: "^sls_[a-z0-9_]{1,200}$"
+    Description: Required. Glue database, e.g. sls_<company>. Lowercase and underscores only (Athena name rules); the key may only touch database/sls_*.
+  BytesScannedCutoffPerQuery:
+    Type: Number
+    Default: 1073741824
+    MinValue: 10000000
+    MaxValue: 2147483647
+    Description: Per-query scan cap in bytes; a query that scans more is cancelled (and billed for what it scanned). Default 1 GiB (about USD 0.005 at USD 5/TB). CloudFormation takes an Integer here, so 2147483647 is the ceiling.
+  ResultsExpirationDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    Description: Query result files are deleted after this many days.
+
+Resources:
+  # ---- query results: private, encrypted (SSE-S3), not versioned, expires ----
+  ResultsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-results-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-query-results
+            Status: Enabled
+            ExpirationInDays: !Ref ResultsExpirationDays
+            # Athena leaves multipart uploads behind on cancelled/failed queries (Athena docs, "querying.html")
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  # ---- TLS only, same as stack 1's data bucket ----
+  ResultsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ResultsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt ResultsBucket.Arn
+              - !Sub "${ResultsBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  # ---- workgroup: its settings override the client's, so the cutoff and result location always apply ----
+  WorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Ref AWS::StackName
+      Description: sls Athena query path (sidecar NDJSON)
+      State: ENABLED
+      RecursiveDeleteOption: true
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        BytesScannedCutoffPerQuery: !Ref BytesScannedCutoffPerQuery
+        ResultConfiguration:
+          OutputLocation: !Sub "s3://${ResultsBucket}/results/"
+          ExpectedBucketOwner: !Ref AWS::AccountId
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+
+  # ---- catalog database; tables come from DDL (free) so each company can shape its own ----
+  Database:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Ref DatabaseName
+        Description: !Sub "sls sidecar tables over s3://${DataBucketName}/sidecar/"
+
+Outputs:
+  WorkGroupName:
+    Value: !Ref WorkGroup
+  ResultsBucketName:
+    Value: !Ref ResultsBucket
+  DatabaseName:
+    Value: !Ref Database
+  SidecarLocation:
+    Value: !Sub "s3://${DataBucketName}/sidecar/"

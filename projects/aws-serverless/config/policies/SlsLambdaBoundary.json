@@ -1,0 +1,88 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LambdaMayUseOnlyPipelineServices",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*",
+        "dynamodb:*",
+        "aoss:*",
+        "logs:*",
+        "sqs:*",
+        "sns:*",
+        "cloudwatch:*",
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCostBombs",
+      "Effect": "Deny",
+      "Action": [
+        "aoss:UpdateAccountSettings",
+        "aoss:CreateCollectionGroup",
+        "aoss:UpdateCollectionGroup",
+        "dynamodb:CreateTableReplica",
+        "dynamodb:UpdateTableReplicaAutoScaling",
+        "dynamodb:CreateGlobalTable",
+        "dynamodb:UpdateGlobalTable",
+        "dynamodb:UpdateGlobalTableSettings",
+        "dynamodb:UpdateGlobalTableVersion",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutObjectRetention",
+        "s3:PutObjectLegalHold",
+        "dynamodb:PurchaseReservedCapacityOfferings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyPublicExposureAndExfiltration",
+      "Effect": "Deny",
+      "Action": [
+        "s3:PutAccountPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketAcl",
+        "s3:PutObjectAcl",
+        "dynamodb:ExportTableToPointInTime",
+        "logs:PutSubscriptionFilter"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyCrossAccountSharing",
+      "Effect": "Deny",
+      "Action": [
+        "dynamodb:PutResourcePolicy",
+        "dynamodb:DeleteResourcePolicy",
+        "sqs:AddPermission",
+        "sns:AddPermission",
+        "logs:PutResourcePolicy",
+        "logs:PutDestination",
+        "logs:PutDestinationPolicy",
+        "logs:PutAccountPolicy",
+        "logs:CreateExportTask",
+        "aoss:CreateSecurityConfig",
+        "aoss:UpdateSecurityConfig",
+        "s3:PutObjectVersionAcl"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOutsideSeoulRegion",
+      "Effect": "Deny",
+      "NotAction": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": "ap-northeast-2"
+        }
+      }
+    }
+  ]
+}

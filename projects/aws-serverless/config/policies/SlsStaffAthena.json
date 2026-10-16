@@ -1,0 +1,98 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AthenaListAndCatalogMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "athena:ListEngineVersions",
+        "athena:ListWorkGroups",
+        "athena:ListDataCatalogs",
+        "athena:ListDatabases",
+        "athena:GetDatabase",
+        "athena:ListTableMetadata",
+        "athena:GetTableMetadata"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RunQueriesInSlsWorkGroup",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:StopQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:GetQueryResultsStream",
+        "athena:GetQueryRuntimeStatistics",
+        "athena:BatchGetQueryExecution",
+        "athena:ListQueryExecutions",
+        "athena:GetWorkGroup"
+      ],
+      "Resource": "arn:aws:athena:ap-northeast-2:*:workgroup/sls-*"
+    },
+    {
+      "Sid": "ReadSlsGlueTables",
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:GetPartition",
+        "glue:GetPartitions"
+      ],
+      "Resource": [
+        "arn:aws:glue:ap-northeast-2:*:catalog",
+        "arn:aws:glue:ap-northeast-2:*:database/sls_*",
+        "arn:aws:glue:ap-northeast-2:*:table/sls_*/*"
+      ]
+    },
+    {
+      "Sid": "ListSidecarPrefix",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::sls-*-data-*",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "sidecar/*"
+        }
+      }
+    },
+    {
+      "Sid": "ReadSidecarObjects",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::sls-*-data-*/sidecar/*"
+    },
+    {
+      "Sid": "BucketLocation",
+      "Effect": "Allow",
+      "Action": "s3:GetBucketLocation",
+      "Resource": [
+        "arn:aws:s3:::sls-*-data-*",
+        "arn:aws:s3:::sls-*-results-*"
+      ]
+    },
+    {
+      "Sid": "ResultsBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads"
+      ],
+      "Resource": "arn:aws:s3:::sls-*-results-*"
+    },
+    {
+      "Sid": "ResultsObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": "arn:aws:s3:::sls-*-results-*/*"
+    }
+  ]
+}

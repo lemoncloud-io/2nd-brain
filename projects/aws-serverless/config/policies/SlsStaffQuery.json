@@ -1,0 +1,59 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListDataBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::sls-*-data-*"
+    },
+    {
+      "Sid": "ReadDataObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::sls-*-data-*/*"
+    },
+    {
+      "Sid": "ReadDocTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-northeast-2:*:table/sls-*-docs",
+        "arn:aws:dynamodb:ap-northeast-2:*:table/sls-*-docs/index/*"
+      ]
+    },
+    {
+      "Sid": "ListDocTables",
+      "Effect": "Allow",
+      "Action": "dynamodb:ListTables",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SearchApiAccess",
+      "Effect": "Allow",
+      "Action": "aoss:APIAccessAll",
+      "Resource": "arn:aws:aoss:ap-northeast-2:*:collection/*"
+    },
+    {
+      "Sid": "FindSearchCollection",
+      "Effect": "Allow",
+      "Action": [
+        "aoss:ListCollections",
+        "aoss:BatchGetCollection"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

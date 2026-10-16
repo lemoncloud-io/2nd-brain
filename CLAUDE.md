@@ -38,11 +38,13 @@ or writing. Read and write only under the resolved root.
 
 ## Development Work
 
-This file governs vault operations only. Frontend/backend service development for the
-organization that owns this vault is documented separately: if `projects/devops/README.md`
-exists, read it before any such task — it holds the organization-specific entry points
-(canonical docs, skills, layer model). If it does not exist, say that development guidance
-is not written for this vault rather than inferring conventions from this file.
+This file governs vault operations only. Development work — frontend/backend code, data
+pipelines, deployment — is documented separately: if `projects/devops/README.md` exists, read
+it before any such task. It holds the default entry procedure (decide local vs. AWS serverless;
+serverless data processing follows the standard pipeline in `projects/aws-serverless/`). An
+organization with its own development guidance replaces or extends that README; follow what it
+points to. If it does not exist, say that development guidance is not written for this vault
+rather than inferring conventions from this file.
 
 ## Workflows
 
