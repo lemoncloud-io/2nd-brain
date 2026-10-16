@@ -10,13 +10,30 @@ Parameters:
     Type: String
     AllowedPattern: "^[^@\\s]+@[^@\\s]+$"
     Description: Required. E-mail that receives the dead-letter alarm (confirm the SNS subscription mail after deploy).
+  TtlDays:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    Description: Rows from a transformer (S3 key raw/<name>/... with src/transformers/<name>.mts; any other key is one generic row per file) expire this many days after the record's own time (0 = never). DynamoDB TTL deletes them and stack 2 deletes the index document.
+
+  SidecarEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: Athena option. true = each file a transformer read is also written as NDJSON to sidecar/<format>/<date>/<file>.jsonl (one S3 PUT per file, storage grows until deleted). Turn on only when the company chose Athena or both at intake (aws-s3-ingest step 0).
+
+Conditions:
+  SidecarOn: !Equals [!Ref SidecarEnabled, "true"]
 
 Globals:
   Function:
     Runtime: nodejs22.x
     Architectures: [arm64]
-    Timeout: 30
-    MemorySize: 256
+    # Transformer files must finish in one invocation (a retry re-sends every Put): 300 s / 1,024 MB and the
+    # caps MAX_TRANSFORM_BYTES / MAX_TRANSFORMED_ROWS in src/transform.ts come from the 2026-10-13 measurement.
+    # Generic files keep their 4 MiB / 1,000-row caps.
+    Timeout: 300
+    MemorySize: 1024
     Tracing: PassThrough
     # Caps what any function role in this stack can do, whatever policy is attached to it.
     # The deployer key may only create/modify roles that carry this boundary (policy v3).
@@ -74,6 +91,10 @@ Resources:
         - { AttributeName: version, KeyType: RANGE }
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+      # Rows that carry `ttl` (transformer rows when TtlDays > 0) expire; the REMOVE reaches stack 2 as a delete.
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: false
 
@@ -131,6 +152,8 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref DocTable
+          TTL_DAYS: !Ref TtlDays
+          SIDECAR_ENABLED: !Ref SidecarEnabled
       Policies:
         - DynamoDBWritePolicy:
             TableName: !Ref DocTable
@@ -139,6 +162,13 @@ Resources:
             - Effect: Allow
               Action: [s3:GetObject, s3:GetObjectVersion]
               Resource: !Sub "arn:aws:s3:::${AWS::StackName}-data-${AWS::AccountId}/*"
+        - !If
+          - SidecarOn
+          - Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${AWS::StackName}-data-${AWS::AccountId}/sidecar/*"
+          - !Ref AWS::NoValue
       EventInvokeConfig:
         MaximumRetryAttempts: 2
         DestinationConfig:

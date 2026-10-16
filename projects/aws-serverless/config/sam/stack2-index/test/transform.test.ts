@@ -63,6 +63,19 @@ describe("INDEX_BODY", () => {
     expect(INDEX_BODY.mappings.date_detection).toBe(false);
     expect(INDEX_BODY.mappings.properties["@timestamp"].type).toBe("date");
   });
+  it("maps stack 1's <field>$ref objects as stored-not-indexed, ahead of the string template", () => {
+    expect(INDEX_BODY.mappings.dynamic_templates[0]).toEqual({
+      s3_refs_not_indexed: { match_mapping_type: "object", match: "*$ref", mapping: { type: "object", enabled: false } },
+    });
+  });
+});
+
+describe("recordToOp with offloaded fields", () => {
+  it("passes a <field>$ref object through under its own key — the original field name never changes type", () => {
+    const ref = { M: { key: { S: "sample.json" }, versionId: { S: "v1" }, pointer: { S: "/body" }, bytes: { N: "307202" } } };
+    const op = recordToOp({ eventID: "1", eventName: "INSERT", dynamodb: { Keys: keys, NewImage: { ...image, data: { M: { id: { S: "req-1" }, body$ref: ref } } } } } as DynamoDBRecord);
+    expect(op?.action === "index" && op.doc.data).toEqual({ id: "req-1", body$ref: { key: "sample.json", versionId: "v1", pointer: "/body", bytes: 307202 } });
+  });
 });
 
 describe("toBulkBody", () => {

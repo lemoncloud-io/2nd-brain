@@ -9,6 +9,9 @@
 #   policies-dir  정책 JSON 폴더, 기본 <이 스크립트>/../policies
 #
 # 그룹 조합(3부 § 3.2): 적재 = Push + GuardDeny, 조회 = Query + GuardDeny, 수정 = Query + Edit + GuardDeny.
+# 옵션 Athena(스킬 aws-athena): 폴더에 SlsStaffAthena.json·SlsAthenaAllow.json 이 둘 다 있으면
+# 실무자 Athena 조합(조회 + StaffAthena)과 배포 키 옵션 조합(Allow + GuardDeny + AthenaAllow)의 설계 판정 25행과 린터 2줄을 더한다.
+# 하나라도 없으면 옵션 절을 통째로 건너뛰어 기존 47행 그대로다.
 # 종료 코드: 0 = 전부 통과, 1 = FAIL 이 하나라도 있음(판정을 못 한 호출 포함), 64 = 인자 오류.
 # 스크립트는 로그 파일을 쓰지 않는다 — 호출하는 쪽이 표준 출력을 로그로 받는다. 머리의 cksum 줄이
 # "이 로그가 어느 정책의 결과인지" 를 고정한다(sha 가 아니라 cksum: 12자리 숫자열이 생기지 않아 mask 에 걸리지 않는다).
@@ -24,14 +27,18 @@ export AWS_PROFILE="$PROFILE"
 export AWS_PAGER=""
 REGION=ap-northeast-2
 STAFF=(SlsStaffPush SlsStaffQuery SlsStaffEdit)
-EXPECTED_ROWS=47   # 아래 expect 호출 수. 행을 더하거나 빼면 같이 고친다 — 행이 조용히 사라지는 것을 잡는다
+EXPECTED_ROWS=47   # 아래 expect 호출 수(옵션 절 제외). 행을 더하거나 빼면 같이 고친다 — 행이 조용히 사라지는 것을 잡는다
+OPTION_ROWS=25     # 옵션 절 expect 호출 수
+OPTION=(SlsStaffAthena SlsAthenaAllow SlsServerlessAllow)
+OPT=0; [[ -f "$SRCDIR/SlsStaffAthena.json" && -f "$SRCDIR/SlsAthenaAllow.json" ]] && OPT=1
 
 # 정책 4개를 한 번만 읽는다: 임시 폴더에 복사해 cksum·시뮬레이션·린터가 전부 같은 사본을 본다
 # (실행에 1분쯤 걸려, 원본을 세 번 따로 읽으면 그 사이 고친 파일이 섞인다).
 DONE=0
 POLDIR=$(mktemp -d) || { echo "임시 폴더를 만들지 못함" >&2; exit 64; }
 trap 'rm -rf "$POLDIR"; [[ $DONE == 1 ]] || echo "== result: INCOMPLETE =="' EXIT
-for n in "${STAFF[@]}" SlsGuardDeny; do
+COPY=("${STAFF[@]}" SlsGuardDeny); [[ $OPT == 1 ]] && COPY+=("${OPTION[@]}")
+for n in "${COPY[@]}"; do
   cp "$SRCDIR/$n.json" "$POLDIR/$n.json" || { echo "정책 파일을 읽지 못함: $n.json" >&2; DONE=1; exit 64; }
 done
 
@@ -49,6 +56,9 @@ AWS_TIMEOUTS=(--cli-connect-timeout 10 --cli-read-timeout 30)
 
 PUSH=$(cat "$POLDIR/SlsStaffPush.json"); QUERY=$(cat "$POLDIR/SlsStaffQuery.json")
 EDIT=$(cat "$POLDIR/SlsStaffEdit.json"); GUARD=$(cat "$POLDIR/SlsGuardDeny.json")
+if [[ $OPT == 1 ]]; then
+  SATHENA=$(cat "$POLDIR/SlsStaffAthena.json"); CATHENA=$(cat "$POLDIR/SlsAthenaAllow.json"); ALLOW=$(cat "$POLDIR/SlsServerlessAllow.json")
+fi
 sim() { # $1 = 그룹 조합, $2 = resource arns (space sep), $3 = context entries (space sep), rest = actions
   local combo="$1" res="$2" ctx="$3" docs; shift 3
   case "$combo" in   # 그룹에 붙는 관리형 정책을 그대로 넣는다
@@ -56,6 +66,10 @@ sim() { # $1 = 그룹 조합, $2 = resource arns (space sep), $3 = context entri
     query)    docs=("$QUERY" "$GUARD") ;;
     edit)     docs=("$QUERY" "$EDIT" "$GUARD") ;;
     editonly) docs=("$EDIT" "$GUARD") ;;   # 잘못된 조합: 조회 정책이 빠진 수정 그룹
+    athena)   docs=("$QUERY" "$SATHENA" "$GUARD") ;;     # 옵션: 조회 그룹 + 실무자 Athena
+    athenaonly) docs=("$SATHENA" "$GUARD") ;;            # 옵션: 실무자 Athena 만(S3 범위가 sidecar/ 로 닫히는지)
+    deployer) docs=("$ALLOW" "$GUARD" "$CATHENA") ;;   # 옵션: 배포 키 + AthenaAllow
+    deployeroff) docs=("$ALLOW" "$GUARD") ;;           # 옵션 꺼짐: GuardDeny 허용 목록만으로는 아무것도 안 열린다
     *)        echo "모르는 조합 $combo"; return 2 ;;
   esac
   # shellcheck disable=SC2086
@@ -95,7 +109,7 @@ USER_ARN="arn:aws:iam::$ACCT:user/staff-hong"
 GROUP_ARN="arn:aws:iam::$ACCT:group/sls-staff-edit"
 
 echo "== staff-policy-sim: 직원 유형 3개 × 그룹 조합 (simulate-custom-policy) =="
-for n in "${STAFF[@]}" SlsGuardDeny; do
+for n in "${COPY[@]}"; do
   # 인자가 아니라 표준 입력으로 준다 — 파일을 인자로 주면 출력에 경로가 붙는다
   SUM=$(cksum < "$POLDIR/$n.json") || SUM=""
   [[ "$SUM" =~ ^[0-9]+\ [0-9]+$ ]] || { echo "cksum 실패: $n.json" >&2; exit 1; }
@@ -157,6 +171,56 @@ expect G4 push explicitDeny "$OBJECT" "$CTX_US" s3:PutObject
 expect G4 query explicitDeny "$TABLE" "$CTX_US" dynamodb:GetItem
 expect G4 edit explicitDeny "$TABLE" "$CTX_US" dynamodb:PutItem
 
+if [[ $OPT == 1 ]]; then
+  WG="arn:aws:athena:$REGION:$ACCT:workgroup/sls-test-query"
+  WG_PRIMARY="arn:aws:athena:$REGION:$ACCT:workgroup/primary"
+  GLUE_DB="arn:aws:glue:$REGION:$ACCT:database/sls_test"
+  GLUE_TBL="arn:aws:glue:$REGION:$ACCT:table/sls_test/llm_gateway_log"
+  GLUE_OTHER_TBL="arn:aws:glue:$REGION:$ACCT:table/default/t"
+  SIDECAR_OBJ="$BUCKET/sidecar/llm/2026-10-12/a.jsonl"
+  RAW_OBJ="$BUCKET/raw/llm/2026-10-12/a.json"
+  RESULTS_BUCKET="arn:aws:s3:::sls-test-query-results-$ACCT"
+  RESULTS_OBJ="$RESULTS_BUCKET/results/q.csv"
+  CTX_PREFIX_SIDECAR=$(ctx s3:prefix sidecar/llm/2026-10-12/)
+  CTX_PREFIX_RAW=$(ctx s3:prefix raw/)
+  CAPACITY_SPARK_ETL=(athena:CreateCapacityReservation athena:PutCapacityAssignmentConfiguration athena:StartSession athena:StartCalculationExecution
+    athena:CreateNotebook athena:CreateDataCatalog glue:CreateJob glue:StartJobRun glue:CreateCrawler glue:StartCrawler
+    glue:CreateDevEndpoint glue:CreateSession glue:PutResourcePolicy glue:CreateConnection)
+
+  echo "-- 옵션: 실무자 Athena (SlsStaffQuery + SlsStaffAthena + SlsGuardDeny)"
+  expect A1 athena allowed "$WG" "$CTX_SEOUL" athena:StartQueryExecution athena:StopQueryExecution athena:GetQueryExecution athena:GetQueryResults athena:GetWorkGroup
+  expect A2 athena allowed "$GLUE_TBL" "$CTX_SEOUL" glue:GetTable glue:GetPartitions
+  expect A3 athena allowed "$GLUE_DB" "$CTX_SEOUL" glue:GetDatabase glue:GetTables
+  expect A4 athena allowed "*" "$CTX_SEOUL" athena:ListWorkGroups athena:ListDataCatalogs athena:ListDatabases
+  expect A5 athena implicitDeny "$WG" "$CTX_SEOUL" athena:CreateWorkGroup athena:UpdateWorkGroup athena:DeleteWorkGroup
+  expect A6 athena implicitDeny "$WG_PRIMARY" "$CTX_SEOUL" athena:StartQueryExecution
+  expect A7 athena implicitDeny "$GLUE_TBL" "$CTX_SEOUL" glue:CreateTable glue:UpdateTable glue:DeleteTable
+  expect A8 athena implicitDeny "$GLUE_OTHER_TBL" "$CTX_SEOUL" glue:GetTable
+  expect A9 athena explicitDeny "*" "$CTX_SEOUL" "${CAPACITY_SPARK_ETL[@]}"
+  expect A10 athena explicitDeny "$WG" "$CTX_US" athena:StartQueryExecution
+  expect A11 query implicitDeny "$WG" "$CTX_SEOUL" athena:StartQueryExecution
+  echo "-- 옵션: 실무자 Athena 만 (SlsStaffAthena + SlsGuardDeny) — S3 는 sidecar/ 와 결과 버킷뿐"
+  expect A12 athenaonly allowed "$BUCKET" "$CTX_SEOUL $CTX_PREFIX_SIDECAR" s3:ListBucket
+  expect A13 athenaonly implicitDeny "$BUCKET" "$CTX_SEOUL $CTX_PREFIX_RAW" s3:ListBucket
+  expect A14 athenaonly allowed "$SIDECAR_OBJ" "$CTX_SEOUL" s3:GetObject
+  expect A15 athenaonly implicitDeny "$RAW_OBJ" "$CTX_SEOUL" s3:GetObject
+  expect A16 athenaonly implicitDeny "$SIDECAR_OBJ" "$CTX_SEOUL" s3:PutObject s3:DeleteObject
+  expect A17 athenaonly allowed "$RESULTS_OBJ" "$CTX_SEOUL" s3:GetObject s3:PutObject s3:AbortMultipartUpload s3:ListMultipartUploadParts
+
+  echo "-- 옵션: 배포 키 (SlsServerlessAllow + SlsGuardDeny + SlsAthenaAllow) — 설계 판정, 실키는 verify.sh V3e·V4k·V4l"
+  expect C1 deployer allowed "$WG" "$CTX_SEOUL" athena:StartQueryExecution athena:GetQueryResults athena:GetWorkGroup athena:CreateWorkGroup \
+    athena:UpdateWorkGroup athena:DeleteWorkGroup athena:ListTagsForResource
+  expect C2 deployer allowed "$GLUE_TBL" "$CTX_SEOUL" glue:CreateTable glue:GetTable glue:UpdateTable glue:DeleteTable glue:GetPartitions
+  expect C3 deployer allowed "$GLUE_DB" "$CTX_SEOUL" glue:CreateDatabase glue:GetDatabase glue:DeleteDatabase
+  expect C4 deployer explicitDeny "*" "$CTX_SEOUL" "${CAPACITY_SPARK_ETL[@]}"
+  expect C5 deployer implicitDeny "$WG_PRIMARY" "$CTX_SEOUL" athena:StartQueryExecution athena:UpdateWorkGroup
+  expect C6 deployer implicitDeny "$GLUE_OTHER_TBL" "$CTX_SEOUL" glue:CreateTable glue:DeleteTable
+  echo "-- 옵션 꺼짐: 배포 키 (SlsServerlessAllow + SlsGuardDeny) — GuardDeny 허용 목록만으로는 열리지 않는다"
+  expect C7 deployeroff implicitDeny "$WG" "$CTX_SEOUL" athena:StartQueryExecution athena:CreateWorkGroup
+  expect C8 deployeroff implicitDeny "$GLUE_DB" "$CTX_SEOUL" glue:CreateDatabase glue:GetDatabase
+  EXPECTED_ROWS=$((EXPECTED_ROWS + OPTION_ROWS))
+fi
+
 [[ $ROWS == "$EXPECTED_ROWS" ]] || fail ROWS "판정 행 $ROWS 개 ≠ 기대 $EXPECTED_ROWS 개 (행이 빠졌거나 EXPECTED_ROWS 를 안 고쳤다)"
 
 echo "-- 알려진 한계 (결과를 그대로 적고 PASS·FAIL 에 세지 않는다. 판정을 못 하면 FAIL)"
@@ -175,7 +239,8 @@ limit L2 query "$NODOCS_TABLE/index/by-docs" dynamodb:Query
 echo "-- validate-policy (콘솔 정책 편집기 린터와 같은 엔진)"
 lint() { aws accessanalyzer validate-policy "${AWS_TIMEOUTS[@]}" --region $REGION --policy-type IDENTITY_POLICY \
   --policy-document "file://$POLDIR/$1.json" --query "$2" --output text 2>&1; }
-for n in "${STAFF[@]}"; do
+LINT=("${STAFF[@]}"); [[ $OPT == 1 ]] && LINT+=(SlsStaffAthena SlsAthenaAllow)
+for n in "${LINT[@]}"; do
   # 건수를 숫자로 받는다 — 빈 출력을 "finding 없음" 으로 읽지 않는다
   OUT=$(lint "$n" 'length(findings)'); RC=$?
   if [[ $RC != 0 || ! "$OUT" =~ ^[0-9]+$ ]]; then fail LINT "$n validate-policy 실패(rc=$RC): $(echo "$OUT" | first_line)"

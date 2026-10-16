@@ -8,14 +8,16 @@
 #   expected-user-name  기본 sls-deployer (02 § 2.3 의 사용자명)
 #   policies-dir        V8·V8b diff 용 원본 JSON 폴더, 기본 <이 스크립트>/../policies (정본은 이 한 벌뿐)
 #
-# 종료 코드: 0 = 전부 통과, 1 = 반려(V1·V2·V4·V7·V8·V9b·V9c, 그리고 모든 조회 실패),
-#           2 = 수정 요청(V2b·V3·V5·V6·V8b·V9·V9c 스택 이름), 64 = 인자 오류.
+# 종료 코드: 0 = 전부 통과, 1 = 반려(V1·V2·V4·V4k·V4l·V7·V8·V8c·V9b·V9c, 그리고 모든 조회 실패),
+#           2 = 수정 요청(V2b·V3·V3e·V5·V6·V8b·V9·V9c 스택 이름), 64 = 인자 오류.
 # 조회 자체가 실패하면(프로파일 오타·네트워크·CLI 없음 포함) 라벨과 무관하게 반려로 끝난다 — 먼저 `aws sts get-caller-identity --profile <p>` 로 확인.
 # 필요: AWS CLI v2, python3. V5·V6 은 대상 계정에 임시 버킷·로그 그룹을 만들었다 지운다(V5 버킷 삭제 실패는 NOTE, V6 삭제 실패는 V6 FAIL).
 # 순서: 읽기 전용 판정(V1·V2·V2b → V3·V4 시뮬레이션 → V7·V8·V8b·V9·V9b·V9c)을 먼저 끝내고, 반려가 나오면
 # 그 단계에서 끝낸다. 쓰기 호출(V5 us-east-1 버킷 생성 시도, V6 서울 스모크)은 반려 0 일 때만 맨 뒤에서 돈다
 # — 반려 키로는 대상 계정에 아무것도 쓰지 않는다.
 # V8b 는 실무자 유형 정책(SlsStaff* 3개, 03 안내서)이 계정에 있을 때만 원본과 대조한다 — 없으면 NOTE 한 줄이고 판정에 세지 않는다.
+# 옵션 Athena(스킬 aws-athena): 그룹에 SlsAthenaAllow 가 더 붙어 있으면 V2 가 3개 조합을 받고 V3e·V4k·V4l·V8c 를 더 돈다.
+# 안 붙어 있으면 PASS·FIX 줄과 종료 코드는 옵션 이전과 같다(NOTE V8c 1줄 + NOTE V8b 가 SlsStaffAthena 몫으로 1줄 는다).
 # 출력의 계정 ID 는 <acct> 로 마스킹한다. 키 값은 절대 출력하지 않는다.
 
 set -u -f   # -f: sim() 의 리소스 "*" 가 파일 글롭으로 풀리지 않게
@@ -31,7 +33,8 @@ export AWS_PROFILE="$PROFILE"
 export AWS_PAGER=""
 REGION=ap-northeast-2
 POLICIES=(SlsServerlessAllow SlsGuardDeny SlsLambdaBoundary)
-STAFF_POLICIES=(SlsStaffPush SlsStaffQuery SlsStaffEdit)
+STAFF_POLICIES=(SlsStaffPush SlsStaffQuery SlsStaffEdit SlsStaffAthena)
+OPTION_ATHENA=SlsAthenaAllow
 GROUP=sls-operators
 PROBE_FILE="${TMPDIR:-/tmp}/sls-probe.$$.txt"
 trap 'rm -f "$PROBE_FILE"' EXIT
@@ -46,7 +49,8 @@ bail() { echo "== result: REJECT (여기서 중단 — 반려 키로는 아무�
 # 조회 호출이 실패하면(권한·스로틀) 빈 결과를 "없음" 으로 읽지 않는다 — 실패는 반려.
 run() { # $1 label, rest = aws 인자. 결과는 전역 OUT (서브셸이 아니어야 reject·bail 이 스크립트를 끝낸다)
   local label="$1"; shift
-  OUT=$(aws "$@" 2>&1) || { reject "$label" "조회 실패($1 $2): $(echo "$OUT" | head -1 | mask)"; bail; }
+  # aws 오류 출력은 첫 줄이 비어 있다 — 빈 줄이 아닌 첫 줄을 찍는다(10-13 실측: head -1 이면 사유가 비어 보였다)
+  OUT=$(aws "$@" 2>&1) || { reject "$label" "조회 실패($1 $2): $(echo "$OUT" | grep -m1 . | mask)"; bail; }
 }
 
 echo "== verify profile=$PROFILE expect <acct>:user/$EXPECT_USER =="
@@ -66,6 +70,8 @@ USER_NAME="${ME##*/}"
 
 # ---------- V2 붙은 정책 (ARN 기준 · 인라인 0 · 그룹 1) ----------
 EXPECT_ARNS=$(printf 'arn:aws:iam::%s:policy/SlsGuardDeny\narn:aws:iam::%s:policy/SlsServerlessAllow\n' "$ACCT" "$ACCT")
+EXPECT_ARNS_ATHENA=$(printf '%s\narn:aws:iam::%s:policy/%s\n' "$EXPECT_ARNS" "$ACCT" "$OPTION_ATHENA" | sort -u)
+ATHENA=0
 run V2 iam list-groups-for-user --user-name "$USER_NAME" --query 'Groups[].GroupName' --output text
 GROUPS_=$(echo "$OUT" | tr '\t' '\n' | grep -v '^$')
 ARNS=""; INLINE=""
@@ -80,8 +86,9 @@ INLINE=$(echo "$INLINE" | grep -v '^None$' | grep -v '^$' | sort -u)
 echo "V2 groups: $(echo $GROUPS_) / managed: $(echo "$ARNS" | mask | tr '\n' ' ')/ inline: ${INLINE:-<none>}"
 if [[ -z "$ARNS" ]]; then reject V2 "정책 없음"
 elif [[ -n "$INLINE" ]]; then reject V2 "인라인 정책이 붙어 있음: $(echo $INLINE) — 관리형 2개 외에는 반려"
-elif [[ "$ARNS" != "$EXPECT_ARNS" ]]; then reject V2 "정책 조합이 정확히 SlsServerlessAllow+SlsGuardDeny 가 아님"
+elif [[ "$ARNS" != "$EXPECT_ARNS" && "$ARNS" != "$EXPECT_ARNS_ATHENA" ]]; then reject V2 "정책 조합이 정확히 SlsServerlessAllow+SlsGuardDeny(+옵션 $OPTION_ATHENA) 가 아님"
 elif [[ "$(echo $GROUPS_)" != "$GROUP" ]]; then reject V2 "그룹이 정확히 $GROUP 하나가 아님: $(echo $GROUPS_)"
+elif [[ "$ARNS" == "$EXPECT_ARNS_ATHENA" ]]; then ATHENA=1; pass V2 "그룹 $GROUP 에 관리형 3개(옵션 $OPTION_ATHENA 포함)만, 인라인 0"
 else pass V2 "그룹 $GROUP 에 관리형 2개만, 인라인 0"; fi
 [[ $REJECT == 1 ]] && bail
 
@@ -191,6 +198,24 @@ expect V4h explicitDeny reject "arn:aws:iam::${ACCT}:role/aws-service-role/ec2.a
 expect V4i explicitDeny reject "*" "$CTX_US" s3:CreateBucket lambda:CreateFunction aoss:CreateCollection
 # V4j 경로가 붙은 role (role/sls-x/probe) — "sls-*" 의 * 가 / 까지 먹어 접두사 검사를 우회하는 경로, 바운더리·lambda 여도 거부 (v5)
 expect V4j explicitDeny reject "arn:aws:iam::${ACCT}:role/sls-x/probe" "$CTX_SEOUL $CTX_BOUNDARY $CTX_LAMBDA" iam:CreateRole iam:PassRole
+# V3e·V4k·V4l 옵션 Athena — SlsAthenaAllow 가 붙은 키만. 워크그룹 sls-*·Glue sls_* 안은 allowed,
+# 용량 예약·Spark·Glue ETL·카탈로그 리소스 정책은 GuardDeny NotAction 밖이라 explicitDeny, 그 밖의 워크그룹·DB 는 Allow 가 없어 implicitDeny
+if [[ $ATHENA == 1 ]]; then
+  WG_OK="arn:aws:athena:${REGION}:${ACCT}:workgroup/sls-probe-query"
+  GLUE="arn:aws:glue:${REGION}:${ACCT}"
+  expect V3e allowed fix "$WG_OK" "$CTX_SEOUL" athena:StartQueryExecution athena:StopQueryExecution athena:GetQueryResults athena:GetWorkGroup \
+    athena:CreateWorkGroup athena:UpdateWorkGroup athena:DeleteWorkGroup
+  expect V3e2 allowed fix "$GLUE:table/sls_probe/t" "$CTX_SEOUL" glue:CreateTable glue:GetTable glue:UpdateTable glue:DeleteTable glue:GetPartitions
+  expect V3e3 allowed fix "$GLUE:database/sls_probe" "$CTX_SEOUL" glue:CreateDatabase glue:GetDatabase glue:DeleteDatabase
+  expect V3e4 allowed fix "$GLUE:catalog" "$CTX_SEOUL" glue:GetDatabases glue:GetDatabase glue:CreateTable
+  expect V3e5 allowed fix "*" "$CTX_SEOUL" athena:ListWorkGroups athena:ListDataCatalogs athena:ListEngineVersions
+  expect V4k explicitDeny reject "*" "$CTX_SEOUL" \
+    athena:CreateCapacityReservation athena:PutCapacityAssignmentConfiguration athena:StartSession athena:StartCalculationExecution \
+    athena:CreateNotebook athena:CreateDataCatalog glue:CreateJob glue:StartJobRun glue:CreateCrawler glue:StartCrawler \
+    glue:CreateDevEndpoint glue:CreateSession glue:PutResourcePolicy glue:CreateConnection
+  expect V4l implicitDeny reject "arn:aws:athena:${REGION}:${ACCT}:workgroup/primary" "$CTX_SEOUL" athena:StartQueryExecution athena:UpdateWorkGroup
+  expect V4l2 implicitDeny reject "$GLUE:table/default/t" "$CTX_SEOUL" glue:CreateTable glue:DeleteTable
+fi
 [[ $REJECT == 1 ]] && bail
 
 # ---------- V7 Bedrock 실호출 (읽기 전용 · 서울 — us-east-1 이면 리전 Deny 가 대신 막아 Bedrock 판정이 안 된다) ----------
@@ -209,6 +234,18 @@ for n in "${POLICIES[@]}"; do
   elif [[ "$LIVE" == "$ORIG" ]]; then pass V8 "$n $VER == 원본"
   else reject V8 "$n $VER 이 원본과 다름"; fi
 done
+
+# ---------- V8c 옵션 Athena 정책 원본 diff (붙은 키만 — 배포 키 권한이라 다르면 V8 처럼 반려) ----------
+if [[ $ATHENA == 1 ]]; then
+  ARN="arn:aws:iam::${ACCT}:policy/$OPTION_ATHENA"
+  VER=$(aws iam get-policy --policy-arn "$ARN" --query Policy.DefaultVersionId --output text 2>/dev/null)
+  LIVE=$(aws iam get-policy-version --policy-arn "$ARN" --version-id "$VER" --query PolicyVersion.Document --output json 2>/dev/null | python3 -c 'import sys,json;print(json.dumps(json.load(sys.stdin),sort_keys=True))' 2>/dev/null)
+  ORIG=$(python3 -c 'import sys,json;print(json.dumps(json.load(open(sys.argv[1])),sort_keys=True))' "$POLDIR/$OPTION_ATHENA.json" 2>/dev/null)
+  if [[ -z "$LIVE" ]]; then reject V8c "$OPTION_ATHENA 조회 실패"
+  elif [[ -z "$ORIG" ]]; then reject V8c "원본 $POLDIR/$OPTION_ATHENA.json 없음 — 대조 불가"
+  elif [[ "$LIVE" == "$ORIG" ]]; then pass V8c "$OPTION_ATHENA $VER == 원본"
+  else reject V8c "$OPTION_ATHENA $VER 이 원본과 다름"; fi
+else echo "  NOTE V8c — $OPTION_ATHENA 미부착(옵션 Athena 꺼짐 — 판정에 세지 않는다)"; fi
 
 # ---------- V8b 실무자 유형 정책 원본 diff (계정에 있을 때만 — 실무자 권한은 선택 사항이다, 03 안내서) ----------
 # 다르면 반려가 아니라 수정 요청이다: 실무자 정책은 배포 키 권한에 닿지 않고(배포 그룹에 붙었다면 V2 가 반려한다),

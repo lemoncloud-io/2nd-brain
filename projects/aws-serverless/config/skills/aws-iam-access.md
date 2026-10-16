@@ -23,11 +23,13 @@ AWS CLI 프로파일(`sls-deployer`)로만 쓴다. 정책은 파이프라인에 
 | 파일 | 역할 | 요지 |
 |---|---|---|
 | `SlsServerlessAllow.json` | 허용목록 (키에 부착) | `s3 lambda dynamodb aoss logs cloudwatch sqs sns cloudformation` 전부 · Lambda role 은 `role/sls-*` 이면서 `SlsLambdaBoundary` 를 단 것만 생성·수정 · `iam:PassRole` 은 `lambda.amazonaws.com` 에만 · OpenSearch Serverless 서비스 연결 role 1개 · 자기 자신 조회 · 비용 읽기 |
-| `SlsGuardDeny.json` | 명시 거부 (키에 부착) | 허용목록 밖 **모든** 서비스(`NotAction`) / 조직·계정·결제 변경 / 사용자·키·정책 생성 등 권한 확장 / 바운더리 없는 role 쓰기·인라인 정책 / Lambda 실행용 4개 밖 관리형 정책 부착 / 비용 폭탄(aoss 용량 상한·프로비저닝 동시성·글로벌 테이블) / 공개 노출(퍼블릭 차단 해제·`AuthType NONE`·`Principal *`) / 외부 계정 공유(DynamoDB 리소스 정책·SQS/SNS AddPermission·로그 리소스 정책·aoss 보안 설정·S3 ACL·접근점·로깅·복제, v5) / 신뢰 정책 교체·경로 붙은 role(v5) / 서울 밖 리전 |
+| `SlsGuardDeny.json` | 명시 거부 (키에 부착) | 허용목록 밖 **모든** 서비스(`NotAction`) / 조직·계정·결제 변경 / 사용자·키·정책 생성 등 권한 확장 / 바운더리 없는 role 쓰기·인라인 정책 / Lambda 실행용 4개 밖 관리형 정책 부착 / 비용 폭탄(aoss 용량 상한·프로비저닝 동시성·글로벌 테이블) / 공개 노출(퍼블릭 차단 해제·`AuthType NONE`·`Principal *`) / 외부 계정 공유(DynamoDB 리소스 정책·SQS/SNS AddPermission·로그 리소스 정책·aoss 보안 설정·S3 ACL·접근점·로깅·복제, v5) / 신뢰 정책 교체·경로 붙은 role(v5) / 서울 밖 리전. 허용 목록에 Athena·Glue 질의·카탈로그 액션 15항목(옵션 Athena — Allow 가 없으면 아무것도 안 열림, 2026-10-12) |
 | `SlsLambdaBoundary.json` | 권한 경계 (role 에 부착) | 허용목록 중 Lambda 가 쓸 서비스(`s3 dynamodb aoss logs sqs sns cloudwatch` — `lambda`·`cloudformation` 없음) + X-Ray 쓰기, 여기에 GuardDeny 의 비용·노출 Deny 복제 + 버킷 정책/ACL 쓰기 Deny + 외부 공유 Deny 미러(v5). SAM `Globals.Function.PermissionsBoundary` 가 붙인다 |
 | `SlsStaffPush.json` | 실무자 적재 유형 (실무자 그룹에 부착) | 데이터 버킷 `sls-*-data-*` 에 올리기·목록. § 실무자 권한 유형 |
 | `SlsStaffQuery.json` | 실무자 조회 유형 | 데이터 버킷 읽기(옛 버전 포함)·표 `sls-*-docs` 읽기·`aoss:APIAccessAll`(문서 단위는 읽기 정책 `<컬렉션>-read`) |
 | `SlsStaffEdit.json` | 실무자 수정 유형의 쓰기분 (조회와 같이 부착) | 표 `sls-*-docs` 항목 Put·Update·Delete·BatchWrite |
+| `SlsAthenaAllow.json` | **옵션** — 켜는 계정만 `sls-operators` 에 더 붙임 | 워크그룹 `sls-*` 질의·관리, Glue `sls_*` DB·표. `aws-athena.md` |
+| `SlsStaffAthena.json` | **옵션** — 실무자 Athena 질의(조회 그룹에 더) | `sls-*` 워크그룹 질의만, Glue 읽기, `sidecar/` 읽기, 결과 버킷. `aws-athena.md` |
 
 현재 **v5 초안 — 실계정 재실측 대기**(2026-09-29 리뷰 반영 — `UpdateAssumeRolePolicy` 명시 거부, 경로 붙은 role Deny, DynamoDB·SQS·SNS·logs·aoss·S3 외부 공유 액션 Deny, 예약 용량 구매 Deny, verify.sh V9c). 실측 통과본은 **v4**(2026-09-24 2차 리뷰 반영 — 바운더리에 Deny 복제, `sls-*` 밖 role·lambda 밖 PassRole 명시 Deny, `lambda:AddPermission` 서비스 주체 허용목록, Object Lock·OIDC/SAML Deny, 자기 조회 리소스 한정. 09-24 실측 통과). v5 는 validate-policy·verify 39 PASS·stack1/2 새 계정 배포·배포 후 verify 를 통과하기 전에는 실측 통과본으로 확정하지 않는다. v3 는 09-23 실측 통과본이지만 Lambda 경유 `aoss:UpdateAccountSettings` 경로가 열려 있었다. v2 는 인라인 `*` 우회, v1 은 OpenSearch Serverless 첫 컬렉션 생성에서 롤백 — 반드시 최신본을 쓴다. 정책 설계 근거는 `../../guides/policy-design.md`.
 바꿀 일이 생기면 JSON 을 고치고 `aws iam create-policy-version --set-as-default` 로 올린 뒤 아래 검증을 다시 돈다.

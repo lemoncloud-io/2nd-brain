@@ -34,6 +34,7 @@ RDB는 서버가 항상 켜져 있고(최소 인스턴스 월 수만 원부터, 
 | Stream | `NEW_AND_OLD_IMAGES` | REMOVE 도 키를 알아야 OpenSearch에서 지운다 |
 | PITR | 시험 단계 off | 운영 전환 시 on (월 GB당 USD 0.2 안팎, `미검증`) |
 | 나머지 필드 | 자유 (`size`·`eventTime`·`data{...}`·`tag`…) | 스키마 없음. 색인 매핑은 OpenSearch 쪽에서 정한다 |
+| 행 크기 | `data` ≤ 256 KiB + 메타데이터 (항목 한도 400 KB) | 256 KiB 넘는 값은 S3 원본에 두고 `<필드>$ref` 만 남긴다(`aws-s3-ingest.md § 만들어지는 것`) |
 
 **설계 순서:** 질문 목록 → 접근 패턴("무엇으로 찾나") → 키. 키가 아닌 필드로 자주 찾아야 하면
 GSI 를 만들지 말고 OpenSearch 쿼리로 푼다 — 그게 이 파이프라인의 분업이다.

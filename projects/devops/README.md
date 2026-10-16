@@ -51,7 +51,7 @@ next_action: "실제 개발 요청 1건으로 이 진입 순서를 밟아 보고
 
 5. **스킬 순서대로 배포·확인한다** — `aws-serverless/config/skills/`.
    `aws-s3-ingest` → `aws-lambda-deploy` → `aws-dynamodb-stream` → `aws-opensearch`. 각 스킬의 확인 단계(파일 1개 업로드 → 저장 1행 →
-   검색 1건)를 통과해야 끝난다.
+   검색 1건)를 통과해야 끝난다. 데이터 형식마다 가공 코드가 필요하면 `aws-transformer`, SQL 조회(Athena)를 고르면 `aws-athena` 를 더한다.
 
 6. **결과를 남긴다.** 무엇을 배포했고 무엇을 확인했는지를 해당 프로젝트 README 의 Log 에 적는다.
 

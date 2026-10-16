@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "sls-<company>-query"
+region = "ap-northeast-2"
+# profile: pass on the command line (`sam deploy --profile <company>`), never commit one here
+
+[default.deploy.parameters]
+resolve_s3 = false
+confirm_changeset = false
+fail_on_empty_changeset = false
+# DataBucketName: stack 1 output BucketName. DatabaseName: sls_<company> (lowercase, underscores)
+parameter_overrides = "DataBucketName=\"<stack1-bucket>\" DatabaseName=\"sls_<company>\""

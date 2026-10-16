@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AthenaListAndCatalogMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "athena:ListEngineVersions",
+        "athena:ListWorkGroups",
+        "athena:ListDataCatalogs",
+        "athena:ListDatabases",
+        "athena:GetDatabase",
+        "athena:ListTableMetadata",
+        "athena:GetTableMetadata"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SlsWorkGroupQueriesAndAdmin",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:StopQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:GetQueryResultsStream",
+        "athena:GetQueryRuntimeStatistics",
+        "athena:BatchGetQueryExecution",
+        "athena:ListQueryExecutions",
+        "athena:ListTagsForResource",
+        "athena:GetWorkGroup",
+        "athena:CreateWorkGroup",
+        "athena:UpdateWorkGroup",
+        "athena:DeleteWorkGroup"
+      ],
+      "Resource": "arn:aws:athena:ap-northeast-2:*:workgroup/sls-*"
+    },
+    {
+      "Sid": "SlsGlueDatabasesAndTables",
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:CreateDatabase",
+        "glue:UpdateDatabase",
+        "glue:DeleteDatabase",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:CreateTable",
+        "glue:UpdateTable",
+        "glue:DeleteTable",
+        "glue:GetPartition",
+        "glue:GetPartitions"
+      ],
+      "Resource": [
+        "arn:aws:glue:ap-northeast-2:*:catalog",
+        "arn:aws:glue:ap-northeast-2:*:database/sls_*",
+        "arn:aws:glue:ap-northeast-2:*:table/sls_*/*",
+        "arn:aws:glue:ap-northeast-2:*:userDefinedFunction/sls_*/*"
+      ]
+    }
+  ]
+}

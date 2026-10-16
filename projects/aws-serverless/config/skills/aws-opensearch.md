@@ -45,11 +45,15 @@ DynamoDB Stream ──▶ Lambda index ──_bulk──▶ OpenSearch Serverles
 문자열  → keyword (정확 일치·집계) + .text 서브필드 (전문 검색). date_detection 꺼짐 — 날짜처럼 보여도 문자열
 숫자    → long / double 자동
 날짜    → @timestamp · eventTime · ingestedAt 만 date (명시 매핑)
+*$ref   → enabled: false — 스택 ① 이 S3 원본에 둔 큰 값의 위치(ref). _source 에만 남고 색인·검색 안 함
 ```
 동적 템플릿이라 새 필드가 와도 색인된다. **한 번 정해진 필드 타입은 못 바꾼다** — 숫자 필드에
 문자열이 오면 `mapper_parsing_exception` 으로 DLQ 행. 타입을 바꾸려면 새 인덱스 + 재색인.
 `@timestamp` = `TIMESTAMP_FIELD`(기본 `eventTime` = 업로드 시각) → 없으면 `ingestedAt`. 문서 안 이벤트 시각으로 시계열을 보려면 `data.<필드>` 로 바꿔 배포 — 안 바꾸면 한 번에 올린 1년치 로그가 업로드 1시간에 몰린다.
+ref 는 원래 필드 이름이 아니라 `<필드>$ref` 라는 새 키로 오므라 같은 필드가 문서마다 문자열·객체로 바뀌는 충돌이 없다. `*$ref` 템플릿은 인덱스를 **새로 만들 때만** 들어간다 — 기존 인덱스에서는 ref 가 일반 필드(keyword·long)로 색인될 뿐 깨지지는 않으니, 다음 § 매핑 변경 때 같이 반영하면 된다.
 질의에 쓸 필드를 미리 정해 두었으면 `INDEX_BODY.mappings.properties` 에 명시 매핑을 더한다(필드 수 상한 1,000 — 키가 값처럼 변하는 JSON 은 `enabled: false` 원문 필드로).
+
+**형식별 인덱스** — 스택 ①의 `mts` 가 만든 행(`transformer: <형식>`)은 `src/mappings/<형식>.ts` 가 있으면 `<IndexName>-<형식>` 인덱스로 간다: `dynamic: strict` + 매핑에 적은 필드만, `_id = data.<ID_FIELD>`(같은 레코드가 두 파일로 와도 문서 하나), TTL 만료(REMOVE)는 이전 이미지의 id로 삭제. 형식마다 strict 매핑이 달라 한 인덱스에 섞을 수 없어서다. 매핑 파일이 없는 형식과 일반 행은 위 동적 매핑으로 `<IndexName>`. 파라미터 `IndexIdField`(기본 빈 값 = 각 매핑의 `ID_FIELD`)에 `docId` 를 주면 모든 형식을 행 키로 색인한다(ID가 마스킹돼 모두 같은 샘플용). 매핑 만드는 법은 `aws-transformer`.
 
 ## 절차
 
@@ -109,6 +113,7 @@ npx tsx scripts/reindex.ts <TableName> <IndexFunctionName>
 4. **질의 대상 교체** — 인덱스 이름을 쓰는 곳을 전부 `docs-v2` 로: 대시보드 인덱스 패턴, 다른 사람에게 공유한 질의 예시, `query.ts` 호출 인자, 운영 문서.
 5. 옛 인덱스 삭제 — 교체가 끝난 뒤:
    `COLLECTION_ENDPOINT=... LIVE_INDEX=docs-v2 npx tsx scripts/delete-index.ts docs --yes`
+   형식별 인덱스도 접두사를 따라 `docs-v2-<형식>` 으로 새로 생긴다 — 옛 `docs-<형식>` 도 같은 명령으로 지운다. 한 형식의 매핑만 바꿀 때도 `IndexName` 을 바꿔 전체를 재색인한다.
 
 2~4 사이에는 `docs` 로 질의하면 배포 이후 변경이 빠져 보인다 — 다른 사람이 대시보드를 보는 시간을 피한다.
 

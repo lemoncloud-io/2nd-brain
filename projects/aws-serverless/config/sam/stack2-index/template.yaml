@@ -19,7 +19,7 @@ Parameters:
     Type: String
     Default: docs
     AllowedPattern: "^[a-z0-9][a-z0-9_.-]{0,127}$"
-    Description: OpenSearch index name (lowercase; validated here because a bad name only fails at runtime, in the DLQ)
+    Description: OpenSearch index name for generic rows (lowercase; validated here because a bad name only fails at runtime, in the DLQ). Rows from stack 1 transformer <name> with a src/mappings/<name>.ts go to <IndexName>-<name>.
   TimestampField:
     Type: String
     Default: eventTime
@@ -31,6 +31,11 @@ Parameters:
       comma separated: the account admin user (01 section 3.5) and the deployer user.
       Must all belong to THIS account - CloudFormation cannot pattern-check a CommaDelimitedList, and a
       foreign-account ARN here is a data-access grant that survives deleting the deployer key.
+  IndexIdField:
+    Type: String
+    Default: ""
+    AllowedPattern: "^([A-Za-z][A-Za-z0-9]*)?$"
+    Description: Transformer rows only. Empty = each format's ID_FIELD (src/mappings/<name>.ts, e.g. responseId), so the same record in two files is one document; rows without it use their key. Set docId for masked samples whose ids are all one placeholder (applies to every format).
   AlarmEmail:
     Type: String
     AllowedPattern: "^[^@\\s]+@[^@\\s]+$"
@@ -138,6 +143,7 @@ Resources:
           COLLECTION_ENDPOINT: !GetAtt Collection.CollectionEndpoint
           INDEX_NAME: !Ref IndexName
           TIMESTAMP_FIELD: !Ref TimestampField
+          INDEX_ID_FIELD: !Ref IndexIdField
       Policies:
         - Statement:
             - Effect: Allow

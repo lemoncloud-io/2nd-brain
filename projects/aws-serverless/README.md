@@ -1,7 +1,7 @@
 ---
 type: project
 status: active
-goal: "자기 AWS 계정에 S3 → Lambda → DynamoDB → Stream → Lambda → OpenSearch Serverless 파이프라인을 제한된 배포 키로 올리는 레퍼런스 — 계정 준비 안내, IAM 정책 3개, 검증 스크립트, SAM 스택 2개, 스킬 6종"
+goal: "자기 AWS 계정에 S3 → Lambda → DynamoDB → Stream → Lambda → OpenSearch Serverless 파이프라인을 제한된 배포 키로 올리는 레퍼런스 — 계정 준비 안내, IAM 정책 3개(+옵션), 검증 스크립트, SAM 스택 2개 + 옵션 Athena 스택, 스킬 8종"
 due:
 milestones: []
 next_action: "새 이름(Sls*·sls-)으로 실계정 재실측 — validate-policy 0 finding, verify.sh 전부 PASS, stack1·stack2 배포·스모크·철거"
@@ -13,16 +13,17 @@ next_action: "새 이름(Sls*·sls-)으로 실계정 재실측 — validate-poli
 서버를 켜 두지 않고 쓴 만큼만 낸다. 개발 절차 안에서 이 프로젝트가 어디에 오는지는 [`../devops/README.md`](../devops/README.md).
 
 ```
-S3 (원본 업로드)
-  └ ObjectCreated → Lambda ingest → DynamoDB (PK=docId, SK=version)
-                                      └ Stream → Lambda index → OpenSearch Serverless (검색·집계·시계열)
+S3 (원본 업로드 raw/<형식>/<날짜>/<파일>)
+  └ ObjectCreated → Lambda ingest (형식별 가공 코드 mts) → DynamoDB (PK=docId, SK=version)
+  │                                                       └ Stream → Lambda index → OpenSearch Serverless (검색·집계·시계열)
+  └ (옵션) sidecar/<형식>/<날짜>/<파일>.jsonl → Athena (SQL, 쿼리당 과금)
 ```
 
 ## Status
 
 - 구조(정책 3개 + 스택 2개)는 실계정에서 배포·스모크·음성 확인까지 마친 구성이다. 공개본에서 리소스 이름만
   `Sls*`·`sls-` 로 바꿨고, **이 이름으로는 실계정 재실측 전이다(`미검증`)**. 이름 변경 외 정책 문장은 같다.
-- SAM 유닛 테스트: stack1 7건, stack2 13건 통과(`npm test`).
+- SAM 유닛 테스트: stack1 166건(7파일), stack2 26건(4파일) 통과(`npm test`), `tsc --noEmit` 0 오류.
 - 실무자 정책 3개(`SlsStaff*`)는 이 이름으로 정책 시뮬레이션 PASS(`config/scripts/staff-policy-sim.sh`, 계정에 아무것도 만들지 않는 문서 평가)와 `validate-policy` 0 finding까지 확인했다. 실계정 적용은 `미검증`.
 
 ## 사용 순서
@@ -33,8 +34,10 @@ S3 (원본 업로드)
    정책 3개를 붙인 전용 사용자 `sls-deployer` 의 액세스 키. 사람이든 에이전트든 배포는 이 키로만 한다.
 3. **키 검증** — `config/scripts/verify.sh <profile> <account-id>`. 전부 PASS 여야 배포한다. 항목 설명은 [`guides/policy-design.md`](guides/policy-design.md) § verify 체크 표.
 4. **배포** — stack1(`aws-s3-ingest`·`aws-lambda-deploy`) → stack2(`aws-dynamodb-stream`·`aws-opensearch`). 스택 이름은 반드시 `sls-` 로 시작한다.
-5. (선택) **실무자 권한** — [`guides/03-staff-access.md`](guides/03-staff-access.md). 파이프라인이 선 뒤 데이터를 올리거나(적재) 읽거나(조회) 고치는(수정) 사람에게 유형별 키를 준다. 관리자 권한을 나눠 주지 않는다.
-6. (선택) **현행·목표 구조 정리** — [`guides/as-is-to-be.md`](guides/as-is-to-be.md). 데이터 형식·생성 주기·양을 적어 두면 비용 추정의 입력이 된다.
+   배포 전에 질의 방식(검색 엔진만 / Athena 만 / 둘 다 / 안 씀)을 정한다 — `aws-s3-ingest` § 절차 0번. Athena 를 쓰면 stack3(`aws-athena`).
+5. **데이터 형식별 가공 코드** — 원본을 레코드 JSON 으로 바꾸는 `mts` 파일 하나를 형식마다 만든다(`aws-transformer`). `raw/<형식>/…` 경로로 올리면 그 코드를 탄다.
+6. (선택) **실무자 권한** — [`guides/03-staff-access.md`](guides/03-staff-access.md). 파이프라인이 선 뒤 데이터를 올리거나(적재) 읽거나(조회) 고치는(수정) 사람에게 유형별 키를 준다. 관리자 권한을 나눠 주지 않는다.
+7. (선택) **현행·목표 구조 정리** — [`guides/as-is-to-be.md`](guides/as-is-to-be.md). 데이터 형식·생성 주기·양을 적어 두면 비용 추정의 입력이 된다.
 
 ## 구성
 
@@ -45,12 +48,14 @@ S3 (원본 업로드)
 | `guides/03-staff-access.md` | 3부 — 실무자 권한 (적재·조회·수정) |
 | `guides/policy-design.md` | 정책 3개의 설계 근거, verify 체크 표, 정책이 못 막는 비용 |
 | `guides/as-is-to-be.md` | 현행(As-Is)·목표(To-Be) 구조 정리 양식 |
-| `config/policies/*.json` | 배포 키용 `SlsServerlessAllow` · `SlsGuardDeny` · `SlsLambdaBoundary`, 실무자용 `SlsStaffPush` · `SlsStaffQuery` · `SlsStaffEdit` |
+| `config/policies/*.json` | 배포 키용 `SlsServerlessAllow` · `SlsGuardDeny` · `SlsLambdaBoundary`, 실무자용 `SlsStaffPush` · `SlsStaffQuery` · `SlsStaffEdit`, 옵션 Athena 용 `SlsAthenaAllow`(배포 키) · `SlsStaffAthena`(실무자) |
 | `config/scripts/verify.sh` | 받은 키가 정책 3개만 붙은 제한 키인지 판정, 실무자 정책이 있으면 원본과 대조(V8b) (AWS CLI v2, python3) |
 | `config/scripts/staff-policy-sim.sh` | 실무자 정책의 허용·거부 표를 정책 시뮬레이터로 판정 + 린터. 계정에 아무것도 만들지 않는다 |
-| `config/sam/stack1-ingest` | S3 + Lambda ingest + DynamoDB (Node 22 / TypeScript) |
-| `config/sam/stack2-index` | DynamoDB Stream + Lambda index + OpenSearch Serverless |
-| `config/skills/aws-*.md` | 스킬 6종 — account-setup · iam-access · s3-ingest · lambda-deploy · dynamodb-stream · opensearch |
+| `config/sam/stack1-ingest` | S3 + Lambda ingest + DynamoDB (Node 22 / TypeScript). 형식별 가공 코드 `src/transformers/<형식>.mts`(예시 `example-list`, `llm-gateway-log`), 옵션 sidecar NDJSON |
+| `config/sam/stack2-index` | DynamoDB Stream + Lambda index + OpenSearch Serverless. 형식별 인덱스 매핑 `src/mappings/<형식>.ts` |
+| `config/sam/stack3-query` | (옵션) Athena 워크그룹 + Glue DB — sidecar NDJSON 을 SQL 로 조회 |
+| `config/sam/verify-local.sh` | 두 스택의 `npm test`·`tsc` 를 한 번에 |
+| `config/skills/aws-*.md` | 스킬 8종 — account-setup · iam-access · s3-ingest · transformer · lambda-deploy · dynamodb-stream · opensearch · athena |
 
 ## 설계 근거
 
@@ -106,6 +111,8 @@ S3 (원본 업로드)
 | 처리 함수 | [AWS Lambda](../../wiki/aws-lambda.md) | `aws-lambda-deploy` |
 | 저장·스트림 | [Amazon DynamoDB](../../wiki/aws-dynamodb.md) | `aws-dynamodb-stream` |
 | 검색·집계 | [Amazon OpenSearch Serverless](../../wiki/aws-opensearch-serverless.md) | `aws-opensearch` |
+| 형식별 가공 | — | `aws-transformer` |
+| SQL 조회(옵션) | — | `aws-athena` |
 | 권한·키 | [AWS IAM](../../wiki/aws-iam.md) | `aws-account-setup` · `aws-iam-access` |
 | 배포 | [AWS SAM](../../wiki/aws-sam.md) | `aws-lambda-deploy` |
 

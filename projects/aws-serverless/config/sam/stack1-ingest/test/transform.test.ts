@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { S3EventRecord } from "aws-lambda";
-import { isCreateEvent, NO_VERSION, parseJsonBody, recordToItem, shouldInlineJson } from "../src/transform.js";
+import { childRows, isCreateEvent, jsonBytes, MAX_CHILD_ROWS, MAX_PARSE_JSON_BYTES, NO_VERSION, parseJson, recordToItem, shouldInlineJson } from "../src/transform.js";
 
 function rec(over: Partial<S3EventRecord["s3"]["object"]> & { eventName?: string } = {}): S3EventRecord {
   const { eventName = "ObjectCreated:Put", ...obj } = over;
@@ -61,20 +61,57 @@ describe("isCreateEvent", () => {
 });
 
 describe("shouldInlineJson", () => {
-  it("only inlines small JSON-typed objects", () => {
+  it("reads JSON-typed objects up to the parse cap (large fields are offloaded, not dropped)", () => {
     expect(shouldInlineJson(100, "application/json")).toBe(true);
     expect(shouldInlineJson(100, "application/ld+json; charset=utf-8")).toBe(true);
+    expect(shouldInlineJson(256 * 1024 + 1, "application/json")).toBe(true);
+    expect(shouldInlineJson(MAX_PARSE_JSON_BYTES, "application/json")).toBe(true);
+    expect(shouldInlineJson(MAX_PARSE_JSON_BYTES + 1, "application/json")).toBe(false);
     expect(shouldInlineJson(100, "text/csv")).toBe(false);
     expect(shouldInlineJson(0, "application/json")).toBe(false);
-    expect(shouldInlineJson(256 * 1024 + 1, "application/json")).toBe(false);
     expect(shouldInlineJson(100, undefined)).toBe(false);
   });
 });
 
-describe("parseJsonBody", () => {
-  it("returns objects as-is, wraps scalars/arrays, and rejects invalid JSON", () => {
-    expect(parseJsonBody('{"a":1}')).toEqual({ a: 1 });
-    expect(parseJsonBody("[1,2]")).toEqual({ value: [1, 2] });
-    expect(parseJsonBody("not json")).toBeUndefined();
+describe("parseJson", () => {
+  it("returns any JSON value and rejects invalid JSON", () => {
+    expect(parseJson('{"a":1}')).toEqual({ doc: { a: 1 } });
+    expect(parseJson("null")).toEqual({ doc: null });
+    expect(parseJson("not json")).toBeUndefined();
+  });
+});
+
+describe("childRows", () => {
+  const file = recordToItem(rec({ key: "logs/batch.json", versionId: "v1", size: 999 }), new Date("2026-10-06T00:00:00Z"));
+
+  it("one row per element: docId <key>#<i>, same version, linked by parent + index, size = the record's JSON bytes", () => {
+    const records = [{ model: "a", tokens: 1 }, { model: "b", tokens: 2 }];
+    expect(childRows(file, records)).toEqual(
+      records.map((r, i) => ({
+        ...file,
+        docId: `logs/batch.json#${i}`,
+        size: jsonBytes(r),
+        parent: { docId: "logs/batch.json", version: "v1" },
+        index: i,
+        data: r,
+      })),
+    );
+  });
+
+  it("a big field inside a record is offloaded with a pointer that starts at the record's index", () => {
+    const records = [{ id: "a" }, { id: "b", body: "x".repeat(300 * 1024) }];
+    const second = childRows(file, records)?.[1].data as Record<string, unknown>;
+    expect(second).toEqual({ id: "b", body$ref: { key: "logs/batch.json", versionId: "v1", pointer: "/1/body", bytes: jsonBytes(records[1].body) } });
+  });
+
+  it("scalars are wrapped as { value }; an empty array has no children", () => {
+    expect(childRows(file, [5])?.[0].data).toEqual({ value: 5 });
+    expect(childRows(file, [])).toEqual([]);
+  });
+
+  it("not an array, or more than MAX_CHILD_ROWS elements → no children (the file stays one row)", () => {
+    expect(childRows(file, { a: 1 })).toBeUndefined();
+    expect(childRows(file, Array.from({ length: MAX_CHILD_ROWS + 1 }, () => 0))).toBeUndefined();
+    expect(childRows(file, Array.from({ length: MAX_CHILD_ROWS }, () => 0))).toHaveLength(MAX_CHILD_ROWS);
   });
 });
