@@ -62,7 +62,11 @@ const CHILD_PUT_CONCURRENCY = 25;
  */
 const writeSidecar = async (file: DocItem, rows: TransformedRow[]): Promise<void> => {
   if (file.version !== "null") {
-    const latest = await s3.send(new HeadObjectCommand({ Bucket: file.bucket, Key: file.docId }));
+    // deleted since (latest = delete marker → 404): nothing current to describe, so no sidecar either
+    const latest = await s3.send(new HeadObjectCommand({ Bucket: file.bucket, Key: file.docId })).catch((e: { name?: string }) => {
+      if (e.name === "NotFound") return { VersionId: undefined };
+      throw e;
+    });
     if (latest.VersionId !== file.version) {
       console.log(JSON.stringify({ msg: "sidecar skipped — not the latest version", docId: file.docId, version: file.version, latest: latest.VersionId }));
       return;

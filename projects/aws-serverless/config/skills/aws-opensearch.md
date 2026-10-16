@@ -53,7 +53,7 @@ DynamoDB Stream ──▶ Lambda index ──_bulk──▶ OpenSearch Serverles
 ref 는 원래 필드 이름이 아니라 `<필드>$ref` 라는 새 키로 오므라 같은 필드가 문서마다 문자열·객체로 바뀌는 충돌이 없다. `*$ref` 템플릿은 인덱스를 **새로 만들 때만** 들어간다 — 기존 인덱스에서는 ref 가 일반 필드(keyword·long)로 색인될 뿐 깨지지는 않으니, 다음 § 매핑 변경 때 같이 반영하면 된다.
 질의에 쓸 필드를 미리 정해 두었으면 `INDEX_BODY.mappings.properties` 에 명시 매핑을 더한다(필드 수 상한 1,000 — 키가 값처럼 변하는 JSON 은 `enabled: false` 원문 필드로).
 
-**형식별 인덱스** — 스택 ①의 `mts` 가 만든 행(`transformer: <형식>`)은 `src/mappings/<형식>.ts` 가 있으면 `<IndexName>-<형식>` 인덱스로 간다: `dynamic: strict` + 매핑에 적은 필드만, `_id = data.<ID_FIELD>`(같은 레코드가 두 파일로 와도 문서 하나), TTL 만료(REMOVE)는 이전 이미지의 id로 삭제 — 단 문서의 `ingestedAt` 이 만료되는 행보다 늦으면(같은 레코드를 나중에 다시 올린 행이 문서를 고쳐 쓴 것) 지우지 않는다(`src/index.ts` `guardDeletes`, `_mget` 1회). 사람이 행을 고쳐(MODIFY) `data.<ID_FIELD>` 나 `transformer` 가 바뀌면 옛 자리의 문서를 같은 조건으로 지우고 새 자리에 색인한다. 형식마다 strict 매핑이 달라 한 인덱스에 섞을 수 없어서다. 매핑 파일이 없는 형식과 일반 행은 위 동적 매핑으로 `<IndexName>`. 파라미터 `IndexIdField`(기본 빈 값 = 각 매핑의 `ID_FIELD`)에 `docId` 를 주면 모든 형식을 행 키로 색인한다(ID가 마스킹돼 모두 같은 샘플용). 매핑 만드는 법은 `aws-transformer`.
+**형식별 인덱스** — 스택 ①의 `mts` 가 만든 행(`transformer: <형식>`)은 `src/mappings/<형식>.ts` 가 있으면 `<IndexName>-<형식>` 인덱스로 간다: `dynamic: strict` + 매핑에 적은 필드만, `_id = data.<ID_FIELD>`(같은 레코드가 두 파일로 와도 문서 하나), TTL 만료(REMOVE)는 이전 이미지의 id로 삭제. **알려진 한계 둘**: ⑴ 같은 id 의 행이 여럿이면 문서는 하나라 먼저 만료된 행이 문서를 지운다 — 레코드에 시각 필드가 없으면 만료가 적재 시각 기준이라, 같은 레코드를 다른 날 다시 올리면 남은 행의 문서도 사라진다(`TtlDays` > 0 일 때만. 복구는 `§ 재색인`). ⑵ 형식별 행을 손으로 고쳐(`update-item`) `data.<ID_FIELD>` 나 `transformer` 를 바꾸면 옛 문서가 남는다 — 형식별 행은 고치지 말고 원본 파일을 고쳐 다시 올린다. 형식마다 strict 매핑이 달라 한 인덱스에 섞을 수 없어서다. 매핑 파일이 없는 형식과 일반 행은 위 동적 매핑으로 `<IndexName>`. 파라미터 `IndexIdField`(기본 빈 값 = 각 매핑의 `ID_FIELD`)에 `docId` 를 주면 모든 형식을 행 키로 색인한다(ID가 마스킹돼 모두 같은 샘플용). 매핑 만드는 법은 `aws-transformer`.
 
 ## 절차
 

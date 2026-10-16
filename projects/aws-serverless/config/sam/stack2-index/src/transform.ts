@@ -11,13 +11,10 @@ export interface IndexDoc {
   [key: string]: unknown;
 }
 
-/**
- * `index` = the op's own index (a format's `<IndexName>-<name>`); unset = the function's IndexName.
- * A delete with `ingestedAt` is guarded: it is dropped when the document was written by a later row (index.ts).
- */
+/** `index` = the op's own index (a format's `<IndexName>-<name>`); unset = the function's IndexName. */
 export type BulkOp =
   | { action: "index"; id: string; doc: IndexDoc | Record<string, unknown>; index?: string }
-  | { action: "delete"; id: string; index?: string; ingestedAt?: string };
+  | { action: "delete"; id: string; index?: string };
 
 /** OpenSearch rejects a document `_id` over 512 bytes; an S3 key alone may be 1,024. */
 export const MAX_ID_BYTES = 512;
@@ -91,10 +88,10 @@ export function recordToOp(record: DynamoDBRecord, timestampField = "eventTime")
  * falling back to docId: stack 1 keys rows by file + position, so the same record arriving in two files is two
  * rows but one document here. A REMOVE (TTL expiry) reads the id from the old image. File rows (`count`, no
  * `data`) are not indexed. Only `fields` (the mapping's) are copied — a new field in the row stays in DynamoDB
- * until the mapping is extended. Rows sharing an id (the same record uploaded twice) can expire at different
- * times — a record with no time of its own expires from its ingestion — so a delete carries the row's
- * `ingestedAt` and is dropped when a later row already rewrote the document.
+ * until the mapping is extended.
  */
+// ponytail: rows sharing an id share one document, so the first REMOVE deletes it — a record with no time of its own
+// expires from its ingestion, so the same id uploaded on two days expires twice; known limit (aws-opensearch § 형식별 인덱스), guard with _mget if it bites
 export function mappedRecordToOp(record: DynamoDBRecord, fields: readonly string[], idField?: string, now = new Date()): BulkOp | undefined {
   const keys = record.dynamodb?.Keys;
   if (!keys) return undefined;
@@ -106,7 +103,7 @@ export function mappedRecordToOp(record: DynamoDBRecord, fields: readonly string
   if (row.count !== undefined || !data) return undefined;
   const value = idField === undefined ? undefined : data[idField];
   const id = boundedId(typeof value === "string" && value !== "" ? value : docId);
-  if (record.eventName === "REMOVE") return { action: "delete", id, ...(typeof row.ingestedAt === "string" ? { ingestedAt: row.ingestedAt } : {}) };
+  if (record.eventName === "REMOVE") return { action: "delete", id };
   const source: Record<string, unknown> = { ...data, ingestedAt: row.ingestedAt, indexedAt: now.toISOString() };
   return { action: "index", id, doc: Object.fromEntries(fields.filter((f) => source[f] !== undefined).map((f) => [f, source[f]])) };
 }

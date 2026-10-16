@@ -56,7 +56,10 @@ describe("handler — SidecarEnabled=true", () => {
     calls.length = 0;
     latest = "v1";
     s3Send.mockReset().mockImplementation(async (cmd: { input: { Key: string } }) => {
-      if (cmd instanceof HeadObjectCommand) return { ContentType: "application/json", VersionId: latest };
+      if (cmd instanceof HeadObjectCommand) {
+        if (!cmd.input.VersionId && latest === "deleted") throw Object.assign(new Error("Not Found"), { name: "NotFound" });
+        return { ContentType: "application/json", VersionId: latest };
+      }
       if (cmd instanceof GetObjectCommand) return { Body: { transformToString: async () => bodies[cmd.input.Key] } };
       if (cmd instanceof PutObjectCommand) return calls.push(`SIDECAR ${cmd.input.Key}`), {};
       throw new Error("unexpected S3 command");
@@ -99,6 +102,13 @@ describe("handler — SidecarEnabled=true", () => {
 
   it("an older version's event (late or redelivered) writes no sidecar — the latest version's records stay — but still makes its rows", async () => {
     latest = "v2";
+    await handler({ Records: [s3Record("raw/example-list/2026-01-02/a.json", LIST_BODY)] } as S3Event);
+    expect(sidecarPuts()).toHaveLength(0);
+    expect(calls).toContain("PUT raw/example-list/2026-01-02/a.json");
+  });
+
+  it("a key deleted before its event is processed (latest = delete marker, HEAD 404) writes no sidecar and does not fail", async () => {
+    latest = "deleted";
     await handler({ Records: [s3Record("raw/example-list/2026-01-02/a.json", LIST_BODY)] } as S3Event);
     expect(sidecarPuts()).toHaveLength(0);
     expect(calls).toContain("PUT raw/example-list/2026-01-02/a.json");

@@ -33,51 +33,18 @@ async function toOp(record: DynamoDBRecord): Promise<{ op?: BulkOp; body: unknow
 }
 
 /**
- * A MODIFY (a hand edit — stack 1 never overwrites a row) that moves the row to another index or `_id`
- * (`data.<ID_FIELD>` or `transformer` changed) also deletes where the old image was indexed; otherwise the old
- * document stays searchable forever. The old image read as a REMOVE gives that target.
- */
-async function toOps(record: DynamoDBRecord): Promise<Array<{ op: BulkOp; body: unknown }>> {
-  const next = await toOp(record);
-  const ops = next.op ? [next as { op: BulkOp; body: unknown }] : [];
-  if (record.eventName !== "MODIFY" || !record.dynamodb?.OldImage) return ops;
-  const prev = await toOp({ ...record, eventName: "REMOVE" });
-  const at = (op?: BulkOp): string | undefined => op && `${op.index ?? INDEX}/${op.id}`;
-  return prev.op && at(prev.op) !== at(next.op) ? [prev as { op: BulkOp; body: unknown }, ...ops] : ops;
-}
-
-/**
- * Drops a guarded delete (one carrying the expiring row's `ingestedAt`) when the document was written by a
- * later row with the same `_id` — that row is still live and owns the document. One `_mget` per batch.
- */
-async function guardDeletes(ops: BulkOp[]): Promise<BulkOp[]> {
-  const guarded = ops.filter((op): op is Extract<BulkOp, { action: "delete" }> & { ingestedAt: string } => op.action === "delete" && op.ingestedAt !== undefined);
-  if (guarded.length === 0) return ops;
-  const res = await client.mget({ body: { docs: guarded.map((op) => ({ _index: op.index ?? INDEX, _id: op.id, _source: ["ingestedAt"] })) } });
-  const docs = (res.body as { docs: Array<{ found?: boolean; _source?: { ingestedAt?: string } }> }).docs;
-  const owned = new Set<BulkOp>(
-    guarded.filter((op, i) => {
-      const current = docs[i]?.found ? Date.parse(docs[i]._source?.ingestedAt ?? "") : NaN;
-      return current > Date.parse(op.ingestedAt);
-    }),
-  );
-  if (owned.size) console.log(JSON.stringify({ msg: "delete skipped — a later row owns the document", count: owned.size }));
-  return ops.filter((op) => !owned.has(op));
-}
-
-/**
  * DynamoDB Stream batch → one `_bulk` call. INSERT/MODIFY index the document, REMOVE deletes it
  * (generic rows: `_id = docId#version`). Throws on any item error so the event source mapping retries
  * (bisecting the batch) and finally routes the batch to the DLQ.
  */
 export const handler = async (event: DynamoDBStreamEvent): Promise<{ indexed: number; deleted: number }> => {
   if (!ENDPOINT) throw new Error("COLLECTION_ENDPOINT env var missing");
-  const routed = (await Promise.all(event.Records.map(toOps))).flat();
-  for (const [index, body] of new Map(routed.map((r) => [r.op.index ?? INDEX, r.body]))) await ensureIndex(index, body);
-  const ops = await guardDeletes(routed.map((r) => r.op));
+  const routed = (await Promise.all(event.Records.map(toOp))).filter((r): r is { op: BulkOp; body: unknown } => r.op !== undefined);
+  const ops = routed.map((r) => r.op);
   const counts = { indexed: ops.filter((o) => o.action === "index").length, deleted: ops.filter((o) => o.action === "delete").length };
   if (ops.length === 0) return counts;
 
+  for (const [index, body] of new Map(routed.map((r) => [r.op.index ?? INDEX, r.body]))) await ensureIndex(index, body);
   const res = await client.bulk({ body: toBulkBody(ops, INDEX) as unknown as API.Bulk_RequestBody });
   const body = res.body as { errors: boolean; items: Array<Record<string, { status: number; error?: unknown }>> };
   if (body.errors) {
