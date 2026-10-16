@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DynamoDBRecord } from "aws-lambda";
-import { INDEX_BODY, docIdOf, recordToOp, timestampOf, toBulkBody } from "../src/transform.js";
+import { INDEX_BODY, MAX_ID_BYTES, boundedId, docIdOf, recordToOp, timestampOf, toBulkBody } from "../src/transform.js";
 
 const keys = { docId: { S: "sample.json" }, version: { S: "v1" } };
 const image = { ...keys, size: { N: "40" }, eventTime: { S: "2026-09-23T04:59:00.000Z" }, ingestedAt: { S: "2026-09-23T05:00:01.000Z" }, data: { M: { line: { S: "A1" }, ts: { S: "2026-01-15T00:00:00Z" } } } };
@@ -63,6 +63,9 @@ describe("INDEX_BODY", () => {
     expect(INDEX_BODY.mappings.date_detection).toBe(false);
     expect(INDEX_BODY.mappings.properties["@timestamp"].type).toBe("date");
   });
+  it("gives the explicit docId keyword its .text sub-field (the dynamic string template does not reach it)", () => {
+    expect(INDEX_BODY.mappings.properties.docId).toMatchObject({ type: "keyword", fields: { text: { type: "text" } } });
+  });
   it("maps stack 1's <field>$ref objects as stored-not-indexed, ahead of the string template", () => {
     expect(INDEX_BODY.mappings.dynamic_templates[0]).toEqual({
       s3_refs_not_indexed: { match_mapping_type: "object", match: "*$ref", mapping: { type: "object", enabled: false } },
@@ -96,5 +99,20 @@ describe("toBulkBody", () => {
   });
   it("empty ops → empty body", () => {
     expect(toBulkBody([], "docs")).toBe("");
+  });
+});
+
+describe("boundedId / docIdOf", () => {
+  it("keeps an id up to 512 bytes as is — existing documents keep their _id", () => {
+    expect(docIdOf("in/sample.json", "v1")).toBe("in/sample.json#v1");
+    const edge = "a".repeat(MAX_ID_BYTES);
+    expect(boundedId(edge)).toBe(edge);
+  });
+  it("hashes a longer id (S3 keys reach 1,024 bytes) to 64 hex chars, the same every time", () => {
+    const key = "가".repeat(340) + ".json"; // 1,025 UTF-8 bytes
+    const id = docIdOf(key, "3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY");
+    expect(id).toMatch(/^[0-9a-f]{64}$/);
+    expect(docIdOf(key, "3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY")).toBe(id);
+    expect(docIdOf(key, "other-version")).not.toBe(id);
   });
 });

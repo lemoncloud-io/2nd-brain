@@ -1,6 +1,7 @@
 import type { DynamoDBRecord } from "aws-lambda";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import type { AttributeValue } from "@aws-sdk/client-dynamodb";
+import { createHash } from "node:crypto";
 
 /** OpenSearch document body: the DynamoDB row plus `@timestamp` for time-series queries. */
 export interface IndexDoc {
@@ -10,14 +11,25 @@ export interface IndexDoc {
   [key: string]: unknown;
 }
 
-/** `index` = the op's own index (a format's `<IndexName>-<name>`); unset = the function's IndexName. */
+/**
+ * `index` = the op's own index (a format's `<IndexName>-<name>`); unset = the function's IndexName.
+ * A delete with `ingestedAt` is guarded: it is dropped when the document was written by a later row (index.ts).
+ */
 export type BulkOp =
   | { action: "index"; id: string; doc: IndexDoc | Record<string, unknown>; index?: string }
-  | { action: "delete"; id: string; index?: string };
+  | { action: "delete"; id: string; index?: string; ingestedAt?: string };
+
+/** OpenSearch rejects a document `_id` over 512 bytes; an S3 key alone may be 1,024. */
+export const MAX_ID_BYTES = 512;
+
+/** The id itself when it fits, else its SHA-256 hex — deterministic, so index and delete agree. Existing ids are unchanged. */
+export function boundedId(id: string): string {
+  return Buffer.byteLength(id, "utf8") <= MAX_ID_BYTES ? id : createHash("sha256").update(id).digest("hex");
+}
 
 /** OpenSearch `_id`: one document per (docId, version) — re-indexing the same row is idempotent. */
 export function docIdOf(docId: string, version: string): string {
-  return `${docId}#${version}`;
+  return boundedId(`${docId}#${version}`);
 }
 
 /** Read a dotted path ("data.ts") from a row; undefined when any segment is missing. */
@@ -79,9 +91,10 @@ export function recordToOp(record: DynamoDBRecord, timestampField = "eventTime")
  * falling back to docId: stack 1 keys rows by file + position, so the same record arriving in two files is two
  * rows but one document here. A REMOVE (TTL expiry) reads the id from the old image. File rows (`count`, no
  * `data`) are not indexed. Only `fields` (the mapping's) are copied — a new field in the row stays in DynamoDB
- * until the mapping is extended.
+ * until the mapping is extended. Rows sharing an id (the same record uploaded twice) can expire at different
+ * times — a record with no time of its own expires from its ingestion — so a delete carries the row's
+ * `ingestedAt` and is dropped when a later row already rewrote the document.
  */
-// ponytail: deleting one of two rows with the same id deletes the document; both rows expire together (same record time), so only a manual delete hits this
 export function mappedRecordToOp(record: DynamoDBRecord, fields: readonly string[], idField?: string, now = new Date()): BulkOp | undefined {
   const keys = record.dynamodb?.Keys;
   if (!keys) return undefined;
@@ -92,8 +105,8 @@ export function mappedRecordToOp(record: DynamoDBRecord, fields: readonly string
   const data = row.data as Record<string, unknown> | undefined;
   if (row.count !== undefined || !data) return undefined;
   const value = idField === undefined ? undefined : data[idField];
-  const id = typeof value === "string" && value !== "" ? value : docId;
-  if (record.eventName === "REMOVE") return { action: "delete", id };
+  const id = boundedId(typeof value === "string" && value !== "" ? value : docId);
+  if (record.eventName === "REMOVE") return { action: "delete", id, ...(typeof row.ingestedAt === "string" ? { ingestedAt: row.ingestedAt } : {}) };
   const source: Record<string, unknown> = { ...data, ingestedAt: row.ingestedAt, indexedAt: now.toISOString() };
   return { action: "index", id, doc: Object.fromEntries(fields.filter((f) => source[f] !== undefined).map((f) => [f, source[f]])) };
 }
@@ -141,7 +154,8 @@ export const INDEX_BODY = {
     ],
     properties: {
       "@timestamp": { type: "date" },
-      docId: { type: "keyword" },
+      // explicit, so the dynamic string template does not apply — the `.text` sub-field has to be named here
+      docId: { type: "keyword", ignore_above: 1024, fields: { text: { type: "text" } } },
       version: { type: "keyword" },
       size: { type: "long" },
       eventTime: { type: "date" },

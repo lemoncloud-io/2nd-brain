@@ -55,8 +55,19 @@ export const handler = async (event: S3Event): Promise<{ written: number; skippe
 
 const CHILD_PUT_CONCURRENCY = 25;
 
-/** No ACL argument: the Lambda boundary denies s3:PutObjectAcl. */
+/**
+ * One sidecar per raw key, so only the key's latest version may write it: S3 events arrive out of order and at least
+ * once, and an older version's event (late, redelivered or retried) would otherwise put its records back.
+ * An unversioned bucket (`null`) has nothing to compare. No ACL argument: the Lambda boundary denies s3:PutObjectAcl.
+ */
 const writeSidecar = async (file: DocItem, rows: TransformedRow[]): Promise<void> => {
+  if (file.version !== "null") {
+    const latest = await s3.send(new HeadObjectCommand({ Bucket: file.bucket, Key: file.docId }));
+    if (latest.VersionId !== file.version) {
+      console.log(JSON.stringify({ msg: "sidecar skipped — not the latest version", docId: file.docId, version: file.version, latest: latest.VersionId }));
+      return;
+    }
+  }
   await s3.send(new PutObjectCommand({ Bucket: file.bucket, Key: sidecarKey(file.docId), Body: sidecarBody(rows), ContentType: "application/x-ndjson" }));
 };
 

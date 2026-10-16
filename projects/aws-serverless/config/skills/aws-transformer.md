@@ -33,7 +33,7 @@ export const transform = (body: string): Transformed[] | undefined => …
 
 공통 코드가 붙이는 것(`src/transform.ts` `transformedRows`) — **mts에서 만들지 않는다**: 행 키 `<sha256(S3 키) 앞 16자>.<NNN>.json`,
 정렬 키 = S3 버전, `raw$ref`, `ttl`, `transformer: <이름>`. 파일 행은 마지막에 `count` 만.
-스택 ① `SidecarEnabled=true` 면 같은 레코드가 `sidecar/<이름>/<날짜>/<파일>.jsonl` 에도 한 줄씩 나간다(Athena용, `aws-s3-ingest` 0번) — 이것도 mts에서 하지 않는다.
+스택 ① `SidecarEnabled=true` 면 같은 레코드가 `sidecar/<이름>/<날짜>/<파일>.jsonl`(원본 이름 전체 + `.jsonl`) 에도 한 줄씩 나간다(Athena용, `aws-s3-ingest` 0번) — 이것도 mts에서 하지 않는다.
 
 ## 이름 규칙
 

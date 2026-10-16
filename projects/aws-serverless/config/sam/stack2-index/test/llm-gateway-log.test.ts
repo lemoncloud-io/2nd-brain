@@ -61,7 +61,7 @@ describe("mappedRecordToOp with mappings/llm-gateway-log", () => {
   });
 
   it("REMOVE (TTL expiry) → delete the id read from the old image; file rows (count) are not indexed", () => {
-    expect(llmRecordToOp(rec("REMOVE", row))).toEqual({ action: "delete", id: "resp_1" });
+    expect(llmRecordToOp(rec("REMOVE", row))).toEqual({ action: "delete", id: "resp_1", ingestedAt: row.ingestedAt }); // guarded: see index.ts guardDeletes
     expect(llmRecordToOp(rec("INSERT", { docId: "raw/x.json", version: "v1", count: 100, ingestedAt: row.ingestedAt }))).toBeUndefined();
   });
 

@@ -53,7 +53,7 @@ DynamoDB Stream ──▶ Lambda index ──_bulk──▶ OpenSearch Serverles
 ref 는 원래 필드 이름이 아니라 `<필드>$ref` 라는 새 키로 오므라 같은 필드가 문서마다 문자열·객체로 바뀌는 충돌이 없다. `*$ref` 템플릿은 인덱스를 **새로 만들 때만** 들어간다 — 기존 인덱스에서는 ref 가 일반 필드(keyword·long)로 색인될 뿐 깨지지는 않으니, 다음 § 매핑 변경 때 같이 반영하면 된다.
 질의에 쓸 필드를 미리 정해 두었으면 `INDEX_BODY.mappings.properties` 에 명시 매핑을 더한다(필드 수 상한 1,000 — 키가 값처럼 변하는 JSON 은 `enabled: false` 원문 필드로).
 
-**형식별 인덱스** — 스택 ①의 `mts` 가 만든 행(`transformer: <형식>`)은 `src/mappings/<형식>.ts` 가 있으면 `<IndexName>-<형식>` 인덱스로 간다: `dynamic: strict` + 매핑에 적은 필드만, `_id = data.<ID_FIELD>`(같은 레코드가 두 파일로 와도 문서 하나), TTL 만료(REMOVE)는 이전 이미지의 id로 삭제. 형식마다 strict 매핑이 달라 한 인덱스에 섞을 수 없어서다. 매핑 파일이 없는 형식과 일반 행은 위 동적 매핑으로 `<IndexName>`. 파라미터 `IndexIdField`(기본 빈 값 = 각 매핑의 `ID_FIELD`)에 `docId` 를 주면 모든 형식을 행 키로 색인한다(ID가 마스킹돼 모두 같은 샘플용). 매핑 만드는 법은 `aws-transformer`.
+**형식별 인덱스** — 스택 ①의 `mts` 가 만든 행(`transformer: <형식>`)은 `src/mappings/<형식>.ts` 가 있으면 `<IndexName>-<형식>` 인덱스로 간다: `dynamic: strict` + 매핑에 적은 필드만, `_id = data.<ID_FIELD>`(같은 레코드가 두 파일로 와도 문서 하나), TTL 만료(REMOVE)는 이전 이미지의 id로 삭제 — 단 문서의 `ingestedAt` 이 만료되는 행보다 늦으면(같은 레코드를 나중에 다시 올린 행이 문서를 고쳐 쓴 것) 지우지 않는다(`src/index.ts` `guardDeletes`, `_mget` 1회). 사람이 행을 고쳐(MODIFY) `data.<ID_FIELD>` 나 `transformer` 가 바뀌면 옛 자리의 문서를 같은 조건으로 지우고 새 자리에 색인한다. 형식마다 strict 매핑이 달라 한 인덱스에 섞을 수 없어서다. 매핑 파일이 없는 형식과 일반 행은 위 동적 매핑으로 `<IndexName>`. 파라미터 `IndexIdField`(기본 빈 값 = 각 매핑의 `ID_FIELD`)에 `docId` 를 주면 모든 형식을 행 키로 색인한다(ID가 마스킹돼 모두 같은 샘플용). 매핑 만드는 법은 `aws-transformer`.
 
 ## 절차
 
@@ -78,7 +78,7 @@ ref 는 원래 필드 이름이 아니라 `<필드>$ref` 라는 새 키로 오�
 | 질문 유형 | DSL 골격 |
 |---|---|
 | 정확 일치 | `{"term": {"docId": "..."}}` · `{"term": {"data.status": "warn"}}` |
-| 전문 검색(한글) | `{"match": {"docId.text": "설비 로그"}}` · `{"multi_match": {"query": "불량", "fields": ["*.text"]}}` |
+| 전문 검색(한글) | `{"match": {"docId.text": "설비 로그"}}`(2026-10-16 전에 만든 인덱스엔 `docId.text` 가 없다 — 새 인덱스로 재색인해야 잡힌다) · `{"multi_match": {"query": "불량", "fields": ["*.text"]}}` |
 | 기간 | `{"range": {"@timestamp": {"gte": "now-30d"}}}` |
 | 그룹 집계 | `"aggs": {"by": {"terms": {"field": "data.line"}, "aggs": {"avg_temp": {"avg": {"field": "data.temp"}}}}}` |
 | 시계열 | `"aggs": {"t": {"date_histogram": {"field": "@timestamp", "calendar_interval": "day"}}}` |
@@ -95,7 +95,7 @@ npx tsx scripts/reindex.ts <TableName> <IndexFunctionName> --dry-run   # 배치 
 npx tsx scripts/reindex.ts <TableName> <IndexFunctionName>
 ```
 `scripts/reindex.ts` 가 테이블을 1,000행씩 스캔해 100행씩 INSERT 스트림 레코드로 꾸며 index 함수를 호출한다
-(`_id = docId#version` 이라 이미 있는 행은 덮어쓴다 — 멱등). 이름 두 개는 스택 Outputs `TableName`(스택 ①)·`IndexFunctionName`(스택 ②).
+(`_id = docId#version` 이라 이미 있는 행은 덮어쓴다 — 멱등. 512바이트를 넘는 `_id` 는 그 SHA-256 16진수 64자로 바꾼다 — OpenSearch `_id` 상한, 원래 키는 `docId` 필드에 남는다). 이름 두 개는 스택 Outputs `TableName`(스택 ①)·`IndexFunctionName`(스택 ②).
 **첫 실패 배치에서 멈춘다**(보낸 페이로드 파일 경로를 찍는다) — 로그의 `bulk errors` 로 독성 행을 고치고 다시 돌린다(`aws-dynamodb-stream.md § DLQ 다루기`).
 함수는 배포된 `IndexName` 인덱스로 쓴다 — 새 인덱스를 채우려면 먼저 그 이름으로 배포한다.
 스캔 스냅숏을 보내므로 재색인 도중 바뀐 행은 옛 값으로 덮일 수 있다 — 업로드가 없는 시간에 돌리고, 끝난 뒤 그 사이 바뀐 행이 있으면 한 번 더 돌린다(멱등).

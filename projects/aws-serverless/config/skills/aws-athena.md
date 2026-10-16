@@ -42,10 +42,10 @@ USD 214, `aws-opensearch § 비용`)이 아깝다. Athena 는 켜 두는 것이 
 | 항목 | 값 |
 |---|---|
 | 원본 | `raw/<source>/<YYYY-MM-DD>/<file>.json` |
-| sidecar | `sidecar/<source>/<YYYY-MM-DD>/<file>.jsonl` — **한 줄 = 가공 레코드 1개**(NDJSON) |
+| sidecar | `sidecar/<source>/<YYYY-MM-DD>/<file>.jsonl` (`<file>` = 원본 파일 이름 전체, 예 `a.json.jsonl`) — **한 줄 = 가공 레코드 1개**(NDJSON) |
 | 파티션 | 날짜 폴더. partition projection 으로 읽는다 — 크롤러·`MSCK REPAIR` 없음 |
 | `<source>` | 스택 ① 의 변환기 형식(`raw/<형식>/…` 의 `<형식>`) — 표 하나 = 형식 하나 |
-| 만드는 규칙 | 스택 ① 이 변환기로 읽은 파일마다 `sidecar/<형식>/<raw 경로 나머지>.jsonl` 에 한 번 쓴다(확장자만 `.jsonl`). 형식이 없는 일반 파일은 sidecar 가 없다 |
+| 만드는 규칙 | 스택 ① 이 변환기로 읽은 파일마다 `sidecar/<형식>/<raw 경로 나머지>.jsonl` 에 한 번 쓴다(원본 이름 전체 뒤에 `.jsonl` — 같은 폴더의 `a.csv`·`a.json` 이 서로 덮지 않는다, 2026-10-16). 같은 경로에 다시 올리면 **최신 버전의 이벤트만** 쓴다 — 늦게 오거나 다시 온 옛 버전 이벤트는 sidecar 를 건너뛴다(행은 만든다). 형식이 없는 일반 파일은 sidecar 가 없다 |
 | **업로드 규칙** | 원본을 `raw/<형식>/<YYYY-MM-DD>/<파일>` 로 올려야 sidecar 가 날짜 폴더에 생겨 파티션에 잡힌다 — 날짜 칸은 raw 경로를 그대로 쓴다. 하위 폴더가 있으면 sidecar 도 같은 깊이로 생기고(스택 ① `sidecarKey`), 날짜 파티션은 그 하위 폴더 파일까지 읽는다(실측 `logs/athena-option-e2e-v2.md` Q3). `aws-transformer` 스킬의 업로드 경로도 `raw/<이름>/<YYYY-MM-DD>/<파일>` 이다 |
 | `dt` 와 레코드 날짜 | `dt` 는 업로드 폴더 날짜다. 레코드 시각의 날짜(`dayKst`)와 다를 수 있다(e2e-v2 Q4). 스캔을 줄이는 조건은 `dt`, 레코드 날짜로 묶는 집계는 `daykst` — 둘을 같이 쓴다: `WHERE dt BETWEEN …(하루 넓게) AND daykst = …` |
 | 다시 올리면 | 같은 sidecar 키를 덮어쓴다(Athena 는 최신만 읽는다). 그때 sidecar 의 `ingestedAt` 은 DynamoDB 행의 첫 적재 시각과 다를 수 있다 |

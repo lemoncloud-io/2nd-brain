@@ -105,7 +105,15 @@ DLQ 메시지 하나 = 재시도 3회 + bisect 끝에 포기한 **배치 하나*
 
 2. **고친다.** 데이터가 원인이면 테이블의 그 행을 고친다(`update-item`) — **값이 실제로 바뀌면 MODIFY 스트림이 생겨 자동 재색인된다**(같은 값으로 덮으면 이벤트가 없다). 따로 invoke 하지 않는다.
    매핑이 원인이면 `aws-opensearch.md § 매핑 변경` 절차(새 인덱스 + 재색인).
-3. **빠진 문서가 남았는지 확인하고 채운다.** 로그의 앞 3건 밖 레코드도 빠졌을 수 있다 — 테이블 행 수(`aws dynamodb scan --table-name <TableName> --select COUNT`)와 `query.ts` 의 `total`(`aws-opensearch.md § 절차` 4 — `COLLECTION_ENDPOINT`·인덱스 이름 인자)을 비교한다.
+3. **빠진 문서가 남았는지 확인하고 채운다.** 로그의 앞 3건 밖 레코드도 빠졌을 수 있다 — **인덱스마다** 기대 문서 수를 테이블에서 세어 `query.ts <인덱스>` 의 `total`(`aws-opensearch.md § 절차` 4 — `COLLECTION_ENDPOINT`·인덱스 이름 인자)과 비교한다.
+   테이블 전체 행 수와 비교하지 않는다 — 형식별 행의 파일 행(`count`)은 색인되지 않고, 레코드는 형식별 인덱스로 나뉘고, 같은 `_id` 는 문서 하나로 합쳐져서 정상이어도 숫자가 다르다(레코드 2개짜리 파일 = 행 3, 문서 2).
+
+   | 인덱스 | 기대 문서 수 |
+   |---|---|
+   | `<IndexName>`(일반) | `transformer` 가 없는 행 수 + 매핑 파일이 없는 형식의 행 수. `aws dynamodb scan --table-name <TableName> --filter-expression 'attribute_not_exists(transformer)' --select COUNT` |
+   | `<IndexName>-<형식>` | 그 형식의 레코드 행(`data` 있음)이 가진 **서로 다른** `data.<ID_FIELD>` 수(값이 없는 행은 행 키 하나씩). `aws dynamodb scan --table-name <TableName> --filter-expression 'transformer = :t AND attribute_exists(#d)' --expression-attribute-names '{"#d":"data"}' --expression-attribute-values '{":t":{"S":"<형식>"}}' --query 'Items[].data.M.<ID_FIELD>.S' --output text \| tr '\t' '\n' \| sort -u \| wc -l` |
+
+   숫자가 같아도 빠진 문서와 남은 옛 문서가 서로 상쇄됐을 수 있다 — 의심되면 `_id` 몇 개를 골라 양쪽에서 직접 찾는다.
    인덱스가 **적으면** `aws-opensearch.md § 재색인`. **많으면** REMOVE 가 DLQ 로 가서 지워지지 않은 문서다 — 재색인은 INSERT 만 보내므로 못 고친다. 새 인덱스(`aws-opensearch.md § 매핑 변경` 2~5, 매핑은 그대로)로 다시 채운다.
    재색인은 첫 실패 배치에서 멈추므로 **독성 행을 먼저 고친 뒤** 돌린다. DLQ 메시지가 24시간보다 오래됐으면 시퀀스 번호로는 레코드를 못 찾는다(스트림 보존 24시간) — 이때도 재색인이 답이다.
    시퀀스 번호로 `get-records` 한 옛 이미지를 다시 `invoke` 하지 않는다 — 그 뒤 바뀐 행을 옛 상태로 덮어쓸 수 있다.

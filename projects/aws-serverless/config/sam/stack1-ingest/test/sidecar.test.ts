@@ -35,23 +35,28 @@ const s3Record = (key: string, body: string): S3EventRecord =>
     s3: { bucket: { name: "sls-test-data" }, object: { key, size: Buffer.byteLength(body), eTag: "e", versionId: "v1" } },
   }) as unknown as S3EventRecord;
 
-describe("sidecarKey — raw/<format>/<date>/<file> → sidecar/<format>/<date>/<file>.jsonl", () => {
+describe("sidecarKey — raw/<format>/<date>/<file> → sidecar/<format>/<date>/<file>.jsonl (whole name kept)", () => {
   it.each([
-    ["raw/llm-gateway-log/2026-10-12/export.json", "sidecar/llm-gateway-log/2026-10-12/export.jsonl"],
-    ["raw/example-list/2026-10-12/a.b.csv", "sidecar/example-list/2026-10-12/a.b.jsonl"],
+    ["raw/llm-gateway-log/2026-10-12/export.json", "sidecar/llm-gateway-log/2026-10-12/export.json.jsonl"],
+    ["raw/example-list/2026-10-12/a.b.csv", "sidecar/example-list/2026-10-12/a.b.csv.jsonl"],
     ["raw/example-list/2026-10-12/noext", "sidecar/example-list/2026-10-12/noext.jsonl"],
     ["raw/example-list/2026-10-12/dir.v2/noext", "sidecar/example-list/2026-10-12/dir.v2/noext.jsonl"],
   ])("%s", (raw, expected) => expect(sidecarKey(raw)).toBe(expected));
+  it("a.csv and a.json in one folder get two sidecars", () => {
+    expect(sidecarKey("raw/example-list/2026-01-02/a.csv")).not.toBe(sidecarKey("raw/example-list/2026-01-02/a.json"));
+  });
 });
 
 describe("handler — SidecarEnabled=true", () => {
   const bodies: Record<string, string> = { "raw/example-list/2026-01-02/a.json": LIST_BODY, "in/plain.json": LIST_BODY };
+  let latest = "v1"; // the key's current version, as a HEAD without VersionId reports it
   const sidecarPuts = (): PutObjectCommand[] => s3Send.mock.calls.map((c) => c[0]).filter((c): c is PutObjectCommand => c instanceof PutObjectCommand);
 
   beforeEach(() => {
     calls.length = 0;
+    latest = "v1";
     s3Send.mockReset().mockImplementation(async (cmd: { input: { Key: string } }) => {
-      if (cmd instanceof HeadObjectCommand) return { ContentType: "application/json" };
+      if (cmd instanceof HeadObjectCommand) return { ContentType: "application/json", VersionId: latest };
       if (cmd instanceof GetObjectCommand) return { Body: { transformToString: async () => bodies[cmd.input.Key] } };
       if (cmd instanceof PutObjectCommand) return calls.push(`SIDECAR ${cmd.input.Key}`), {};
       throw new Error("unexpected S3 command");
@@ -63,7 +68,7 @@ describe("handler — SidecarEnabled=true", () => {
 
   it("a transformed file → one NDJSON object (record fields, ingestedAt, raw$ref + $-free raw keys), written before the file row", async () => {
     await handler({ Records: [s3Record("raw/example-list/2026-01-02/a.json", LIST_BODY)] } as S3Event);
-    expect(calls.slice(-2)).toEqual(["SIDECAR sidecar/example-list/2026-01-02/a.jsonl", "PUT raw/example-list/2026-01-02/a.json"]);
+    expect(calls.slice(-2)).toEqual(["SIDECAR sidecar/example-list/2026-01-02/a.json.jsonl", "PUT raw/example-list/2026-01-02/a.json"]);
     const [put] = sidecarPuts();
     expect(put.input).toMatchObject({ Bucket: "sls-test-data", ContentType: "application/x-ndjson" });
     expect(put.input).not.toHaveProperty("ACL"); // the Lambda boundary denies s3:PutObjectAcl
@@ -78,7 +83,7 @@ describe("handler — SidecarEnabled=true", () => {
   });
 
   it("generic files get no sidecar; the sidecar's own ObjectCreated event makes no row and no call", async () => {
-    expect(await handler({ Records: [s3Record("in/plain.json", LIST_BODY), s3Record("sidecar/example-list/2026-01-02/a.jsonl", "{}\n")] } as S3Event)).toEqual({ written: 1, skipped: 1 });
+    expect(await handler({ Records: [s3Record("in/plain.json", LIST_BODY), s3Record("sidecar/example-list/2026-01-02/a.json.jsonl", "{}\n")] } as S3Event)).toEqual({ written: 1, skipped: 1 });
     expect(sidecarPuts()).toHaveLength(0);
     expect(calls).toEqual(["PUT in/plain.json"]);
   });
@@ -86,9 +91,16 @@ describe("handler — SidecarEnabled=true", () => {
   it("a failed sidecar write fails the invocation before the file row, so the retry writes it again", async () => {
     s3Send.mockImplementation(async (cmd: { input: { Key: string } }) => {
       if (cmd instanceof PutObjectCommand) throw Object.assign(new Error("slow down"), { name: "SlowDown" });
-      return cmd instanceof HeadObjectCommand ? { ContentType: "application/json" } : { Body: { transformToString: async () => LIST_BODY } };
+      return cmd instanceof HeadObjectCommand ? { ContentType: "application/json", VersionId: "v1" } : { Body: { transformToString: async () => LIST_BODY } };
     });
     await expect(handler({ Records: [s3Record("raw/example-list/2026-01-02/a.json", LIST_BODY)] } as S3Event)).rejects.toThrow("slow down");
     expect(calls).not.toContain("PUT raw/example-list/2026-01-02/a.json");
+  });
+
+  it("an older version's event (late or redelivered) writes no sidecar — the latest version's records stay — but still makes its rows", async () => {
+    latest = "v2";
+    await handler({ Records: [s3Record("raw/example-list/2026-01-02/a.json", LIST_BODY)] } as S3Event);
+    expect(sidecarPuts()).toHaveLength(0);
+    expect(calls).toContain("PUT raw/example-list/2026-01-02/a.json");
   });
 });

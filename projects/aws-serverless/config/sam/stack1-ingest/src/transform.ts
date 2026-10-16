@@ -312,16 +312,16 @@ export function transformedRows(file: DocItem, items: Transformed[], ttlDays: nu
   });
 }
 
-/** Where the Athena option reads from (skill aws-athena): `sidecar/<format>/<YYYY-MM-DD>/<file>.jsonl`. */
+/** Where the Athena option reads from (skill aws-athena): `sidecar/<format>/<YYYY-MM-DD>/<file>.<ext>.jsonl`. */
 export const SIDECAR_PREFIX = "sidecar/";
 
 /**
- * `raw/<format>/<rest>` → `sidecar/<format>/<rest>` with the file's extension replaced by `.jsonl`. The date folder
- * is the raw path's, so the uploader's `raw/<format>/<YYYY-MM-DD>/` is the Athena partition. Same raw key → same
- * sidecar key, so a retry or a re-upload overwrites it (Athena reads the latest version).
+ * `raw/<format>/<rest>` → `sidecar/<format>/<rest>.jsonl` — the whole file name kept, so `a.csv` and `a.json` in one
+ * folder get two sidecars instead of one overwriting the other. The date folder is the raw path's, so the uploader's
+ * `raw/<format>/<YYYY-MM-DD>/` is the Athena partition. Same raw key → same sidecar key, so a retry or a re-upload
+ * overwrites it; ingest.ts writes it only for the key's latest version.
  */
-export const sidecarKey = (rawKey: string): string =>
-  SIDECAR_PREFIX + rawKey.slice("raw/".length).replace(/(\.[^./]*)?$/, ".jsonl");
+export const sidecarKey = (rawKey: string): string => `${SIDECAR_PREFIX}${rawKey.slice("raw/".length)}.jsonl`;
 
 /**
  * One NDJSON line per transformer row: the record's fields, `ingestedAt`, `raw$ref`, and the same ref as

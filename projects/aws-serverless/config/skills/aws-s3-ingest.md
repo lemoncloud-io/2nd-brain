@@ -89,7 +89,7 @@ CSV 도 파일당 행 하나는 생긴다 — **행이 0 이면 연결 고장**(
    | 둘 다 | ① + ② + ③ | `true` |
    | 둘 다 안 씀(키 조회만) | ① | `false` |
 
-   `true` 면 transformer가 읽은 파일마다 `sidecar/<형식>/<날짜>/<파일>.jsonl`(NDJSON, 한 줄 = 레코드 1개)을 하나 더 쓴다. **질의를 하지 않아도 드는 상시 비용**이라 물을 때 같이 알린다(서울, 무료 사용량 제외 — AWS Price List 2026-09-28): PUT 파일당 1건 × USD 0.0045/1,000, 저장 누적 GB × USD 0.025/월(지우지 않으면 쌓인다), sidecar 쓰기가 다시 깨우는 Lambda 호출 파일당 1회(USD 0.20/100만 건 + 짧은 실행 — sidecar 경로는 행 없이 바로 끝난다). 월 1만 파일·누적 1 GB면 월 USD 0.1 안쪽, 월 100만 파일이면 PUT 만 USD 4.5.
+   `true` 면 transformer가 읽은 파일마다 `sidecar/<형식>/<날짜>/<파일>.jsonl`(원본 이름 전체 + `.jsonl`, NDJSON, 한 줄 = 레코드 1개)을 하나 더 쓴다. **질의를 하지 않아도 드는 상시 비용**이라 물을 때 같이 알린다(서울, 무료 사용량 제외 — AWS Price List 2026-09-28): PUT 파일당 1건 × USD 0.0045/1,000, 저장 누적 GB × USD 0.025/월(지우지 않으면 쌓인다), sidecar 쓰기가 다시 깨우는 Lambda 호출 파일당 1회(USD 0.20/100만 건 + 짧은 실행 — sidecar 경로는 행 없이 바로 끝난다). 월 1만 파일·누적 1 GB면 월 USD 0.1 안쪽, 월 100만 파일이면 PUT 만 USD 4.5.
    나중에 켜면 **켠 시점부터** 생긴다 — 이전 데이터는 소급 처리 스크립트가 없다(필요해지면 만든다). sidecar 키는 원본 경로를 따르므로 날짜 칸은 `YYYY-MM-DD` 로 올린다(Athena 파티션). 원본 위치는 `raw$ref` 와 함께 `$` 없는 `rawKey`·`rawVersionId`·`rawPointer` 로도 쓴다(Athena가 `$` 든 키를 못 읽는다). Athena 쪽 절차는 `aws-athena`.
 1. **이름 정하기.** 스택명은 반드시 `sls-` 로 시작한다 (예: `sls-<project>-ingest`).
    SAM이 만드는 Lambda 실행 role 이름이 스택명으로 시작하고, 제한 키는 `role/sls-*` 만 만들 수 있다.
