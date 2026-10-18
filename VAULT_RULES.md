@@ -111,6 +111,11 @@ this file is the contract layer.
   - Project status/goal/next_action is never restated there; `projects/<name>/README.md`
     frontmatter is the source of truth (index: `projects/README.md`).
   - `## Open Threads`: max 5 live vault-level actions, deleted when closed.
+- **Monthly compaction** — the lint pass folds dated records in `outputs/` (run-logs, older lint
+  reports; never query answers) into one summary note per month at `outputs/monthly/YYYY-MM.md` with
+  `projects/second-brain/config/scripts/outputs_compact.py` (`plan` → `write` → `apply`); before
+  `apply`, move every lasting lesson from those records into `wiki/` first and leave the detailed
+  history to the linked PR.
 - One daily note per day at `areas/daily/YYYY-MM-DD.md`; ideas that recur get promoted to
   `areas/ideas/<slug>.md`. Weekly reports go to `areas/weekly/YYYY-MM-DD.md` (filename is the
   report date, one per week) plus a same-name `.html` view, via the `vault-weekly-report`
@@ -170,7 +175,15 @@ nothing else. Lint treats the annotated form as compliant.
 **Daily notes** — `projects-touched` entries are formatted `"[[projects/<name>/README|<name>]]"`.
 
 **Projects** — `status: done` moves the project folder to `archive/projects/`; update
-`projects/README.md`.
+`projects/README.md`. A project's review gate is the flat field `review: pending|confirmed` (absent
+means `confirmed`); while `pending` it carries `review_since` and a one-line `review_gate`, and the
+project cannot be `status: done` until it is `confirmed` — contract `docs/project-review.md`,
+checked by `vault_verify.py` check 8a.
+
+**Reachability** — every document must be reachable by links from `wiki/INDEX.md`; find and fix orphans
+with the `vault-reach` skill or `projects/second-brain/config/scripts/vault_orphans.py` (`--plan`,
+`--apply`, `--broken`), and `vault_verify.py` enforces it as check 11 (no unreachable document) and
+check 12 (a change set adds no broken link).
 
 **Topic pages** — body is a one-line list of related wiki articles with `[[wikilinks]]`. Set
 `up: "[[topics/parent-topic]]"` except on root topics. 10+ linked articles → consider
