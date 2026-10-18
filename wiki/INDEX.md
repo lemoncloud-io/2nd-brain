@@ -6,6 +6,7 @@ This index is the entry point for vault queries and ingest deduplication.
 
 - [[wiki/topics/knowledge-management|Knowledge Management]]
 - [[wiki/topics/aws-serverless|AWS Serverless]]
+- [[wiki/topics/ai-agents|AI Agents]]
 
 ## Articles
 
@@ -16,6 +17,8 @@ This index is the entry point for vault queries and ingest deduplication.
 - [[wiki/aws-opensearch-serverless|Amazon OpenSearch Serverless]]
 - [[wiki/aws-iam|AWS IAM]]
 - [[wiki/aws-sam|AWS SAM]]
+- [[wiki/orchestrator-specialist-agent-split|오케스트레이터-전문가 에이전트 분리]]
+- [[wiki/hermes-agent|Hermes Agent]]
 
 ## Vault Hubs
 

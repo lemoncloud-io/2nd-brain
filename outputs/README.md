@@ -8,3 +8,4 @@
 
 - [Vault Lint Report - 2026-08-28](2026-08-28-vault-lint.md)
 - [Claude Code 세션 생명주기와 세션 간 통신](2026-09-16-claude-session-lifecycle.md)
+- [Ingest 2026-10-19](runs/2026-10-19-ingest-steve-lemon.md)
