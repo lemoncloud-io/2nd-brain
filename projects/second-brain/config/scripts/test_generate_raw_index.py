@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/scripts/test_generate_raw_index.py
 """Tests for the conversion-original lanes in generate_raw_index.
 
 Run from the scripts directory:
@@ -109,6 +108,29 @@ class SnapshotLane(unittest.TestCase):
             md = (root / "docs" / "raw-index.md").read_text(encoding="utf-8")
             self.assertNotIn("snapshot_files", yml)
             self.assertNotIn("sample-app 레인", md)
+
+    def test_same_key_under_another_parent_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            write_settings(root, 'deploy:\n  snapshot_lanes: ["sample-app"]\nraw:\n  other: 1\n')
+            (root / "raw" / "sample-app").mkdir()
+            (root / "raw" / "sample-app" / "adr-a-1234567.md").write_text(
+                '---\nsource: "example-org/sample-app — docs/adr/a.md"\n---\n\nbody\n',
+                encoding="utf-8",
+            )
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            self.assertNotIn("snapshot_files", yml)
+            self.assertNotIn("sample-app", yml)
+
+    def test_duplicate_setting_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            write_settings(root, 'raw:\n  snapshot_lanes: ["a-app"]\n  snapshot_lanes: ["b-app"]\n')
+            r = subprocess.run(["python3", str(SCRIPT)], cwd=root, capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("defined 2 times", r.stderr)
 
     def test_unreadable_setting_fails_instead_of_dropping_the_lane(self):
         with tempfile.TemporaryDirectory() as tmp:

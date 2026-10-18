@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/scripts/vault_verify.py
 """Verify the vault invariants shared by every write lane (ingest, lint, promote).
 
 This is the single post-run check. Skills call it instead of restating the same
@@ -31,8 +30,13 @@ Checks (all lanes):
      `docs/project-next-action.md`.
   8. Every `milestones` entry names its checkpoint in at most 300 bytes — the evidence,
      numbers and verdicts belong in the body. Added 2026-09-21 after one project README's
-     frontmatter grew to 62% of the file on milestone names up to 4,889 bytes; contract in
+     frontmatter grew to 76% of the file on milestone names up to 4,889 bytes; contract in
      `docs/project-milestones.md`.
+  8a. A project `review` gate is `pending` or `confirmed`; while pending it carries
+     `review_since` and a one-line `review_gate` (≤ 300 bytes) and the project is not
+     `status: done`. Added 2026-10-15 after one project's preparation PR was merged with
+     its review still open and the only mark was a quoted paragraph; contract in
+     `docs/project-review.md`.
   9. docs/raw-index.yml and docs/raw-index.md are committed by the lint lane only. A change
      set that touches either file must touch nothing under raw/ or Clippings/ — an ingest
      or promote change set always adds raw files, a lint change set never does. Added
@@ -40,6 +44,22 @@ Checks (all lanes):
      any two raw-touching PRs, and a long-lived PR re-conflicted every time master moved.
      Only tracked changes count (a lint pass may run beside pending clippings and
      local-only raw files). Contract in `docs/raw-layout.md` § 색인.
+ 10. A snapshot lane's new files (team-settings.yaml `raw.snapshot_lanes`) go under
+     raw/<lane>/ — a change set may not add raw/<lane>-*.md at the raw root. Added
+     2026-10-06: a PR merged minutes after the lane rule landed still put six snapshot
+     files at the root, where append-only keeps them. Only additions count
+     (tracked, renamed in, untracked); root snapshots already on the base stay legal.
+     Contract in `docs/raw-layout.md` § 레인 2.
+ 11. Every required document is reachable from wiki/INDEX.md (vault_orphans.py — its scope and
+     exemptions). Added 2026-10-16: the scanner existed for a day (2026-10-15) and five orphans
+     still reached master through two PRs because its exit status was always 0 and
+     nothing ran it on a PR. Contract in VAULT_RULES § Note Contracts (Reachability).
+ 12. The change set adds no broken link — a wikilink or relative Markdown link that resolves to no
+     document, on the working tree but not on the base ref. Compared as whole-vault sets, so a
+     moved file's stale references in untouched documents count too (one PR moved 53 folders
+     and rewrote links in 145 files by hand). Links already broken on the base are a lint item
+     (`vault_orphans.py --broken` lists them: 246 in 86 documents on 2026-10-16), never a defect
+     here — the set may not grow, that is all.
 
 Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
 diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
@@ -59,12 +79,16 @@ Exit codes: 0 pass, 1 one or more defects, 2 cannot run (vault unresolved, bad u
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import re
 import subprocess
 import sys
+import tarfile
+import tempfile
 from pathlib import Path
 
+import vault_orphans
 import vault_volume
 
 try:  # optional: absent on the Homebrew python3 that usually runs the lanes
@@ -153,10 +177,12 @@ def _changed_paths(
     base: str,
     pathspecs: tuple[str, ...] = ("outputs",),
     untracked: bool = True,
+    deletions: bool = False,
 ) -> list[str] | None:
     """Added/modified paths vs base, plus untracked files (a lane may verify pre-commit).
 
-    Defaults cover outputs/ with untracked files, which is what the lane trace needs.
+    Defaults cover outputs/ with untracked files, which is what the lane trace needs —
+    a deleted run-log is not a trace, so deletions are opt-in.
     Paths come back as git prints them — a non-ASCII name is double-quoted with octal
     escapes (core.quotepath), so callers that match on a prefix strip the quote.
     """
@@ -174,7 +200,7 @@ def _changed_paths(
     paths = []
     for line in diff.stdout.splitlines():
         status, _, rest = line.partition("\t")
-        if status[:1] in ("A", "M", "R"):
+        if status[:1] in ("A", "M", "R") or (deletions and status[:1] == "D"):
             paths.append(rest.split("\t")[-1])
     if others is not None:
         paths += [p for p in others.stdout.splitlines() if p.strip()]
@@ -213,10 +239,12 @@ def check_raw_index_scope(vault: Path, base: str, defects: list[str]) -> None:
     Structural, not by branch name: an ingest or promote change set always adds raw files,
     a lint change set never does. Untracked files are left out on purpose — a lint pass may
     run on a machine holding pending clippings or local-only raw files that are not part of
-    the change set. Runs for every lane, like the append-only check.
+    the change set. Deleting an index file is a change to it like any edit. Runs for every
+    lane, like the append-only check.
     """
     paths = _changed_paths(
-        vault, base, pathspecs=RAW_INDEX_FILES + RAW_INDEX_EXCLUSIVE_DIRS, untracked=False
+        vault, base, pathspecs=RAW_INDEX_FILES + RAW_INDEX_EXCLUSIVE_DIRS, untracked=False,
+        deletions=True,
     )
     if paths is None:
         defects.append(f"raw index scope check could not run (git diff against {base} failed)")
@@ -233,6 +261,59 @@ def check_raw_index_scope(vault: Path, base: str, defects: list[str]) -> None:
         f"restore the base version: git checkout {base} -- {' '.join(RAW_INDEX_FILES)} "
         "(do not regenerate here — docs/raw-layout.md § 색인)"
     )
+
+
+def check_snapshot_lane_placement(
+    vault: Path, base: str, defects: list[str], lanes: tuple[str, ...] | None = None,
+) -> None:
+    """A snapshot lane's new files go under raw/<lane>/, never raw/<lane>-*.md at the root.
+
+    `lanes` defaults to team-settings.yaml `raw.snapshot_lanes`, read by the same function
+    generate_raw_index.py uses. Only additions count — tracked adds, renames into raw/ and
+    untracked files (a promote lane may verify before committing); root snapshots already on
+    the base are the legal past and stay (append-only). Runs for every lane.
+    """
+    if lanes is None:
+        try:
+            import generate_raw_index  # lazy: its import reads settings relative to cwd
+
+            lanes = generate_raw_index.read_snapshot_lanes(
+                str(vault / generate_raw_index.SETTINGS_PATH))
+        except SystemExit as exc:  # its fail() exits on a malformed or duplicated key
+            defects.append(f"snapshot lane placement check could not run: {exc}")
+            return
+    if not lanes:
+        return
+    git = ["git", "-c", "core.quotepath=false", "-C", str(vault)]
+    try:
+        diff = subprocess.run(git + ["diff", "--name-status", "--find-renames", base, "--", "raw"],
+                              capture_output=True, text=True, timeout=60)
+        others = subprocess.run(git + ["ls-files", "--others", "--exclude-standard", "--", "raw"],
+                                capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        defects.append(f"snapshot lane placement check could not run: {exc}")
+        return
+    if diff.returncode != 0 or others.returncode != 0:
+        defects.append(
+            f"snapshot lane placement check could not run (git diff against {base} failed)")
+        return
+    added = []
+    for line in diff.stdout.splitlines():
+        status, _, rest = line.partition("\t")
+        if status[:1] in ("A", "R"):
+            added.append(rest.split("\t")[-1])
+    added += [p for p in others.stdout.splitlines() if p.strip()]
+    for rel in added:
+        name = rel[len("raw/"):] if rel.startswith("raw/") else ""
+        if "/" in name or not name.endswith(".md"):
+            continue
+        for lane in lanes:
+            if name.startswith(f"{lane}-"):
+                defects.append(
+                    f"{rel} added at the raw root — {lane} snapshots go to "
+                    f"raw/{lane}/{name[len(lane) + 1:]} (docs/raw-layout.md § 레인 2); "
+                    "move it before merging: raw is append-only once it lands"
+                )
 
 
 def _closes_quote(value: str) -> bool:
@@ -469,6 +550,7 @@ MS_KEY_RE = re.compile(r"^milestones:(?:[ \t]+(.*?))?[ \t]*$")
 MS_ITEM_RE = re.compile(r"^[ \t]+-[ \t]+(.*?)[ \t]*$")
 MS_NAME_RE = re.compile(r"^[ \t]+name:[ \t]*(.*?)[ \t]*$")
 MS_MAP_KEY_RE = re.compile(r"^(name|due|done|status):(?:[ \t]+(.*))?$")
+MS_ANY_KEY_RE = re.compile(r"^[A-Za-z_][\w-]*:(?:[ \t]|$)")
 MS_DOC = "docs/project-milestones.md"
 
 
@@ -480,7 +562,7 @@ def scan_milestones(text: str, rel_path: str) -> list[str]:
     the `outputs/` report the label points at. `docs/project-milestones.md` is the contract.
     Both item shapes are legal (a plain string, or a mapping with `due`/`done`); what this
     catches is the shape that parses and still buries the project: the 4,889-byte name that
-    made one README's frontmatter 62% of the file.
+    made one README's frontmatter 76% of the file.
 
     Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
     """
@@ -520,6 +602,7 @@ def scan_milestones(text: str, rel_path: str) -> list[str]:
 
     defects: list[str] = []
     item_no = 0
+    open_name = False  # the last line read was a name, so an indented plain line continues it
     for offset in range(key_at + 1, end):
         line = lines[offset]
         if not line.strip():
@@ -530,6 +613,7 @@ def scan_milestones(text: str, rel_path: str) -> list[str]:
             inner = item.group(1)
             mapping = MS_MAP_KEY_RE.match(inner)
             if mapping and mapping.group(1) != "name":
+                open_name = False
                 continue  # a mapping entry whose name: line comes further down
             name = mapping.group(2) if mapping else inner
         else:
@@ -537,17 +621,143 @@ def scan_milestones(text: str, rel_path: str) -> list[str]:
             if not named:
                 if not line[0].isspace():
                     break  # a column-0 key ends the sequence
+                stripped = line.strip()
+                if open_name and not MS_ANY_KEY_RE.match(stripped) and not stripped.startswith("#"):
+                    defects.append(
+                        f"{rel_path}:{offset + 1} milestones entry {item_no} name continues onto "
+                        f"another line — a name is one line ({MS_DOC})"
+                    )
+                open_name = False
                 continue  # due:/done: and anything else we do not judge
             name = named.group(1)
-        if name is None:
+        name = (name or "").strip()
+        if FM_BLOCK_RE.match(name):
+            defects.append(
+                f"{rel_path}:{offset + 1} milestones entry {item_no} names its checkpoint with a "
+                f"block scalar — a name is one line ({MS_DOC})"
+            )
+            open_name = False  # its body lines are the block, already reported
             continue
-        size = len(_na_unquote(name.strip()).encode("utf-8"))
+        open_name = True
+        size = len(_na_unquote(name).encode("utf-8"))
         if size > MILESTONE_MAX_BYTES:
             defects.append(
                 f"{rel_path}:{offset + 1} milestones entry {item_no} names its checkpoint in "
                 f"{size} bytes (max {MILESTONE_MAX_BYTES}) — the name is a label, the record "
                 f"goes in the body ({MS_DOC})"
             )
+    return defects
+
+
+REVIEW_STATES = ("pending", "confirmed")
+REVIEW_GATE_MAX_BYTES = 300
+RV_KEYS = ("review", "review_since", "review_gate", "review_ref", "status")
+RV_KEY_RE = re.compile(r"^(review|review_since|review_gate|review_ref|status):(?:[ \t]+(.*?))?[ \t]*$")
+RV_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+RV_DOC = "docs/project-review.md"
+
+
+def _rv_plain(value: str) -> str:
+    """A bare enum/date value: strip one quote layer, else cut a trailing ` # comment`."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1].strip()
+    return value.split(" #", 1)[0].strip()
+
+
+def scan_review(text: str, rel_path: str) -> list[str]:
+    """Report a project `review` gate that cannot be read as one.
+
+    `review` marks a project whose documents were merged before the user's review passed
+    (`pending`) or after it passed (`confirmed`; a missing key means confirmed). While
+    pending, `review_since` (the merge date) and `review_gate` (what clears it, one line,
+    at most 300 bytes) are required, and the project cannot be `status: done`.
+    `docs/project-review.md` is the contract. The lifecycle `status` is a different axis
+    and is not judged here.
+
+    Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
+    """
+    if not text.startswith(FM_FENCE + "\n"):
+        return []
+
+    lines = text.split("\n")
+    end = None
+    for index in range(1, len(lines)):
+        if lines[index].rstrip() in (FM_FENCE, "..."):
+            end = index
+            break
+    if end is None:
+        return []  # scan_frontmatter owns this defect
+
+    found: dict[str, tuple[int, str]] = {}
+    for offset in range(1, end):
+        match = RV_KEY_RE.match(lines[offset])
+        if match and match.group(1) not in found:
+            found[match.group(1)] = (offset + 1, (match.group(2) or "").strip())
+
+    if "review" not in found:
+        for key in ("review_since", "review_gate", "review_ref"):
+            if key in found:
+                return [
+                    f"{rel_path}:{found[key][0]} {key} without review — the gate fields hang "
+                    f"off `review: pending`; drop them or add the state ({RV_DOC})"
+                ]
+        return []
+
+    lineno, raw = found["review"]
+    state = _rv_plain(raw)
+    if not state:
+        return [
+            f"{rel_path}:{lineno} review is empty — pending or confirmed, or drop the key "
+            f"(absent means confirmed) ({RV_DOC})"
+        ]
+    if FM_BLOCK_RE.match(state) or state.startswith(("[", "{")):
+        return [
+            f"{rel_path}:{lineno} review must be a bare value, pending or confirmed — the gate "
+            f"goes in review_since · review_gate · review_ref, not nested here ({RV_DOC})"
+        ]
+    if state not in REVIEW_STATES:
+        return [
+            f"{rel_path}:{lineno} review is '{state}' — pending or confirmed only; the "
+            f"lifecycle is status, not review ({RV_DOC})"
+        ]
+    if state != "pending":
+        return []
+
+    defects: list[str] = []
+    for key in ("review_since", "review_gate"):
+        if key not in found or not _na_unquote(found[key][1]).strip():
+            defects.append(
+                f"{rel_path}:{lineno} review: pending needs {key} — when it was merged "
+                f"unreviewed and what clears the gate ({RV_DOC})"
+            )
+    if "review_since" in found:
+        since_line, since_raw = found["review_since"]
+        since = _rv_plain(since_raw)
+        if since and not RV_DATE_RE.match(since):
+            defects.append(
+                f"{rel_path}:{since_line} review_since is '{since}' — a YYYY-MM-DD date ({RV_DOC})"
+            )
+    if "review_gate" in found:
+        gate_line, gate_raw = found["review_gate"]
+        gate = _na_unquote(gate_raw)
+        if FM_BLOCK_RE.match(gate):
+            defects.append(
+                f"{rel_path}:{gate_line} review_gate is a block scalar — the gate is one line, "
+                f"the evidence goes in the body ({RV_DOC})"
+            )
+        else:
+            size = len(gate.encode("utf-8"))
+            if size > REVIEW_GATE_MAX_BYTES:
+                defects.append(
+                    f"{rel_path}:{gate_line} review_gate is {size} bytes "
+                    f"(max {REVIEW_GATE_MAX_BYTES}) — one clearing condition, detail in the "
+                    f"body ({RV_DOC})"
+                )
+    if "status" in found and _rv_plain(found["status"][1]) == "done":
+        defects.append(
+            f"{rel_path}:{found['status'][0]} status: done while review: pending — a project "
+            f"closes only after its review gate is confirmed ({RV_DOC})"
+        )
     return defects
 
 
@@ -586,6 +796,7 @@ def check_frontmatter(vault: Path, defects: list[str]) -> None:
             # an unparseable block makes the next_action/milestones reading meaningless
             defects.extend(scan_next_action(text, rel))
             defects.extend(scan_milestones(text, rel))
+            defects.extend(scan_review(text, rel))
 
 
 def check_append_only(vault: Path, base: str, defects: list[str]) -> None:
@@ -619,6 +830,54 @@ def check_append_only(vault: Path, base: str, defects: list[str]) -> None:
         defects.append(f"append-only violation ({status}): {rest.replace(chr(9), ' -> ')}")
 
 
+LINK_LIST = "vault_orphans.py --broken"
+BASE_TREE_PATHSPECS = ("*.md", ":(exclude)raw", ":(exclude)archive", ":(exclude)private")
+
+
+def check_reachability(work: vault_orphans.Vault, defects: list[str]) -> None:
+    """Check 11: every required document is reachable from wiki/INDEX.md."""
+    if vault_orphans.ROOT_NOTE not in work.files:
+        defects.append(f"{vault_orphans.ROOT_NOTE} is missing: reachability cannot be checked")
+        return
+    for orphan in work.unreachable(work.reachable()):
+        defects.append(f"{orphan}: unreachable from {vault_orphans.ROOT_NOTE} (vault_orphans.py --plan)")
+
+
+def _base_tree_vault(vault: Path, base: str, tmp: str) -> vault_orphans.Vault | str:
+    """The base ref's Markdown (outside raw/, archive/, private/) extracted into tmp and scanned;
+    a message when git cannot produce it."""
+    try:
+        proc = subprocess.run(["git", "archive", "--format=tar", base, "--", *BASE_TREE_PATHSPECS],
+                              cwd=vault, capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"link check could not run: {exc}"
+    if proc.returncode != 0:
+        head = proc.stderr.decode("utf-8", "replace").strip().splitlines()
+        return "link check could not run: " + (head[0] if head else "git archive failed")
+    with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
+        tar.extractall(tmp, filter="data")
+    return vault_orphans.Vault(tmp)
+
+
+def check_link_ratchet(vault: Path, base: str, work: vault_orphans.Vault, defects: list[str]) -> None:
+    """Check 12: no broken link on the working tree that was not already broken on the base."""
+    work_broken = work.broken_links()
+    if not work_broken:
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        base_vault = _base_tree_vault(vault, base, tmp)
+        if isinstance(base_vault, str):
+            defects.append(base_vault)
+            return
+        new = work_broken - base_vault.broken_links()
+    for source, kind, target in sorted(new):
+        shown = f"[[{target}]]" if kind == "wiki" else f"({target})"
+        defects.append(
+            f"{source}: new broken link {shown} — resolves to no document; fix the link, or the "
+            f"remaining references of a moved file ({LINK_LIST} lists every broken link)"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify shared vault invariants.")
     parser.add_argument(
@@ -650,8 +909,12 @@ def main() -> int:
     check_lane_trace(vault, base, args.lane, defects)
     check_append_only(vault, base, defects)
     check_raw_index_scope(vault, base, defects)
+    check_snapshot_lane_placement(vault, base, defects)
     check_frontmatter(vault, defects)
     defects.extend(vault_volume.check(vault))
+    work = vault_orphans.Vault(str(vault))
+    check_reachability(work, defects)
+    check_link_ratchet(vault, base, work, defects)
 
     lane_label = args.lane if args.lane != "none" else "shared"
     if defects:
@@ -662,8 +925,9 @@ def main() -> int:
 
     print(
         f"PASS ({lane_label}, base {base}): memory size, memory markers, lane trace, "
-        "raw/archive append-only, raw index scope, frontmatter structure, next_action shape, "
-        "milestone names, volume fold"
+        "raw/archive append-only, raw index scope, snapshot lane placement, frontmatter structure, "
+        "next_action shape, "
+        "milestone names, review gate, volume fold, reachability, link ratchet"
     )
     return 0
 

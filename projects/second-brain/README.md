@@ -73,6 +73,8 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
   설치 시점의 최신 patch/minor가 깔려 공통 환경이 이름만 공통이 된다. lockfile을
   같이 두면 같은 트리가 깔리고 `npm ci`로 재현 설치가 된다. **루트에서는 `npm ci`를 쓴다** —
   `npm install`은 lockfile을 그 자리에서 재작성한다.
+- 2026-10-18: `config/` 갱신(16파일) — 고아 점검 도구(`scripts/vault_orphans.py` + `vault-reach` 스킬, `.claude/skills/vault-reach` 등재)와 outputs 월간 압축(`scripts/outputs_compact.py`) 추가, `vault_verify.py` 검사 8a(검토 관문)·9(raw 색인 범위)·10(스냅샷 레인)·11(도달성)·12(깨진 링크) 추가, vault-lint § 고아·§ 5a 월간 압축, `vault_volume.py`·`generate_raw_index.py` 갱신. 계약 문서 `docs/project-review.md` 추가, `docs/raw-layout.md`·`docs/project-next-action.md` 갱신. `team-settings.yaml` 은 이 볼트 값 유지. 검증: scripts unittest 154 OK(skip 6). 검사 11 은 `wiki/INDEX.md` 에서 닿지 않는 문서가 있으면 FAIL — `vault-reach` 스킬로 잇는다.
+  origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/
 
 ## Outputs
 

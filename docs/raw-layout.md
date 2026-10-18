@@ -1,5 +1,5 @@
 # raw/ 보존소 계약
-<!-- origin: lemoncloud-io/knowledge@11357973:docs/raw-layout.md -->
+<!-- origin: lemoncloud-io/knowledge@4e78a1cb:docs/raw-layout.md -->
 
 `raw/`의 상세 계약. `VAULT_RULES.md` § Directory Contract의 한 줄("Processed source
 originals. Append-only")을 이 문서가 구체화한다. 배경과 실측 근거:
@@ -38,6 +38,10 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   늘리려면 그 값을 고친다 — 목록에 없는 디렉터리는 색인·오펀 탐지에서 통째로 빠진다
   (§ 레인 4·5의 2026-09-06·09-15 사례와 같은 유형). 색인 생성기는 키가 없으면 레인 없음으로,
   키가 있는데 읽을 수 없으면 실패로 처리한다.
+- 검사: `vault_verify.py` 검사 10이 목록에 오른 프로젝트의 **루트 신규 추가**(`raw/<project>-*.md`)를
+  결함으로 올리고 레인 경로를 제시한다 — 모든 레인 공통이라 승격·ingest 마감 검증에서 걸린다. base에
+  이미 있는 루트 스냅샷은 대상이 아니다. 계기: 규칙(PR #537) 머지 2분 뒤 머지된 PR #532가 dou-app
+  스냅샷 6건을 루트에 넣었고, 그때는 잡는 장치가 없었다(2026-10-06 추가).
 - 정본이 repo 문서가 아니라 개인 KB 증류 노트면 `source:`에
   `"개인 KB 증류 노트 <slug> (근거: <org/repo>@<commit>)"`으로 적는다
   (레인 README의 `canonical: kb-distilled`와 짝).
@@ -130,7 +134,8 @@ raw/는 유입 경로가 다른 5개 레인을 담는다.
   사유를 run-log 노트로 남긴다
   (`outputs/runs/`, `kind: maintenance` — `templates/run-log.md`).
 - 적용 이력: 2026-08-19 `?` 포함 파일명 2건 rename (Windows 클론/체크아웃 장애 실측,
-  사용자 요청) — `outputs/runs/2026-08-19-maintenance-steve-lemon.md`.
+  사용자 요청) — 실행 로그 `2026-08-19-maintenance-steve-lemon`(2026-10-12 삭제, 요약은
+  `outputs/monthly/2026-08.md`).
 
 ## 파일명 정규화 (Clippings → raw 이동 시점)
 
