@@ -6,6 +6,7 @@ Root topic map for `wiki/topics/`.
 
 - [[wiki/topics/knowledge-management|Knowledge Management]]
 - [[wiki/topics/aws-serverless|AWS Serverless]]
+- [[wiki/topics/ai-agents|AI Agents]]
 
 ## Maintenance
 
