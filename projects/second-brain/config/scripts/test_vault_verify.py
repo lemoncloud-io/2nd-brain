@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/scripts/test_vault_verify.py
 """Tests for vault_verify: the frontmatter structural check and its next_action /
 milestones shape checks, and the raw index scope check (docs/raw-layout.md § 색인).
 
@@ -19,6 +18,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+import vault_orphans
 import vault_verify
 from vault_verify import (
     HAVE_YAML,
@@ -27,6 +27,7 @@ from vault_verify import (
     scan_frontmatter,
     scan_milestones,
     scan_next_action,
+    scan_review,
 )
 
 
@@ -305,6 +306,29 @@ class ScanMilestonesTest(unittest.TestCase):
         )
         self.assertEqual(scan_milestones(text, "projects/p/README.md"), [])
 
+    def test_block_scalar_name_is_a_defect_however_long_its_body(self):
+        """`>` alone is one byte; the kilobytes hide in the lines under it."""
+        for head in ("  - name: >\n", "  - |-\n"):
+            text = self._fm("milestones:\n" + head + "      " + "가" * 400 + "\n      둘째 줄\n"
+                            "    done: true\n")
+            defects = scan_milestones(text, "projects/p/README.md")
+            self.assertEqual(len(defects), 1, (head, defects))
+            self.assertIn("block scalar", defects[0])
+
+    def test_plain_name_continued_on_the_next_line_is_a_defect(self):
+        text = self._fm(
+            "milestones:\n"
+            "  - name: 첫 줄은 짧다\n"
+            "      이어지는 줄에 근거가 붙는다\n"
+            "    done: true\n"
+            '  - "다음 항목"\n'
+            "    # 주석은 이어지는 이름이 아니다\n"
+        )
+        defects = scan_milestones(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("entry 1", defects[0])
+        self.assertIn(":6 ", defects[0])
+
     def test_empty_and_missing_are_accepted(self):
         for body in ("milestones: []\n", "milestones:\n"):
             self.assertEqual(scan_milestones(self._fm(body), "templates/project-readme.md"), [])
@@ -379,6 +403,91 @@ class ScanMilestonesTest(unittest.TestCase):
     def test_unterminated_frontmatter_is_left_to_scan_frontmatter(self):
         text = "---\nmilestones:\n  - \"" + "가" * 120 + '"\n'
         self.assertEqual(scan_milestones(text, "projects/p/README.md"), [])
+
+
+class ScanReviewTest(unittest.TestCase):
+    """The project `review` gate contract — docs/project-review.md."""
+
+    PENDING = (
+        "review: pending\n"
+        'review_since: "2026-10-15"\n'
+        'review_gate: "실볼트 V0~V9 1회 통과와 구성원별 R&R 확정"\n'
+        'review_ref: "docs/ccc-minimal-verification.md"\n'
+    )
+
+    def _fm(self, body: str, status: str = "active") -> str:
+        return f"---\ntype: project\nstatus: {status}\n" + body + "---\n\n# P\n"
+
+    def test_absent_review_is_confirmed(self):
+        self.assertEqual(scan_review(self._fm('goal: "x"\n'), "projects/p/README.md"), [])
+
+    def test_confirmed_alone_is_accepted(self):
+        self.assertEqual(scan_review(self._fm("review: confirmed\n"), "projects/p/README.md"), [])
+
+    def test_pending_with_since_and_gate_is_accepted(self):
+        self.assertEqual(scan_review(self._fm(self.PENDING), "projects/p/README.md"), [])
+
+    def test_pending_without_gate_is_reported(self):
+        text = self._fm('review: pending\nreview_since: "2026-10-15"\n')
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("needs review_gate", defects[0])
+
+    def test_pending_without_since_is_reported(self):
+        text = self._fm('review: pending\nreview_gate: "관문"\n')
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("needs review_since", defects[0])
+
+    def test_unknown_state_is_reported(self):
+        defects = scan_review(self._fm("review: draft\n"), "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("review is 'draft'", defects[0])
+
+    def test_nested_block_is_reported(self):
+        text = self._fm("review:\n  state: pending\n")
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("review is empty", defects[0])
+
+    def test_trailing_comment_on_state_is_ignored(self):
+        text = self._fm(self.PENDING.replace("review: pending", "review: pending  # merged unreviewed"))
+        self.assertEqual(scan_review(text, "projects/p/README.md"), [])
+
+    def test_bad_since_date_is_reported(self):
+        text = self._fm(self.PENDING.replace('"2026-10-15"', '"10-15"'))
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("YYYY-MM-DD", defects[0])
+
+    def test_long_gate_is_reported(self):
+        text = self._fm(self.PENDING.replace("실볼트 V0~V9 1회 통과와 구성원별 R&R 확정", "가" * 101))
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("303 bytes (max 300)", defects[0])
+
+    def test_block_scalar_gate_is_reported(self):
+        text = self._fm('review: pending\nreview_since: "2026-10-15"\nreview_gate: >\n  관문\n')
+        defects = scan_review(text, "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("block scalar", defects[0])
+
+    def test_done_with_pending_is_reported(self):
+        defects = scan_review(self._fm(self.PENDING, status="done"), "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("status: done while review: pending", defects[0])
+
+    def test_gate_fields_without_review_are_reported(self):
+        defects = scan_review(self._fm('review_gate: "관문"\n'), "projects/p/README.md")
+        self.assertEqual(len(defects), 1)
+        self.assertIn("review_gate without review", defects[0])
+
+    def test_indented_review_key_is_not_read(self):
+        text = self._fm("nested:\n  review: draft\n")
+        self.assertEqual(scan_review(text, "projects/p/README.md"), [])
+
+    def test_unterminated_frontmatter_is_left_to_scan_frontmatter(self):
+        self.assertEqual(scan_review("---\nreview: draft\n", "projects/p/README.md"), [])
 
 
 INDEX_FILES = ("docs/raw-index.yml", "docs/raw-index.md")
@@ -504,6 +613,15 @@ class RawIndexScopeGitTest(unittest.TestCase):
         self._write("outputs/2026-09-29-vault-lint.md", "report\n")
         self.assertEqual(self._check(), [])
 
+    def test_index_deleted_alongside_raw_file_is_a_defect(self):
+        self._write("raw/new.md", "new\n")
+        self._git("rm", "-q", "docs/raw-index.yml")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "feat: ingest")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("docs/raw-index.yml", defects[0])
+
     def test_ingest_leaving_index_alone_is_accepted(self):
         self._write("raw/new.md", "new\n")
         self._git("add", "-A")
@@ -518,5 +636,250 @@ class RawIndexScopeGitTest(unittest.TestCase):
         self.assertEqual(vault_verify._changed_paths(self.root, self.base), ["outputs/runs/r.md"])
 
 
+class SnapshotLanePlacementTest(unittest.TestCase):
+    """docs/raw-layout.md § 레인 2 — a snapshot lane's new files go under raw/<lane>/.
+
+    2026-10-01: a PR merged minutes after the lane rule landed still added six
+    demo-app snapshots at the raw root; nothing caught it and raw is append-only, so they
+    stay there. Only additions in the change set count — root snapshots already on the
+    base are the legal past.
+    """
+
+    LANES = ("demo-app",)
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        for d in ("raw", "Clippings", "wiki"):
+            (self.root / d).mkdir(parents=True)
+        self._write("raw/demo-app-old-snapshot-1234567.md", "old\n")
+        self._write("Clippings/demo-app-staged-7654321.md", "staged\n")
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@example.com")
+        self._git("config", "user.name", "t")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "base")
+        self.base = self._git("rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, capture_output=True, text=True).stdout
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _commit(self):
+        self._git("add", "-A")
+        self._git("commit", "-qm", "feat: promote")
+
+    def _check(self, lanes=LANES):
+        defects: list[str] = []
+        vault_verify.check_snapshot_lane_placement(self.root, self.base, defects, lanes=lanes)
+        return defects
+
+    def test_new_root_snapshot_is_a_defect_naming_the_lane_path(self):
+        self._write("raw/demo-app-data-uploads-12f5529b2.md", "new\n")
+        self._commit()
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("raw/demo-app-data-uploads-12f5529b2.md", defects[0])
+        self.assertIn("raw/demo-app/data-uploads-12f5529b2.md", defects[0])
+
+    def test_new_snapshot_in_lane_folder_is_accepted(self):
+        self._write("raw/demo-app/data-uploads-12f5529b2.md", "new\n")
+        self._commit()
+        self.assertEqual(self._check(), [])
+
+    def test_root_snapshot_already_on_base_is_accepted(self):
+        self._write("wiki/a.md", "touch something else\n")
+        self._commit()
+        self.assertEqual(self._check(), [])
+
+    def test_untracked_root_snapshot_is_a_defect(self):
+        """A promote lane may verify before committing."""
+        self._write("raw/demo-app-precommit-abcdef1.md", "new\n")
+        self.assertEqual(len(self._check()), 1)
+
+    def test_clipping_moved_to_root_snapshot_is_a_defect(self):
+        self._git("mv", "Clippings/demo-app-staged-7654321.md", "raw/demo-app-staged-7654321.md")
+        self._commit()
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("raw/demo-app/staged-7654321.md", defects[0])
+
+    def test_non_ascii_root_snapshot_is_named_readably(self):
+        self._write("raw/demo-app-한글-문서-1234567.md", "new\n")
+        self._commit()
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("raw/demo-app-한글-문서-1234567.md", defects[0])
+
+    def test_other_root_files_and_lookalikes_are_accepted(self):
+        for rel in ("raw/new-clip.md", "raw/demo-apps-guide.md", "raw/demo-app.md",
+                    "raw/screenshots/demo-app-shot.md", "raw/other-app-x-1234567.md"):
+            self._write(rel, "new\n")
+        self._commit()
+        self.assertEqual(self._check(), [])
+
+    def test_no_lanes_configured_is_accepted(self):
+        self._write("raw/demo-app-data-uploads-12f5529b2.md", "new\n")
+        self._commit()
+        self.assertEqual(self._check(lanes=()), [])
+
+    def test_lanes_default_to_team_settings(self):
+        self._write("projects/second-brain/config/team-settings.yaml",
+                    'raw:\n  snapshot_lanes: ["my-app"]  # lane list\n')
+        self._write("raw/my-app-readme-1234567.md", "new\n")
+        self._write("raw/demo-app-not-a-lane-here-1234567.md", "new\n")
+        self._commit()
+        defects = self._check(lanes=None)
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("raw/my-app/readme-1234567.md", defects[0])
+
+    def test_git_failure_is_reported_like_sibling_checks(self):
+        defects: list[str] = []
+        vault_verify.check_snapshot_lane_placement(self.root, "no-such-ref", defects, lanes=self.LANES)
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("could not run", defects[0])
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReachabilityTest(unittest.TestCase):
+    """Check 11 — an orphan is a defect; the scanner's own exemptions are respected."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self._write("wiki/INDEX.md", "- [[wiki/a|A]]\n")
+        self._write("wiki/a.md", "# A\n")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _check(self):
+        defects: list[str] = []
+        vault_verify.check_reachability(vault_orphans.Vault(str(self.root)), defects)
+        return defects
+
+    def test_reachable_vault_passes(self):
+        self.assertEqual(self._check(), [])
+
+    def test_orphan_is_a_defect(self):
+        self._write("wiki/b.md", "# B\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("wiki/b.md: unreachable from wiki/INDEX.md", defects[0])
+        self.assertIn("--plan", defects[0])
+
+    def test_tooling_and_templates_are_exempt(self):
+        self._write("projects/p/config/skills/s/SKILL.md", "# S\n")
+        self._write("templates/note.md", "# T\n")
+        self._write("CLAUDE.md", "# root\n")
+        self.assertEqual(self._check(), [])
+
+    def test_missing_index_is_one_defect(self):
+        (self.root / "wiki/INDEX.md").unlink()
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("wiki/INDEX.md is missing", defects[0])
+
+
+class LinkRatchetGitTest(unittest.TestCase):
+    """Check 12 — end to end against a throwaway repo: the set of broken links may not grow.
+    The base carries one broken link on purpose; it must stay exempt in every case."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self._write("wiki/INDEX.md", "- [[wiki/a|A]]\n- [Docs](../docs/README.md)\n")
+        self._write("wiki/a.md", "# A\n\nSee [[b]] and [[gone-already]].\n")
+        self._write("wiki/b.md", "# B\n")
+        self._write("docs/README.md", "# Docs\n\n- [guide](guide.md)\n")
+        self._write("docs/guide.md", "# Guide\n")
+        self._write("raw/source.md", "raw\n")
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@example.com")
+        self._git("config", "user.name", "t")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "base")
+        self.base = self._git("rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, capture_output=True, text=True).stdout
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _check(self):
+        defects: list[str] = []
+        work = vault_orphans.Vault(str(self.root))
+        vault_verify.check_link_ratchet(self.root, self.base, work, defects)
+        return defects
+
+    def test_unchanged_tree_passes_despite_old_broken_link(self):
+        self.assertEqual(self._check(), [])
+
+    def test_new_broken_wikilink_in_edited_file_is_a_defect(self):
+        self._write("wiki/b.md", "# B\n\nSee [[nowhere]].\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("wiki/b.md: new broken link [[nowhere]]", defects[0])
+
+    def test_new_broken_relative_link_in_untracked_file_is_a_defect(self):
+        self._write("docs/new.md", "# New\n\n[missing](missing.md)\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("docs/new.md: new broken link (missing.md)", defects[0])
+
+    def test_moving_a_target_breaks_the_untouched_referrer(self):
+        self._git("mv", "docs/guide.md", "docs/guide-v2.md")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("docs/README.md: new broken link (guide.md)", defects[0])
+
+    def test_moving_a_target_and_fixing_the_referrer_passes(self):
+        self._git("mv", "docs/guide.md", "docs/guide-v2.md")
+        self._write("docs/README.md", "# Docs\n\n- [guide](guide-v2.md)\n")
+        self.assertEqual(self._check(), [])
+
+    def test_links_to_raw_and_placeholders_are_not_broken(self):
+        self._write("wiki/b.md", "# B\n\n[[source]] · [src](../raw/source.md) · [[<slug>]] · [x](docs/<file>.md)\n")
+        self.assertEqual(self._check(), [])
+
+    def test_fixing_the_old_broken_link_passes(self):
+        self._write("wiki/a.md", "# A\n\nSee [[b]].\n")
+        self.assertEqual(self._check(), [])
+
+    def test_committed_change_is_compared_against_base(self):
+        self._write("wiki/b.md", "# B\n\nSee [[nowhere]].\n")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "feat: break")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+
+    def test_bad_base_ref_is_reported_not_raised(self):
+        self._write("wiki/b.md", "# B\n\nSee [[nowhere]].\n")
+        defects: list[str] = []
+        vault_verify.check_link_ratchet(self.root, "no-such-ref", vault_orphans.Vault(str(self.root)), defects)
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("link check could not run", defects[0])
+

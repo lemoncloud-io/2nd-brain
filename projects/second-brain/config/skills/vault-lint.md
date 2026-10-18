@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
   주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -74,6 +74,26 @@ Task:
   a project-local `wiki/` was created and made the bare word ambiguous.)
 - Do not read or edit raw/ file contents.
 - Check frontmatter, template drift, stub notes, orphan notes, broken wikilinks, escaped-pipe aliases, raw-file wikilinks in sources, duplicate concepts, contradictions, and overcrowded topic pages.
+- Orphans: a document is an orphan when no chain of links from `wiki/INDEX.md` reaches it
+  (user definition, 2026-10-15; scope includes project-internal documents, not `config/`,
+  `templates/`, `scope: personal` projects, or gitignored local-only files — promoted material
+  is not exempt). Follow the `vault-reach` skill (`projects/second-brain/config/skills/vault-reach/SKILL.md`):
+  run `python3 projects/second-brain/config/scripts/vault_orphans.py`, then `--plan`, then `--apply` on
+  the lint branch. Mention fixes link an existing inline-code path; readme fixes add the document to
+  the nearest reachable README's `## Document Map`; a `hub` result means a folder hub is cut off from
+  INDEX and is fixed by hand (`wiki/INDEX.md` § Vault Hubs). `vault_verify.py` fails on any orphan
+  (check 11) and on any broken link the change set adds (check 12) — a link already broken on the
+  base is this lane's item instead: `vault_orphans.py --broken` lists them (for example 246 in 86
+  documents when the check was introduced, mostly paths into a project wiki tree that never existed); fix with the
+  same judgment as any lint finding — the right target, or no link — never by deleting the sentence. The scanner skips `node_modules`, `.git`,
+  `.claude` worktrees, `private`, `raw`, `archive` and build directories, and never edits dated records,
+  the frozen ingest ledger, the raw index, VAULT_MEMORY, `config/` or `templates/`. Report the
+  before/after reachable counts and the fix counts.
+- Lane-folder audits: a project that keeps lane folders may ship its own audit script
+  (`projects/<name>/config/scripts/<name>_lane_audit.py`, rules in that project's lane README —
+  upper/lower membership, parent pointer ↔ table, required files, `next_action` hygiene,
+  shared-lib lanes). Run every such script. Fix defects on the lint branch; a
+  `track:` or membership decision is the user's and is reported, not guessed. Report the summary line.
 - An escaped pipe INSIDE a Markdown table cell is required, not a violation (VAULT_RULES.md
   § Core Rules). Only report escaped aliases in prose.
 - Resolve wikilinks in wiki/ only. VAULT_RULES.md, CLAUDE.md, templates/, and
@@ -98,6 +118,27 @@ Task:
   report the label points at. `vault_verify.py` reports the breaches; deciding what stays in the
   label follows `docs/project-milestones.md`. Same rule about the wording: move it, do not
   rewrite it, and drop a clause only after finding it verbatim elsewhere in the note.
+- Compact outputs/ by month before regenerating the raw index (VAULT_RULES.md § Monthly
+  compaction). Run `python3 projects/second-brain/config/scripts/outputs_compact.py plan`; it lists
+  the eligible records — run-logs up to today, and lint reports of closed months except the newest.
+  Query answers are never compacted. Then, in order:
+  1. Read every eligible record and move the durable knowledge the living vault does not already hold
+     — decisions and their reasons, pitfalls, verified facts, judgment rules — into wiki/ (first the
+     judgment-rules notes `vault-lint-judgment-rules`, `vault-ingest-judgment-rules`,
+     `vault-promotion-judgment-rules`; a project fact goes to that project's README or docs). Link each
+     item to the PR that added its record. Check every item against the record text before writing it.
+     A user decision already on record wins over a record's suggestion. Counts, file lists and
+     anything already codified stay out.
+  2. Run `outputs_compact.py write`, then write or refresh `## Answer` in each touched
+     `outputs/monthly/YYYY-MM.md`: 3–6 bullets read off its Evidence.
+  3. Run `outputs_compact.py apply`. It is the only deletion a lint pass may make. It refuses while an
+     Answer is still the placeholder or while `git rm` would fail, and it writes nothing in that case.
+  4. Repoint the living documents it lists (wikilinks, current-tense statements) to the monthly
+     note. Plain-text mentions inside dated records (reports, run-logs, weekly reports) stay as they are.
+  5. Check that `vault_volume.py` prints the same totals before and after, and record the counts in
+     the lint report.
+  If the pass cannot finish step 1 (turn budget, print mode), run `write` only and report it —
+  never `apply` without step 1.
 - Regenerate the raw index (docs/raw-index.yml canonical + docs/raw-index.md summary;
   untracked local raw files go to gitignored private/raw-index.yml) by running
   `python3 projects/second-brain/config/scripts/generate_raw_index.py` from the vault root
@@ -125,7 +166,8 @@ Task:
 Rules:
 - Do not edit raw/ or archive/ file contents.
 - Do not invent large article bodies during lint.
-- Do not run git push, git reset, git clean, rm -rf, or destructive commands.
+- Do not run git push, git reset, git clean, rm -rf, or destructive commands. The one deletion
+  allowed is `outputs_compact.py apply` after step 1 of the compaction above.
 
 Final response:
 Report current working directory, ABSOLUTE_VAULT_DIR, lint report path, critical issues, stub count,
@@ -156,7 +198,12 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
    - `status: stub` 문서, 그리고 stub 경계 드리프트(`VAULT_RULES.md` § Note Contracts):
      본문(frontmatter·코드블록 제외, 공백 제외) 1,200자 미만인 `draft`, 그 이상인데
      결손 사유가 본문에 없는 `stub`
-   - 고아 문서
+   - 고아 문서 — `wiki/INDEX.md`에서 링크를 따라 닿지 않는 문서(2026-10-15 사용자 정의, 프로젝트 내부 문서까지,
+     `config/`·`templates/`·`scope: personal` 개인 프로젝트·gitignore된 로컬 전용 파일 제외 — 개인 프로젝트에서
+     아이디어·프로젝트·위키로 승격한 문서는 예외가 아니다). `vault-reach` 스킬 절차를 따른다: `vault_orphans.py` → `--plan` → lint
+     브랜치에서 `--apply`. `hub`로 나온 것은 폴더 허브가 INDEX에서 끊긴 것이라 손으로 잇는다
+     (`wiki/INDEX.md` § Vault Hubs). 스캐너는 `node_modules`·`.claude` 워크트리 등을 건너뛰고, 날짜 기록·동결
+     원장·raw 색인·VAULT_MEMORY·`config/`·`templates/`는 고치지 않는다. 전후 도달 수와 수정 건수를 리포트에 남긴다
    - 깨진 wikilink
    - `[[note\|Alias]]`처럼 pipe 문자가 escape된 Obsidian alias.
      단 **마크다운 표 셀 안에서는 escape가 필수**라 위반이 아니다 (`VAULT_RULES.md` § Core Rules) —
@@ -183,6 +230,23 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
      `projects/*/config/skills/`의 `[[note-slug|Alias]]`·`[[target]]`과 의도된 escaped-pipe
      반례는 문법 예시이므로 깨진 링크로 보고하지 않는다
 5. 필요한 경우 빈 stub 문서를 만든다. 단, 추측으로 긴 본문을 작성하지 않는다.
+5a. **outputs 월간 압축**(`VAULT_RULES.md` § Monthly compaction, 2026-10-12 사용자 결정 — 정비 때마다
+   수행). `python3 projects/second-brain/config/scripts/outputs_compact.py plan`이 대상을 보여 준다.
+   대상은 오늘까지의 실행 로그와, 마감된 달의 lint 보고서(가장 최신 1건 제외)다. 질의 답변은 대상이
+   아니다. 순서:
+   1. **지속 지식은 wiki로.** 대상 기록을 읽는다. 결정과 그 이유, 함정, 검증된 사실, 판정 규칙 중
+      살아 있는 볼트에 없는 것을 wiki로 옮긴다. 먼저 `vault-lint/ingest/promotion-judgment-rules`
+      노트에 넣고, 특정 프로젝트의 사실은 그 README·docs에 넣는다. 항목마다 그 기록을 들여온 PR을
+      링크하고, 원문과 대조한 뒤 쓴다. 이미 내린 사용자 결정이 기록의 제안보다 우선한다. 건수,
+      파일 목록, 이미 성문화된 것은 옮기지 않는다. 대상이 많으면 서브에이전트에 나눠 읽힌다(읽기 전용).
+   2. `outputs_compact.py write` → 손대는 `outputs/monthly/YYYY-MM.md`의 `## Answer`를 Evidence를
+      읽고 3~6줄로 쓴다(이미 있으면 새 항목만큼 다듬는다).
+   3. `outputs_compact.py apply` — **정비가 할 수 있는 유일한 삭제다.** Answer가 자리표시자이거나
+      `git rm`이 실패할 상황이면 아무것도 쓰지 않고 거부한다.
+   4. 출력된 살아 있는 문서의 참조(wikilink, 현재형 서술)를 월별 요약으로 바꾼다. 날짜가 박힌
+      기록물(보고서, 실행 로그, 주간 보고) 안의 평문 언급은 그대로 둔다.
+   5. `vault_volume.py`의 총계가 압축 전후로 같은지 확인하고, 건수를 lint 리포트에 남긴다.
+   1단계를 끝낼 수 없으면(턴 예산, print 모드) `write`만 하고 보고한다. 1단계 없이 `apply`하지 않는다.
 6. raw 색인을 재생성한다(`docs/raw-index.yml` 정본 + `docs/raw-index.md` 요약, 미추적 로컬 파일은
    gitignored `private/raw-index.yml`): vault 루트에서
    `python3 projects/second-brain/config/scripts/generate_raw_index.py`
@@ -207,5 +271,6 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
 
 - lint 실행 중 `raw/` 파일은 절대 건드리지 않는다 (append-only)
 - 근거 없이 본문을 대량 생성하지 않는다
-- `git reset`, `git clean`, `rm -rf` 같은 파괴적 명령을 실행하지 않는다
+- `git reset`, `git clean`, `rm -rf` 같은 파괴적 명령을 실행하지 않는다. 허용되는 삭제는 5a의
+  `outputs_compact.py apply` 하나다(지속 지식을 wiki로 옮긴 뒤에만)
 - Claude 미설치/미인증/실패 시 조용히 종료하지 않는다. lock을 제거하고 Hermes-native fallback 여부를 보고한다

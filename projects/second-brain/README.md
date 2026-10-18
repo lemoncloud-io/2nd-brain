@@ -42,11 +42,11 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
 ## Log
 
 - 2026-07-08: Initialized required control files and clarified Claude-first automation policy.
-- 2026-07-29: 실행 이력을 `wiki/VAULT_MEMORY.md`에서 `docs/vault-ingest-log.md`로 분리 —
+- 2026-07-29: 실행 이력을 [`wiki/VAULT_MEMORY.md`](../../wiki/VAULT_MEMORY.md)에서 [`docs/vault-ingest-log.md`](../../docs/vault-ingest-log.md)로 분리 —
   memory는 8 KB 예산의 상태·포인터 문서로 고정하고, `Last Ingest:` 한 줄만 교체한다.
 - 2026-08-07: attention-budget 재배치 — `VAULT_RULES.md`의 § Wiki Frontmatter·§ Work Layer
   Frontmatter·§ Topic Pages·§ Templates를 § Note Contracts로 통합, § Session Start·
-  § Vault Root Resolution은 `CLAUDE.md`로 이관, GitHub 계약은 `docs/github-linked-projects.md`로
+  § Vault Root Resolution은 `CLAUDE.md`로 이관, GitHub 계약은 [`docs/github-linked-projects.md`](../../docs/github-linked-projects.md)로
   분리. `AGENTS.md`는 `CLAUDE.md` 포인터로 축소해 규칙 3중 복제를 제거.
 - 2026-08-11: `private/` 개인 스크래치 공간 도입 — `.gitignore`에 `private/` 추가(git
   비추적), `templates/private-note.md` 신설, `config/skills/private-note.md` 스킬 추가
@@ -59,8 +59,8 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
   값(수신자·리뷰어·vault 표시명·트리거 문구)은 이 파일에서 키로 참조 (VAULT_RULES
   Core Rules 등록). ingest·github-project 스킬의 리뷰어 하드코딩도 `github.default_reviewer`
   참조로 전환.
-- 2026-08-14: `raw/` 계약 정밀화 — `docs/raw-layout.md` 신설(레인 구분, append-only 정의,
-  파일명 정규화, ingest 게이트), `config/scripts/generate_raw_index.py`로 `docs/raw-index.md`를
+- 2026-08-14: `raw/` 계약 정밀화 — [`docs/raw-layout.md`](../../docs/raw-layout.md) 신설(레인 구분, append-only 정의,
+  파일명 정규화, ingest 게이트), `config/scripts/generate_raw_index.py`로 [`docs/raw-index.md`](../../docs/raw-index.md)를
   생성하고 `vault-lint`가 재생성·검사하도록 편입.
 - 2026-08-14: 지침 계층 정비. 조직 고유 값은 `config/team-settings.yaml`의
   플레이스홀더로 중립화했으므로 clone 후 교체가 필요하다.
@@ -73,6 +73,8 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
   설치 시점의 최신 patch/minor가 깔려 공통 환경이 이름만 공통이 된다. lockfile을
   같이 두면 같은 트리가 깔리고 `npm ci`로 재현 설치가 된다. **루트에서는 `npm ci`를 쓴다** —
   `npm install`은 lockfile을 그 자리에서 재작성한다.
+- 2026-10-18: `config/` 갱신(16파일) — 고아 점검 도구(`scripts/vault_orphans.py` + `vault-reach` 스킬, `.claude/skills/vault-reach` 등재)와 outputs 월간 압축(`scripts/outputs_compact.py`) 추가, `vault_verify.py` 검사 8a(검토 관문)·9(raw 색인 범위)·10(스냅샷 레인)·11(도달성)·12(깨진 링크) 추가, vault-lint § 고아·§ 5a 월간 압축, `vault_volume.py`·`generate_raw_index.py` 갱신. 계약 문서 [`docs/project-review.md`](../../docs/project-review.md) 추가, `docs/raw-layout.md`·[`docs/project-next-action.md`](../../docs/project-next-action.md) 갱신. `team-settings.yaml` 은 이 볼트 값 유지. 검증: scripts unittest 154 OK(skip 6). 검사 11 은 `wiki/INDEX.md` 에서 닿지 않는 문서가 있으면 FAIL — `vault-reach` 스킬로 잇는다.
+  origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/
 
 ## Outputs
 

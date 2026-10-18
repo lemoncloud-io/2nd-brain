@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@41ea2ea5:projects/second-brain/config/scripts/test_vault_volume.py
 """Tests for the ledger baseline fold in vault_volume.
 
 Run from the scripts directory:
@@ -146,6 +145,51 @@ class ComputePortabilityTest(unittest.TestCase):
         self.assertGreaterEqual(vol["clippings"], 38)
         self.assertEqual(vol["first"], "2026-07-08")
 
+
+
+def digest(month: str, runs: int | None = None, clippings: int = 0,
+           first: str = "", last: str = "") -> str:
+    """A monthly summary note; compacted keys only when its run-logs were deleted."""
+    fm = f'type: query-output\ncreated: "{month}-28"\n'
+    if runs is not None:
+        fm += (f"compacted_ingest_runs: {runs}\ncompacted_clippings: {clippings}\n"
+               f'compacted_first: "{first}"\ncompacted_last: "{last}"\n')
+    return f"---\n{fm}---\n\n# {month}\n"
+
+
+def add_digests(root: pathlib.Path, notes: dict[str, str]) -> None:
+    (root / "outputs" / "monthly").mkdir(parents=True, exist_ok=True)
+    for month, body in notes.items():
+        (root / "outputs" / "monthly" / f"{month}.md").write_text(body, encoding="utf-8")
+
+
+class CompactedMonthTest(unittest.TestCase):
+    def test_digest_without_compacted_keys_counts_nothing(self):
+        """A month whose run-logs are still on disk must not be counted twice."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp, runlogs=[runlog("2026-10-02", 3)])
+            add_digests(root, {"2026-10": digest("2026-10")})
+            vol = compute(root)
+            self.assertEqual((vol["runs"], vol["clippings"]), (1, 3))
+
+    def test_ledger_compacted_months_and_runlogs_add_up_in_time_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = LEDGER_HEAD + "- Last Ingest: 2026-07-08 — processed 2 clippings\n"
+            root = make_vault(tmp, ledger=ledger, runlogs=[runlog("2026-10-02", 3)])
+            add_digests(root, {
+                "2026-08": digest("2026-08", 2, 5, "2026-08-14", "2026-08-29"),
+                "2026-09": digest("2026-09", 1, 4, "2026-09-03", "2026-09-29"),
+            })
+            vol = compute(root)
+            self.assertEqual((vol["runs"], vol["clippings"]), (1 + 3 + 1, 2 + 9 + 3))
+            self.assertEqual((vol["first"], vol["last"]), ("2026-07-08", "2026-10-02"))
+
+    def test_compacted_months_alone_supply_both_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            add_digests(root, {"2026-08": digest("2026-08", 2, 5, "2026-08-14", "2026-08-29")})
+            vol = compute(root)
+            self.assertEqual((vol["runs"], vol["first"], vol["last"]), (2, "2026-08-14", "2026-08-29"))
 
 
 class DecounteredMemoryTest(unittest.TestCase):

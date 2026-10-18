@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@41ea2ea5:projects/second-brain/config/scripts/vault_volume.py
 """Derive the vault volume line (`- Volume to date: …`) from the ledgers.
 
 Since 2026-09-03 wiki/VAULT_MEMORY.md no longer stores this line — every concurrent
@@ -12,7 +11,7 @@ twice (Open Thread closed by this script; recommendation ① in
 outputs/2026-08-26-second-brain-process-review.md). Current state must be a
 deterministic fold of the append-only ledgers, never a maintained number:
 
-  runs / clippings = FROZEN ledger baseline + fold over outputs/runs/*.md
+  runs / clippings = FROZEN ledger baseline + compacted months + fold over outputs/runs/*.md
   wiki notes       = live count of wiki/*.md (minus INDEX, VAULT_MEMORY, TOPIC_MAP)
   topics           = live count of wiki/topics/*.md (root = empty `up:`, sub = set)
 
@@ -29,6 +28,14 @@ so a vault carrying two run-logs of its own reported "21 runs / 40 clippings", a
 `--write` would have stamped one checkout's history into another vault's memory as fact.
 Deriving from the local ledger reproduces those 19 / 38 exactly (that ledger holds 19
 bullets summing to 38) and yields 0 / 0 in vaults whose ledger is absent or empty.
+
+Compacted months (2026-10-12): once a closed month's run-logs are deleted, that
+month's summary note `outputs/monthly/YYYY-MM.md` carries what they contributed in
+its frontmatter — `compacted_ingest_runs`, `compacted_clippings`, `compacted_first`,
+`compacted_last` — measured from the run-logs just before deletion. Those counts are
+frozen like the ledger; a month whose run-logs are still present carries no such keys,
+so nothing is counted twice. Order of the three sources in time: ledger < compacted
+months < run-logs still on disk.
 
 Usage:
     python3 vault_volume.py            # print the derived line (the normal use since 2026-09-03)
@@ -49,6 +56,7 @@ from pathlib import Path
 
 MEMORY_REL = "wiki/VAULT_MEMORY.md"
 RUNS_DIR_REL = "outputs/runs"
+DIGESTS_DIR_REL = "outputs/monthly"
 TOPICS_DIR_REL = "wiki/topics"
 LEDGER_REL = "docs/vault-ingest-log.md"
 EXPECTED_DIRS = ["wiki", "raw", "Clippings", "templates"]
@@ -132,6 +140,31 @@ def fold_runlogs(vault: Path) -> tuple[int, int, str | None, str | None]:
     return runs, clippings, min(dates), max(dates)
 
 
+def fold_digests(vault: Path) -> tuple[int, int, str | None, str | None]:
+    """(ingest runs, clippings, first, last) frozen in compacted monthly summaries."""
+    runs = 0
+    clippings = 0
+    dates: list[str] = []
+    digests_dir = vault / DIGESTS_DIR_REL
+    if not digests_dir.is_dir():
+        return runs, clippings, None, None
+    for path in sorted(digests_dir.glob("*.md")):
+        fm = _frontmatter(path.read_text(encoding="utf-8"))
+        n = re.search(r"^compacted_ingest_runs:\s*(\d+)", fm, re.M)
+        if not n:
+            continue
+        runs += int(n.group(1))
+        c = re.search(r"^compacted_clippings:\s*(\d+)", fm, re.M)
+        clippings += int(c.group(1)) if c else 0
+        for key in ("compacted_first", "compacted_last"):
+            d = re.search(rf"^{key}:\s*\"?([0-9-]{{10}})", fm, re.M)
+            if d:
+                dates.append(d.group(1))
+    if not dates:
+        return runs, clippings, None, None
+    return runs, clippings, min(dates), max(dates)
+
+
 def count_wiki_notes(vault: Path) -> int:
     return sum(
         1 for p in (vault / "wiki").glob("*.md") if p.name not in WIKI_NON_NOTES
@@ -155,15 +188,17 @@ def count_topics(vault: Path) -> tuple[int, int]:
 
 def compute(vault: Path) -> dict[str, object]:
     led_runs, led_clippings, led_first, led_last = fold_ledger(vault)
+    dig_runs, dig_clippings, dig_first, dig_last = fold_digests(vault)
     log_runs, log_clippings, log_first, log_last = fold_runlogs(vault)
     root, sub = count_topics(vault)
-    # The ledger is frozen and predates every run-log, so it always holds the earlier
-    # bound; run-logs always hold the later one. Either side may be empty.
-    first = led_first or log_first or NO_DATE
-    last = log_last or led_last or NO_DATE
+    # The ledger is frozen and predates every run-log, compacted months sit between it
+    # and the run-logs still on disk, so the earliest non-empty source holds the first
+    # bound and the latest one the last. Any source may be empty.
+    first = led_first or dig_first or log_first or NO_DATE
+    last = log_last or dig_last or led_last or NO_DATE
     return {
-        "runs": led_runs + log_runs,
-        "clippings": led_clippings + log_clippings,
+        "runs": led_runs + dig_runs + log_runs,
+        "clippings": led_clippings + dig_clippings + log_clippings,
         "first": first,
         "last": last,
         "notes": count_wiki_notes(vault),
