@@ -162,6 +162,21 @@ class PlanApplyTest(Base):
         text = "---\ntype: weekly\n# Vault Markdown notes use quoted wikilinks\nweek: 1\n---\n\n# 주간 보고서\n"
         self.assertEqual(title_of(text, "areas/weekly/2026-09-14.md"), "주간 보고서")
 
+    def test_template_slot_in_link_is_not_broken(self):
+        write(self.root, "projects/p/final-report/template.md", "sources: [\"[[projects/p/{{company_code}}/README|x]]\"]\n")
+        self.assertFalse(any("{{company_code}}" in t for _, _, t in self.vault().broken_links()))
+
+    def test_clipping_links_are_not_broken_links(self):
+        write(self.root, "Clippings/clip.md", "---\nauthor: \"[[nobody]]\"\n---\n# Clip\n[[nowhere]]\n")
+        self.assertFalse(any(f.startswith("Clippings/") for f, _, _ in self.vault().broken_links()))
+
+    def test_mention_fix_never_targets_frontmatter(self):
+        write(self.root, "projects/p/README.md", "---\nnext_action: \"read `docs/lonely.md`\"\n---\n# P\n")
+        fixes, _ = self.vault().plan()
+        for f in fixes:
+            if f["file"] == "projects/p/README.md" and f.get("via") == "mention":
+                self.fail("mention fix inside frontmatter: %r" % (f,))
+
     def test_tooling_is_never_edited(self):
         write(self.root, "projects/p/config/skills/s/SKILL.md", "Read `docs/lonely.md` first.\n")
         write(self.root, "projects/p/README.md", "# P\n\n[skill](config/skills/s/SKILL.md)\n")
