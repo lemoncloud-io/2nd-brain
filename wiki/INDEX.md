@@ -17,6 +17,14 @@ This index is the entry point for vault queries and ingest deduplication.
 - [[wiki/aws-iam|AWS IAM]]
 - [[wiki/aws-sam|AWS SAM]]
 
+## Vault Hubs
+
+- [[projects/README|Projects]]
+- [[areas/README|Areas]]
+- [[wiki/TOPIC_MAP|Topic Map]]
+- [Docs](../docs/README.md)
+- [Outputs](../outputs/README.md)
+
 ## Maintenance
 
 - Update this file after ingest creates or changes wiki articles.
