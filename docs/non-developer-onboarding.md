@@ -1,5 +1,5 @@
 # 비개발자 온보딩 가이드 — 터미널 없이 팀 위키 쓰기
-<!-- origin: lemoncloud-io/knowledge@e5a3687:docs/non-developer-onboarding.md -->
+<!-- origin: lemoncloud-io/knowledge@6f4088ca:docs/non-developer-onboarding.md -->
 
 작성일: 2026-08-24
 대상: 문서를 읽고·쓰고·클리핑하는 비개발자 팀원 (Tier 1)
@@ -114,7 +114,7 @@
 
 ## 팀 관리자용 체크리스트 (온보딩 시켜 주는 사람)
 
-- [ ] (팀 repo가 아직 없으면) [`wiki-vault-setup-free.md`](wiki-vault-setup-free.md) 절차로 생성 —
+- [ ] (팀 repo가 아직 없으면) `docs/wiki-vault-setup-free.md` 절차로 생성 —
   공개 템플릿을 clone하는 것이 아니라 **GitHub template 생성**(`gh repo create --template ... --private`)이 정본.
   무료 공유가 목적이면 유료 org에 만들지 않는다(좌석 비용 발생, 같은 문서 참조)
 - [ ] 팀 vault repo에 신규 팀원 초대 (읽기·쓰기 권한 — 무료 플랜으로 성립)

@@ -68,7 +68,7 @@ INLINE_CODE = re.compile(r"`([^`\n]+)`")
 WIKILINK = re.compile(r"!?\[\[([^\]]+?)\]\]")
 MDLINK = re.compile(r"\]\((?!https?:|mailto:|#)<?([^)\s>]+?)>?(?:#[^)]*)?\)")
 DATED = re.compile(r"(^|/)\d{4}-\d{2}-\d{2}[^/]*\.md$")
-PLACEHOLDER = re.compile(r"[<>]")  # `[[<slug>]]`, `[x](docs/<file>.md)` — an example in a rule, not a link
+PLACEHOLDER = re.compile(r"[<>]|\{\{")  # `[[<slug>]]`, `[x](docs/<file>.md)`, `{{company}}` — an example or a template slot, not a link
 RECORD_PREFIXES = ("outputs/runs/", "outputs/monthly/", "areas/weekly/")
 
 
@@ -272,10 +272,10 @@ class Vault:
         return t.lower() not in self.outside_stems()
 
     def broken_links(self):
-        """(source, kind, target) for every broken link outside templates/, as a set."""
+        """(source, kind, target) for every broken link outside templates/ and the Clippings/ inbox, as a set."""
         out = set()
         for f in self.files:
-            if f.startswith("templates/"):
+            if f.startswith(("templates/", "Clippings/")):  # a clipping's links are the clipper's, fixed at ingest
                 continue
             for kind, target in extract_targets(self.text[f]):
                 if self.is_broken(f, kind, target):
@@ -299,6 +299,9 @@ class Vault:
                 continue
             text = self.text[src]
             body = FENCE.sub(lambda m: " " * len(m.group(0)), text)
+            if body.startswith("---\n") and "\n---" in body[4:]:  # frontmatter is data, never a mention site
+                fm_end = body.index("\n---", 4) + 4
+                body = " " * fm_end + body[fm_end:]
             for m in INLINE_CODE.finditer(body):
                 code = m.group(1).strip()
                 if code.startswith("./"):

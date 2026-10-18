@@ -1,5 +1,5 @@
 # 프로젝트 `next_action` 계약
-<!-- origin: lemoncloud-io/knowledge@4e78a1cb:docs/project-next-action.md -->
+<!-- origin: lemoncloud-io/knowledge@6f4088ca:docs/project-next-action.md -->
 
 `projects/<name>/README.md`와 `projects/@<org>/<folder>/README.md` frontmatter의 `next_action`
 한 필드가 가질 수 있는 모양·문법·전환 기준. 진입점 요약은 `VAULT_RULES.md` § Note Contracts
@@ -141,7 +141,7 @@ master `edebf80` 기준, `next_action`을 가진 프로젝트 노트 116건의 �
 
 - `projects.base`의 `next_action` 열은 스칼라와 목록을 모두 읽는다(속성 참조라 모양을 가리지
   않는다). 다만 목록 값이 표 셀에 어떻게 렌더되는지는 Obsidian에서 육안 확인이 필요하다 —
-  볼트의 base 중 목록 값을 열로 쓰는 선례가 아직 없다. 확인 절차는 [`docs/obsidian-bases.md`](obsidian-bases.md)
+  볼트의 base 중 목록 값을 열로 쓰는 선례가 아직 없다. 확인 절차는 `docs/obsidian-bases.md`
   § 업데이트 절차 4.
 - 시퀀스 항목의 들여쓰기는 두 칸이다. 스칼라 값이 남은 채 그 아래에 항목이 붙으면
   (`next_action: "x"` 다음 줄에 `  - "y"`) frontmatter 전체가 파싱되지 않는다 — 2026-08-28의
