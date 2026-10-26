@@ -1,0 +1,144 @@
+/* 화면 테마 tokyo-night — Tokyo Night Light · Night. 계약: projects/knowledge-viewer/README.md § 화면 테마.
+   enkia/tokyo-night-vscode-theme 의 Tokyo Night·Tokyo Night Light 작업 영역 색. 1차 글색은 folke 팔레트의 fg(#c0caf5).
+   토큰 집합은 tokens.css 와 같다(늘리지 않는다). 라이트 블록 하나, 다크 블록 둘(OS 다크 · data-scheme=dark)은 값이 같다.
+   --graph-* 는 캔버스가 늘 어둡다는 결정을 따라 두 블록이 같은 값이다. 시험: tests/ui/themes.test.ts */
+
+:root[data-theme='tokyo-night'] {
+  --bg: #d6d8df;
+  --surface: #e6e7ed;
+  --surface-2: #dcdee5;
+  --surface-3: #cfd1d9;
+  --line: #c1c2c7;
+  --line-strong: #a8aab3;
+  --text: #343b59;
+  --text-2: #4c505e;
+  --text-3: #6a6c7a;
+  --accent: #2959aa;
+  --accent-strong: #1f4688;
+  --accent-soft: #d3dbee;
+  --focus: #2959aa;
+  --tone-muted-bg: #dcdee5;
+  --tone-muted-fg: #4c505e;
+  --tone-muted-line: #c1c2c7;
+  --tone-blue-bg: #d4dcef;
+  --tone-blue-fg: #2959aa;
+  --tone-blue-line: #b0bfe0;
+  --tone-amber-bg: #ece1cf;
+  --tone-amber-fg: #7a4f10;
+  --tone-amber-line: #d5c09d;
+  --tone-green-bg: #d6e3d2;
+  --tone-green-fg: #385f0d;
+  --tone-green-line: #b5ccb2;
+  --tone-red-bg: #ecd6d9;
+  --tone-red-fg: #8c4351;
+  --tone-red-line: #d8b3ba;
+  --graph-bg: #16161e;
+  --graph-accent: #7aa2f7;
+  --graph-label-2: #737aa2;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='tokyo-night']:not([data-scheme='light']) {
+    --bg: #16161e;
+    --surface: #1a1b26;
+    --surface-2: #1f2335;
+    --surface-3: #292e42;
+    --line: #292e42;
+    --line-strong: #3b4261;
+    --text: #c0caf5;
+    --text-2: #a9b1d6;
+    --text-3: #737aa2;
+    --accent: #7aa2f7;
+    --accent-strong: #7dcfff;
+    --accent-soft: #222c4a;
+    --focus: #2ac3de;
+    --tone-muted-bg: #24283b;
+    --tone-muted-fg: #a9b1d6;
+    --tone-muted-line: #3b4261;
+    --tone-blue-bg: #1f2a48;
+    --tone-blue-fg: #7aa2f7;
+    --tone-blue-line: #394b70;
+    --tone-amber-bg: #2f2a22;
+    --tone-amber-fg: #e0af68;
+    --tone-amber-line: #5a4a32;
+    --tone-green-bg: #20302a;
+    --tone-green-fg: #9ece6a;
+    --tone-green-line: #3b5230;
+    --tone-red-bg: #33202a;
+    --tone-red-fg: #f7768e;
+    --tone-red-line: #5c2d3a;
+    --graph-bg: #16161e;
+    --graph-accent: #7aa2f7;
+    --graph-label-2: #737aa2;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-theme='tokyo-night'][data-scheme='dark'] {
+  --bg: #16161e;
+  --surface: #1a1b26;
+  --surface-2: #1f2335;
+  --surface-3: #292e42;
+  --line: #292e42;
+  --line-strong: #3b4261;
+  --text: #c0caf5;
+  --text-2: #a9b1d6;
+  --text-3: #737aa2;
+  --accent: #7aa2f7;
+  --accent-strong: #7dcfff;
+  --accent-soft: #222c4a;
+  --focus: #2ac3de;
+  --tone-muted-bg: #24283b;
+  --tone-muted-fg: #a9b1d6;
+  --tone-muted-line: #3b4261;
+  --tone-blue-bg: #1f2a48;
+  --tone-blue-fg: #7aa2f7;
+  --tone-blue-line: #394b70;
+  --tone-amber-bg: #2f2a22;
+  --tone-amber-fg: #e0af68;
+  --tone-amber-line: #5a4a32;
+  --tone-green-bg: #20302a;
+  --tone-green-fg: #9ece6a;
+  --tone-green-line: #3b5230;
+  --tone-red-bg: #33202a;
+  --tone-red-fg: #f7768e;
+  --tone-red-line: #5c2d3a;
+  --graph-bg: #16161e;
+  --graph-accent: #7aa2f7;
+  --graph-label-2: #737aa2;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}

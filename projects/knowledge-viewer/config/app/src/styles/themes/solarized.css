@@ -1,0 +1,144 @@
+/* 화면 테마 solarized — Solarized Light · Dark. 계약: projects/knowledge-viewer/README.md § 화면 테마.
+   Ethan Schoonover 의 16색(base03~base3 + 8 강조). 라이트 본문은 base02, 강조·tone 글색은 대비 4.5 를 맞추려 어둡게 했다.
+   토큰 집합은 tokens.css 와 같다(늘리지 않는다). 라이트 블록 하나, 다크 블록 둘(OS 다크 · data-scheme=dark)은 값이 같다.
+   --graph-* 는 캔버스가 늘 어둡다는 결정을 따라 두 블록이 같은 값이다. 시험: tests/ui/themes.test.ts */
+
+:root[data-theme='solarized'] {
+  --bg: #eee8d5;
+  --surface: #fdf6e3;
+  --surface-2: #eee8d5;
+  --surface-3: #e4ddc8;
+  --line: #ddd6c1;
+  --line-strong: #c5bea8;
+  --text: #073642;
+  --text-2: #52676e;
+  --text-3: #657b83;
+  --accent: #1a6aa5;
+  --accent-strong: #0f5585;
+  --accent-soft: #e0e9e6;
+  --focus: #268bd2;
+  --tone-muted-bg: #eee8d5;
+  --tone-muted-fg: #52676e;
+  --tone-muted-line: #ddd6c1;
+  --tone-blue-bg: #e0e9e6;
+  --tone-blue-fg: #1a6aa5;
+  --tone-blue-line: #bcd3dd;
+  --tone-amber-bg: #f3e6c4;
+  --tone-amber-fg: #7a5a00;
+  --tone-amber-line: #dfc98a;
+  --tone-green-bg: #ebebc9;
+  --tone-green-fg: #5a6800;
+  --tone-green-line: #cdd29a;
+  --tone-red-bg: #f6ddd2;
+  --tone-red-fg: #b02624;
+  --tone-red-line: #e8b9ad;
+  --graph-bg: #00212b;
+  --graph-accent: #2aa198;
+  --graph-label-2: #6c8389;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='solarized']:not([data-scheme='light']) {
+    --bg: #00212b;
+    --surface: #002b36;
+    --surface-2: #073642;
+    --surface-3: #08394a;
+    --line: #0f4552;
+    --line-strong: #586e75;
+    --text: #93a1a1;
+    --text-2: #839496;
+    --text-3: #6c8389;
+    --accent: #4fa3dc;
+    --accent-strong: #2aa198;
+    --accent-soft: #063f55;
+    --focus: #268bd2;
+    --tone-muted-bg: #073642;
+    --tone-muted-fg: #93a1a1;
+    --tone-muted-line: #0f4552;
+    --tone-blue-bg: #06364f;
+    --tone-blue-fg: #5aaee6;
+    --tone-blue-line: #11506e;
+    --tone-amber-bg: #1f3328;
+    --tone-amber-fg: #c99a10;
+    --tone-amber-line: #4b4a1c;
+    --tone-green-bg: #123a2e;
+    --tone-green-fg: #9eb01a;
+    --tone-green-line: #2f5226;
+    --tone-red-bg: #2c2a33;
+    --tone-red-fg: #f2706c;
+    --tone-red-line: #5a2f30;
+    --graph-bg: #00212b;
+    --graph-accent: #2aa198;
+    --graph-label-2: #6c8389;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-theme='solarized'][data-scheme='dark'] {
+  --bg: #00212b;
+  --surface: #002b36;
+  --surface-2: #073642;
+  --surface-3: #08394a;
+  --line: #0f4552;
+  --line-strong: #586e75;
+  --text: #93a1a1;
+  --text-2: #839496;
+  --text-3: #6c8389;
+  --accent: #4fa3dc;
+  --accent-strong: #2aa198;
+  --accent-soft: #063f55;
+  --focus: #268bd2;
+  --tone-muted-bg: #073642;
+  --tone-muted-fg: #93a1a1;
+  --tone-muted-line: #0f4552;
+  --tone-blue-bg: #06364f;
+  --tone-blue-fg: #5aaee6;
+  --tone-blue-line: #11506e;
+  --tone-amber-bg: #1f3328;
+  --tone-amber-fg: #c99a10;
+  --tone-amber-line: #4b4a1c;
+  --tone-green-bg: #123a2e;
+  --tone-green-fg: #9eb01a;
+  --tone-green-line: #2f5226;
+  --tone-red-bg: #2c2a33;
+  --tone-red-fg: #f2706c;
+  --tone-red-line: #5a2f30;
+  --graph-bg: #00212b;
+  --graph-accent: #2aa198;
+  --graph-label-2: #6c8389;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}

@@ -1,0 +1,19 @@
+# 뷰어 모음 패널 등록부 — 생성 파일. 손으로 고치지 않는다.
+# 만드는 법: (cd projects/knowledge-viewer/config/app && npm run viewers-build)  · 확인만: npm run viewers-build -- --check
+# 원본: .claude/skills/<이름>/SKILL.md frontmatter 의 viewer 블록 { id, order?, title, description, open }.
+# 이 볼트에 등록된 스킬만 들어간다. 볼트마다 다르며 도구 폴더(config/) 밖에 둔다.
+#   open.kind static          → { path: <볼트 상대경로 html>, ask? }
+#   open.kind server          → { url?, port?, launch?, ask }   port 가 있으면 127.0.0.1:<port> 핑
+#   open.kind project-viewers → { ask? }   projects/<name>/outputs/viewer/index.html 마다 펼친다
+schema_version: 1
+viewers:
+  - id: knowledge-viewer
+    title: 볼트 뷰어
+    description: 볼트 문서를 렌더해 읽는 이 뷰어(knowledge-viewer). 기본 포트 8778.
+    skill: projects/knowledge-viewer/config/skills/knowledge-viewer-open/SKILL.md
+    open:
+      kind: server
+      url: http://127.0.0.1:8778/
+      port: 8778
+      launch: knowledge-viewer
+      ask: 볼트 뷰어 열어줘

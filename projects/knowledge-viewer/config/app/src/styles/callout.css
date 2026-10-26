@@ -1,0 +1,160 @@
+/* callout(`> [!type]`)·노트 임베드(`![[노트]]`) 상자. 계약: projects/knowledge-viewer/README.md § 임베드·callout.
+   색은 tone 토큰만 쓴다 — 제목 줄은 --tone-*-fg / --tone-*-bg(대비 시험이 4.5:1 을 지킨다),
+   본문은 --text / --surface(본문 대비 시험과 같다). 계열 → 톤 표는 shared/callouts.ts CALLOUT_FAMILIES 와 같다. */
+
+.doc .callout {
+  --callout-fg: var(--tone-blue-fg);
+  --callout-bg: var(--tone-blue-bg);
+  --callout-line: var(--tone-blue-line);
+  margin: 0 0 var(--gap-4);
+  border: 1px solid var(--callout-line);
+  border-left: 3px solid var(--callout-fg);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.doc .callout-success {
+  --callout-fg: var(--tone-green-fg);
+  --callout-bg: var(--tone-green-bg);
+  --callout-line: var(--tone-green-line);
+}
+
+.doc .callout-question,
+.doc .callout-warning {
+  --callout-fg: var(--tone-amber-fg);
+  --callout-bg: var(--tone-amber-bg);
+  --callout-line: var(--tone-amber-line);
+}
+
+.doc .callout-failure,
+.doc .callout-danger,
+.doc .callout-bug {
+  --callout-fg: var(--tone-red-fg);
+  --callout-bg: var(--tone-red-bg);
+  --callout-line: var(--tone-red-line);
+}
+
+.doc .callout-quote {
+  --callout-fg: var(--tone-muted-fg);
+  --callout-bg: var(--tone-muted-bg);
+  --callout-line: var(--tone-muted-line);
+}
+
+.doc .callout-title {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  margin: 0;
+  padding: var(--gap-2) var(--gap-3);
+  background: var(--callout-bg);
+  color: var(--callout-fg);
+  font-weight: 600;
+}
+
+.doc .callout-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.doc .callout-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.doc .callout-body {
+  padding: var(--gap-2) var(--gap-3);
+}
+
+.doc .callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* 접기 callout: 바깥 aside 가 테두리를 갖고, 안쪽 details 는 reader.css 의 상자 모양을 벗는다. */
+.doc .callout > details {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+}
+
+.doc .callout summary.callout-title {
+  cursor: pointer;
+  color: var(--callout-fg);
+  list-style: none;
+}
+
+.doc .callout summary.callout-title::-webkit-details-marker {
+  display: none;
+}
+
+.doc .callout summary.callout-title::after {
+  content: '›';
+  margin-left: auto;
+}
+
+.doc .callout details[open] > summary.callout-title::after {
+  transform: rotate(90deg);
+}
+
+.doc .callout summary.callout-title:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* PR 변경 표시: 왼쪽 띠는 callout 색을 지키고 바깥 테두리로 알린다. */
+.doc .callout.changed {
+  border-left: 3px solid var(--callout-fg);
+  background: var(--surface);
+  padding-left: 0;
+  box-shadow: 0 0 0 2px var(--tone-green-line);
+}
+
+/* 노트 임베드 */
+.doc .embed {
+  margin: 0 0 var(--gap-4);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.doc .embed-title {
+  margin: 0;
+  padding: var(--gap-2) var(--gap-3);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.doc .embed-body {
+  padding: var(--gap-3);
+}
+
+.doc .embed-body > :last-child {
+  margin-bottom: 0;
+}
+
+.doc .embed-notice {
+  border-left-color: var(--tone-amber-fg);
+  background: var(--tone-amber-bg);
+}
+
+.doc .embed-notice-text {
+  margin: 0;
+  padding: var(--gap-2) var(--gap-3);
+  color: var(--tone-amber-fg);
+  font-size: var(--fs-sm);
+}
+
+.doc .embed-notice-text a {
+  color: inherit;
+}
+
+/* 이미지 임베드 `|640` 의 폭 — 비율은 지키고 열 폭은 넘지 않는다(reader.css 의 max-width: 100%). */
+.doc img[width] {
+  height: auto;
+}

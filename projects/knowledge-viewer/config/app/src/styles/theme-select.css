@@ -1,0 +1,36 @@
+/* ⚙ 설정 메뉴의 "테마" 절. 다이어그램 테마 줄(.mermaid-theme-row)과 같은 꼴이다. */
+.theme-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--gap-2);
+  color: var(--text-2);
+}
+
+.theme-select {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.theme-desc {
+  grid-column: 1 / -1;
+  margin: var(--gap-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.theme-desc a {
+  color: var(--accent);
+}
+
+.theme-scheme {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--gap-3);
+  margin-top: var(--gap-1);
+}

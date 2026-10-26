@@ -1,0 +1,213 @@
+/* 뷰어 모음 패널. 항목은 버튼 격자(넓으면 여러 열, 좁은 오른쪽 열에서는 한 열). */
+.viewers-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  margin-bottom: var(--gap-2);
+}
+
+.viewers-count {
+  flex: 1;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.viewers-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-2);
+  padding: var(--gap-1);
+  cursor: pointer;
+}
+
+.viewers-refresh:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.viewers-refresh:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.viewers-error {
+  color: var(--tone-red-fg);
+}
+
+.viewers-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--gap-2);
+}
+
+.viewers-group {
+  grid-column: 1 / -1;
+  margin-top: var(--gap-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.viewer-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-2);
+  padding: var(--gap-2);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  min-width: 0;
+}
+
+a.viewer-main:hover {
+  background: var(--accent-soft);
+}
+
+a.viewer-main:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.viewer-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.viewer-off .viewer-main {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.viewer-off .viewer-icon {
+  background: var(--text-3);
+}
+
+.viewer-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viewer-title {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.viewer-desc {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.viewer-ext {
+  flex: none;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.viewer-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone-muted-fg);
+}
+
+.viewer-dot-ok,
+.viewer-dot-up {
+  background: var(--tone-green-fg);
+}
+
+.viewer-dot-down,
+.viewer-dot-manual {
+  background: var(--tone-muted-fg);
+}
+
+.viewer-dot-missing {
+  background: var(--tone-red-fg);
+}
+
+.viewer-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+  padding: var(--gap-1) var(--gap-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-xs);
+}
+
+.viewer-note {
+  color: var(--text-3);
+}
+
+.viewer-ask {
+  border: 1px solid var(--tone-amber-line);
+  border-radius: var(--radius);
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+  padding: 1px var(--gap-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.viewer-ask:hover {
+  border-color: var(--tone-amber-fg);
+}
+
+.viewer-guide {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-2);
+}
+
+.viewer-guide:hover {
+  color: var(--accent-strong);
+}
+
+.viewers-toast {
+  position: sticky;
+  bottom: var(--gap-2);
+  margin: var(--gap-2) 0 0;
+  padding: var(--gap-1) var(--gap-2);
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--fs-xs);
+  text-align: center;
+}

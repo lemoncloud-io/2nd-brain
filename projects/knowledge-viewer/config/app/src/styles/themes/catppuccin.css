@@ -1,0 +1,144 @@
+/* 화면 테마 catppuccin — Catppuccin Latte · Mocha. 계약: projects/knowledge-viewer/README.md § 화면 테마.
+   catppuccin/catppuccin 팔레트. 중립은 base·mantle·crust·surface·overlay·subtext·text, 강조는 mauve. 라이트 tone 글색은 대비 4.5 를 맞추려 어둡게 했다.
+   토큰 집합은 tokens.css 와 같다(늘리지 않는다). 라이트 블록 하나, 다크 블록 둘(OS 다크 · data-scheme=dark)은 값이 같다.
+   --graph-* 는 캔버스가 늘 어둡다는 결정을 따라 두 블록이 같은 값이다. 시험: tests/ui/themes.test.ts */
+
+:root[data-theme='catppuccin'] {
+  --bg: #e6e9ef;
+  --surface: #eff1f5;
+  --surface-2: #dce0e8;
+  --surface-3: #ccd0da;
+  --line: #ccd0da;
+  --line-strong: #acb0be;
+  --text: #4c4f69;
+  --text-2: #5c5f77;
+  --text-3: #6c6f85;
+  --accent: #8130e6;
+  --accent-strong: #6a1fc9;
+  --accent-soft: #e5dcf6;
+  --focus: #7287fd;
+  --tone-muted-bg: #dce0e8;
+  --tone-muted-fg: #5c5f77;
+  --tone-muted-line: #bcc0cc;
+  --tone-blue-bg: #dbe4f7;
+  --tone-blue-fg: #1a50c4;
+  --tone-blue-line: #b4c7ef;
+  --tone-amber-bg: #f5e6cf;
+  --tone-amber-fg: #8a4f05;
+  --tone-amber-line: #e6c48e;
+  --tone-green-bg: #dcecd6;
+  --tone-green-fg: #2b6e1c;
+  --tone-green-line: #afd3a5;
+  --tone-red-bg: #f5d9de;
+  --tone-red-fg: #b00d30;
+  --tone-red-line: #e6aab6;
+  --graph-bg: #11111b;
+  --graph-accent: #cba6f7;
+  --graph-label-2: #9399b2;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='catppuccin']:not([data-scheme='light']) {
+    --bg: #181825;
+    --surface: #1e1e2e;
+    --surface-2: #313244;
+    --surface-3: #45475a;
+    --line: #45475a;
+    --line-strong: #585b70;
+    --text: #cdd6f4;
+    --text-2: #bac2de;
+    --text-3: #9399b2;
+    --accent: #cba6f7;
+    --accent-strong: #b4befe;
+    --accent-soft: #332c48;
+    --focus: #b4befe;
+    --tone-muted-bg: #313244;
+    --tone-muted-fg: #bac2de;
+    --tone-muted-line: #45475a;
+    --tone-blue-bg: #1f2c45;
+    --tone-blue-fg: #89b4fa;
+    --tone-blue-line: #2f4a6e;
+    --tone-amber-bg: #3a3226;
+    --tone-amber-fg: #f9e2af;
+    --tone-amber-line: #5c4e36;
+    --tone-green-bg: #22372a;
+    --tone-green-fg: #a6e3a1;
+    --tone-green-line: #35573b;
+    --tone-red-bg: #3d2232;
+    --tone-red-fg: #f38ba8;
+    --tone-red-line: #613448;
+    --graph-bg: #11111b;
+    --graph-accent: #cba6f7;
+    --graph-label-2: #9399b2;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-theme='catppuccin'][data-scheme='dark'] {
+  --bg: #181825;
+  --surface: #1e1e2e;
+  --surface-2: #313244;
+  --surface-3: #45475a;
+  --line: #45475a;
+  --line-strong: #585b70;
+  --text: #cdd6f4;
+  --text-2: #bac2de;
+  --text-3: #9399b2;
+  --accent: #cba6f7;
+  --accent-strong: #b4befe;
+  --accent-soft: #332c48;
+  --focus: #b4befe;
+  --tone-muted-bg: #313244;
+  --tone-muted-fg: #bac2de;
+  --tone-muted-line: #45475a;
+  --tone-blue-bg: #1f2c45;
+  --tone-blue-fg: #89b4fa;
+  --tone-blue-line: #2f4a6e;
+  --tone-amber-bg: #3a3226;
+  --tone-amber-fg: #f9e2af;
+  --tone-amber-line: #5c4e36;
+  --tone-green-bg: #22372a;
+  --tone-green-fg: #a6e3a1;
+  --tone-green-line: #35573b;
+  --tone-red-bg: #3d2232;
+  --tone-red-fg: #f38ba8;
+  --tone-red-line: #613448;
+  --graph-bg: #11111b;
+  --graph-accent: #cba6f7;
+  --graph-label-2: #9399b2;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}

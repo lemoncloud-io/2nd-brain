@@ -1,0 +1,363 @@
+/* 지도(3D 링크 그래프). 캔버스는 테마와 무관하게 늘 어둡다(--graph-bg).
+   캔버스 위 글자·테두리는 밝은 테마의 --text 를 쓰면 안 보이므로, 다크 테마 값(--text #e4eaf0,
+   --text-2 #aab6c2, --text-3 #83919f, --line #2f3a46, --surface #182029)을 고정값으로 쓴다. */
+
+/* 지도 모드의 가운데 열: 여백 없이 캔버스가 가득 채운다. */
+.col-center-graph {
+  padding: 0;
+  overflow: hidden;
+}
+
+.graph-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* 캔버스 범례가 캔버스 폭(창 폭이 아니다)을 보고 좁으면 이름을 숨긴다. */
+  container: graph-wrap / inline-size;
+}
+
+.graph-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--graph-bg);
+}
+
+.graph-status {
+  position: absolute;
+  top: var(--gap-4);
+  left: var(--gap-4);
+  margin: 0;
+  color: #aab6c2;
+  pointer-events: none;
+}
+
+.graph-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 320px;
+  padding: var(--gap-2) var(--gap-3);
+  border: 1px solid #2f3a46;
+  border-radius: var(--radius);
+  background: rgba(24, 32, 41, 0.94);
+  color: #e4eaf0;
+  font-size: var(--fs-sm);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.graph-tooltip[hidden] {
+  display: none;
+}
+
+/* 펼칠 수 있는 노드의 말풍선은 마우스가 떠나도 잠시 남고, 안의 "펼치기"를 누를 수 있다. */
+.graph-tooltip-actionable {
+  pointer-events: auto;
+}
+
+.graph-tooltip-expand {
+  align-self: flex-start;
+  margin-top: var(--gap-1);
+  padding: 2px var(--gap-2);
+  border: 1px solid var(--graph-accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--graph-accent);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.graph-tooltip-expand:hover {
+  background: rgba(87, 189, 181, 0.15);
+}
+
+.graph-tooltip span {
+  color: #aab6c2;
+  font-size: var(--fs-xs);
+}
+
+.graph-tooltip-cluster {
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+/* 캔버스 위 범례 — 오른쪽 열(조절 패널)이 숨었을 때만 뜬다. 숨은 패널이 있던 오른쪽 가장자리 위쪽에 세로 목록이다.
+   종류마다 단추 하나(색점·이름·노드 수). 마우스를 올리거나 포커스하면 그 종류를 강조한다(src/graph/kind-highlight.ts). */
+.graph-legend {
+  position: absolute;
+  top: var(--gap-3);
+  right: var(--gap-3);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: calc(100% - 2 * var(--gap-3));
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--gap-1);
+  list-style: none;
+  border: 1px solid rgba(47, 58, 70, 0.8);
+  border-radius: var(--radius);
+  /* 캔버스 바탕(--graph-bg)을 82% 로 — 테마마다 캔버스 색이 달라도 범례가 같은 바탕으로 보인다. vault 는 rgba(11, 16, 23, 0.82) 그대로다. */
+  background: color-mix(in srgb, var(--graph-bg) 82%, transparent);
+  color: #aab6c2;
+  font-size: var(--fs-xs);
+  z-index: 2;
+}
+
+.graph-legend li {
+  display: flex;
+}
+
+.graph-legend .graph-legend-count {
+  margin-top: var(--gap-1);
+  padding: var(--gap-1) var(--gap-2) 0;
+  border-top: 1px solid rgba(47, 58, 70, 0.8);
+  white-space: nowrap;
+}
+
+/* 범례 항목 단추. 두 범례가 같이 쓴다 — 색은 각 범례가 정한다(캔버스는 고정 다크 값, 조절 패널은 테마). */
+.graph-legend-item {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--gap-2);
+  min-width: 0;
+  margin: 0;
+  padding: 2px var(--gap-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.graph-legend .graph-legend-item:hover,
+.graph-legend .graph-legend-item:focus-visible,
+.graph-legend .graph-legend-item[data-active='true'] {
+  background: rgba(228, 234, 240, 0.1);
+  color: #e4eaf0;
+}
+
+.graph-legend .graph-legend-item:focus-visible {
+  outline: 1px solid var(--graph-accent);
+  outline-offset: -1px;
+}
+
+.graph-legend-name {
+  white-space: nowrap;
+}
+
+.graph-legend-n {
+  margin-left: auto;
+  padding-left: var(--gap-2);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* 조절 패널의 범례는 테마 바탕 위라 테마의 흐린 글색(--text-3)이고, 캔버스 범례는 늘 어두운 캔버스 위라 --graph-label-2 다.
+   vault 다크·캔버스에서는 둘 다 #83919f 다. */
+.graph-legend-count {
+  color: var(--text-3);
+}
+
+.graph-legend .graph-legend-n,
+.graph-legend .graph-legend-count {
+  color: var(--graph-label-2);
+}
+
+/* 좁은 캔버스: 이름·수를 숨기고 색점만 남긴다(이름은 단추의 title·aria-label 에 있다). 지도를 덮는 폭을 줄인다. */
+@container graph-wrap (max-width: 520px) {
+  .graph-legend .graph-legend-name,
+  .graph-legend .graph-legend-n,
+  .graph-legend .graph-legend-count {
+    display: none;
+  }
+
+  .graph-legend .graph-legend-item {
+    padding: var(--gap-1);
+  }
+}
+
+/* 오른쪽 열의 지도 조절 패널. 보통 패널처럼 테마 색을 쓴다(캔버스 밖이다). */
+.graph-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.graph-controls-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.graph-controls-row legend {
+  float: left;
+  margin-right: var(--gap-2);
+  padding: 0;
+  color: var(--text-3);
+}
+
+.graph-controls-row label,
+.graph-controls-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+  cursor: pointer;
+}
+
+.graph-controls-row:disabled,
+.graph-controls-check:has(input:disabled) {
+  opacity: 0.5;
+}
+
+.graph-mode {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.graph-mode[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.graph-controls-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-1) var(--gap-3);
+  margin: var(--gap-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+}
+
+.graph-controls-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+}
+
+.graph-controls-legend .graph-legend-item {
+  gap: var(--gap-1);
+  padding: 1px var(--gap-1);
+  margin: 0 calc(-1 * var(--gap-1));
+}
+
+.graph-controls-legend .graph-legend-item:hover,
+.graph-controls-legend .graph-legend-item:focus-visible,
+.graph-controls-legend .graph-legend-item[data-active='true'] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.graph-controls-legend .graph-legend-count {
+  color: var(--text-3);
+}
+
+/* 경로 표시줄 끝의 지도 토글. 켜지면 강조색이다. */
+/* 지도 토글은 상단바 아이콘 단추(.icon-btn)다. 눌린 상태만 여기서 강조한다. */
+.view-toggle[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 에이전트 모드 텍스트 목록 */
+.graph-list {
+  padding: var(--gap-3);
+  overflow: auto;
+}
+
+.graph-list h3 {
+  margin: var(--gap-3) 0 var(--gap-1);
+}
+
+.graph-list ul {
+  margin: 0;
+  padding-left: var(--gap-4);
+}
+
+/* 오른쪽 열 패널 "연결 지도". 캔버스는 지도와 같이 늘 어둡고, 아래 버튼은 테마 색이다. */
+.graph-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2);
+}
+
+.graph-panel-canvas {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--graph-bg);
+}
+
+.graph-panel-status {
+  position: absolute;
+  top: var(--gap-2);
+  left: var(--gap-2);
+  margin: 0;
+  color: #aab6c2;
+  font-size: var(--fs-xs);
+  pointer-events: none;
+}
+
+/* 미니 지도와 그 위에 띄우는 것(안내·크게 보기 단추)의 자리. 캔버스 div 는 엔진이 내용을 통째로 비우므로 형제로 둔다. */
+.graph-panel-map {
+  position: relative;
+}
+
+/* "크게 보기" — 미니 지도 안 오른쪽 아래의 아이콘 단추(상단바 .icon-btn 꼴). 캔버스는 늘 어두워 다크 값을 고정해 쓴다.
+   반투명이다가 마우스를 올리면 또렷해진다. 호버로 크기·글꼴이 바뀌지 않아 지도가 다시 그려지지 않는다. */
+.graph-panel-open {
+  position: absolute;
+  right: var(--gap-2);
+  bottom: var(--gap-2);
+  background: rgba(24, 32, 41, 0.6);
+  border-color: rgba(47, 58, 70, 0.8);
+  color: #aab6c2;
+  opacity: 0.75;
+  z-index: 2;
+}
+
+.graph-panel-open:hover,
+.graph-panel-open:focus-visible {
+  opacity: 1;
+  background: rgba(24, 32, 41, 0.95);
+  border-color: #2f3a46;
+  color: #e4eaf0;
+}
+
+.graph-panel-count {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}

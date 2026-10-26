@@ -1,0 +1,182 @@
+/* 단축키 도움말 오버레이·키캡·⚙ 메뉴의 도움말 항목. 색·테두리·그림자는 tokens.css 변수만 쓴다. */
+
+kbd.kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.kbd-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.kbd-combo > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.kbd-plus,
+.kbd-or {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.kbd-or {
+  margin: 0 var(--gap-1);
+}
+
+.kbd-help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh var(--gap-4) var(--gap-4);
+  background: rgb(0 0 0 / 0.32);
+}
+
+.kbd-help {
+  width: min(860px, 100%);
+  max-height: 84vh;
+  overflow: auto;
+  padding: var(--gap-4) var(--gap-5) var(--gap-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.kbd-help:focus {
+  outline: none;
+}
+
+.kbd-help-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+}
+
+.kbd-help-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+
+/* 표기 전환: 작은 분절 단추 셋. */
+.kbd-help-platform {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.kbd-help-pf {
+  padding: 2px var(--gap-2);
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.kbd-help-pf:last-child {
+  border-right: 0;
+}
+
+/* 단추는 surface 위에 둔다 — Solarized 다크는 surface-2·accent-soft 위 글이 4.5:1 에 못 미친다(2026-10-24 실측). 켜짐은 본문색·굵기·accent 밑줄. */
+.kbd-help-pf-on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* 12px 글이라 --text-3 대신 --text-2 — 다섯 테마 라이트·다크 모두 surface 위 4.5:1 이상(2026-10-24 실측). */
+.kbd-help-note {
+  margin: var(--gap-2) 0 var(--gap-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.kbd-help-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--gap-4) var(--gap-5);
+}
+
+.kbd-help-h {
+  margin: 0 0 var(--gap-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+}
+
+.kbd-help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.kbd-help-table td {
+  padding: var(--gap-1) 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.kbd-help-keys {
+  width: 42%;
+  padding-right: var(--gap-3) !important;
+  white-space: nowrap;
+}
+
+.kbd-help-desc {
+  color: var(--text-2);
+}
+
+.kbd-help-scope {
+  margin-left: var(--gap-2);
+  padding: 0 var(--gap-1);
+  border: 1px solid var(--tone-muted-line);
+  border-radius: 999px;
+  background: var(--tone-muted-bg);
+  color: var(--tone-muted-fg);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+/* ⚙ 메뉴의 "단축키 도움말" 항목. */
+.settings-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--gap-1) var(--gap-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  /* 본문색: Solarized 다크의 --text-2 는 surface-2 위 4.11:1 이다. */
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.settings-help:hover {
+  border-color: var(--line-strong);
+}

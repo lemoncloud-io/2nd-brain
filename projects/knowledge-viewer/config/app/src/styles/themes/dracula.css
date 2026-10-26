@@ -1,0 +1,144 @@
+/* 화면 테마 dracula — Dracula · Alucard. 계약: projects/knowledge-viewer/README.md § 화면 테마.
+   draculatheme.com/spec 의 Dracula Classic·Alucard Classic. 2차 글색은 Foreground·Comment 사이를 섞었다(명세에 없다).
+   토큰 집합은 tokens.css 와 같다(늘리지 않는다). 라이트 블록 하나, 다크 블록 둘(OS 다크 · data-scheme=dark)은 값이 같다.
+   --graph-* 는 캔버스가 늘 어둡다는 결정을 따라 두 블록이 같은 값이다. 시험: tests/ui/themes.test.ts */
+
+:root[data-theme='dracula'] {
+  --bg: #efeddc;
+  --surface: #fffbeb;
+  --surface-2: #ece9df;
+  --surface-3: #dedccf;
+  --line: #cecdc0;
+  --line-strong: #bcbab3;
+  --text: #1f1f1f;
+  --text-2: #4b4736;
+  --text-3: #6c664b;
+  --accent: #644ac9;
+  --accent-strong: #4f37a8;
+  --accent-soft: #ebe5f3;
+  --focus: #a3144d;
+  --tone-muted-bg: #ece9df;
+  --tone-muted-fg: #4b4736;
+  --tone-muted-line: #cecdc0;
+  --tone-blue-bg: #e2eef0;
+  --tone-blue-fg: #036a96;
+  --tone-blue-line: #b5d4e0;
+  --tone-amber-bg: #f6e9d3;
+  --tone-amber-fg: #8a4010;
+  --tone-amber-line: #e2c8a4;
+  --tone-green-bg: #e3efd6;
+  --tone-green-fg: #14710a;
+  --tone-green-line: #b9d8ad;
+  --tone-red-bg: #f8e1d8;
+  --tone-red-fg: #b0301f;
+  --tone-red-line: #e8bcb0;
+  --graph-bg: #191a21;
+  --graph-accent: #bd93f9;
+  --graph-label-2: #8b95c0;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='dracula']:not([data-scheme='light']) {
+    --bg: #21222c;
+    --surface: #282a36;
+    --surface-2: #343746;
+    --surface-3: #424450;
+    --line: #44475a;
+    --line-strong: #6272a4;
+    --text: #f8f8f2;
+    --text-2: #c5c8d6;
+    --text-3: #8b95c0;
+    --accent: #bd93f9;
+    --accent-strong: #d6acff;
+    --accent-soft: #3a3352;
+    --focus: #ff79c6;
+    --tone-muted-bg: #343746;
+    --tone-muted-fg: #c5c8d6;
+    --tone-muted-line: #44475a;
+    --tone-blue-bg: #233843;
+    --tone-blue-fg: #8be9fd;
+    --tone-blue-line: #2f5866;
+    --tone-amber-bg: #3b3326;
+    --tone-amber-fg: #ffb86c;
+    --tone-amber-line: #5e4b35;
+    --tone-green-bg: #24392d;
+    --tone-green-fg: #50fa7b;
+    --tone-green-line: #2f5a3b;
+    --tone-red-bg: #3d2530;
+    --tone-red-fg: #ff6e6e;
+    --tone-red-line: #63343d;
+    --graph-bg: #191a21;
+    --graph-accent: #bd93f9;
+    --graph-label-2: #8b95c0;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-theme='dracula'][data-scheme='dark'] {
+  --bg: #21222c;
+  --surface: #282a36;
+  --surface-2: #343746;
+  --surface-3: #424450;
+  --line: #44475a;
+  --line-strong: #6272a4;
+  --text: #f8f8f2;
+  --text-2: #c5c8d6;
+  --text-3: #8b95c0;
+  --accent: #bd93f9;
+  --accent-strong: #d6acff;
+  --accent-soft: #3a3352;
+  --focus: #ff79c6;
+  --tone-muted-bg: #343746;
+  --tone-muted-fg: #c5c8d6;
+  --tone-muted-line: #44475a;
+  --tone-blue-bg: #233843;
+  --tone-blue-fg: #8be9fd;
+  --tone-blue-line: #2f5866;
+  --tone-amber-bg: #3b3326;
+  --tone-amber-fg: #ffb86c;
+  --tone-amber-line: #5e4b35;
+  --tone-green-bg: #24392d;
+  --tone-green-fg: #50fa7b;
+  --tone-green-line: #2f5a3b;
+  --tone-red-bg: #3d2530;
+  --tone-red-fg: #ff6e6e;
+  --tone-red-line: #63343d;
+  --graph-bg: #191a21;
+  --graph-accent: #bd93f9;
+  --graph-label-2: #8b95c0;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}

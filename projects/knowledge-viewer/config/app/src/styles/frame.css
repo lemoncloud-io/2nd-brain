@@ -1,0 +1,51 @@
+/* HTML·React 뷰어 iframe: 가운데 열을 가득 채운다. */
+.col-center-frame {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.html-frame-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.html-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  padding: var(--gap-2) var(--gap-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+
+.html-frame-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.html-frame-open {
+  color: inherit;
+}
+
+.html-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--surface);
+}
+
+.frame-panel-path {
+  margin: 0 0 var(--gap-3);
+  word-break: break-all;
+}

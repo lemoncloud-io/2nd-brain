@@ -1,0 +1,434 @@
+/* 패널 공통 추가와 PR 패널 */
+.pr-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  margin-bottom: var(--gap-2);
+  min-width: 0;
+}
+
+.pr-repo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+select.pr-repo {
+  font: inherit;
+  font-size: var(--fs-xs);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--gap-1) var(--gap-2);
+}
+
+.pr-refresh {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--gap-1) var(--gap-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pr-refresh:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.pr-refresh:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.pr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pr-row {
+  padding: var(--gap-2) 0;
+}
+
+.pr-row + .pr-row {
+  border-top: 1px solid var(--line);
+}
+
+.pr-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  min-width: 0;
+}
+
+.pr-num {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+}
+
+.pr-num:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.pr-title {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: var(--accent);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pr-title:hover {
+  text-decoration: underline;
+}
+
+.pr-open .pr-title {
+  -webkit-line-clamp: unset;
+}
+
+/* 지금 소스인 PR 행 */
+.pr-current {
+  box-shadow: inset 3px 0 0 var(--tone-blue-line);
+  padding-left: var(--gap-2);
+  background: var(--tone-blue-bg);
+}
+
+.pr-view {
+  margin-top: var(--gap-1);
+  padding: 0 var(--gap-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.pr-view:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.pr-view:disabled {
+  color: var(--tone-blue-fg);
+  cursor: default;
+}
+
+.pr-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-2);
+  margin-top: var(--gap-1);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.pr-author {
+  color: var(--text-3);
+}
+
+.pr-when {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.pr-draft {
+  padding: 0 var(--gap-1);
+  border: 1px solid var(--tone-amber-line);
+  border-radius: var(--radius);
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+}
+
+.pr-files {
+  margin: var(--gap-2) 0 0;
+  padding-left: var(--gap-2);
+  border-left: 2px solid var(--line);
+}
+
+.pr-file-missing {
+  padding: var(--gap-1) var(--gap-2);
+  color: var(--text-3);
+}
+
+.pr-file-note {
+  display: block;
+  font-size: var(--fs-xs);
+}
+
+.pr-file-more {
+  margin: var(--gap-1) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.pr-foot {
+  margin: var(--gap-2) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* PR 상세 패널 */
+.pr-detail p {
+  margin: 0 0 var(--gap-1);
+}
+
+.pr-detail-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pr-detail-num {
+  color: var(--accent);
+  font-family: var(--mono);
+  text-decoration: none;
+}
+
+.pr-detail-num:hover {
+  text-decoration: underline;
+}
+
+.pr-detail-line {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.pr-detail-ref,
+.pr-detail-line code {
+  font-family: var(--mono);
+}
+
+.pr-detail-note {
+  color: var(--tone-muted-fg);
+  font-size: var(--fs-xs);
+}
+
+.pr-detail-error {
+  overflow-wrap: anywhere;
+}
+
+.pr-detail-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-2);
+  margin: var(--gap-2) 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.pr-detail-nav {
+  display: inline-flex;
+  gap: var(--gap-1);
+  margin-left: auto;
+}
+
+.pr-detail-btn {
+  padding: 0 var(--gap-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.pr-detail-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.pr-detail-btn:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+.pr-detail-files-head {
+  margin: var(--gap-3) 0 var(--gap-1);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.pr-detail-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-xs);
+}
+
+.pr-file {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  padding: var(--gap-1) var(--gap-1);
+  overflow-wrap: anywhere;
+}
+
+.pr-file a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.pr-file a:hover {
+  text-decoration: underline;
+}
+
+.pr-file-current {
+  box-shadow: inset 3px 0 0 var(--tone-amber-line);
+  background: var(--tone-amber-bg);
+}
+
+.pr-file-status {
+  flex: none;
+  width: 1.2em;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+
+.pr-file-status-A {
+  color: var(--tone-green-fg);
+}
+
+.pr-file-status-D {
+  color: var(--tone-red-fg);
+}
+
+.pr-file-deleted {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+/* 패널 설정(오른쪽 열 맨 위) */
+.panel-settings {
+  padding: var(--gap-2) var(--gap-4);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+}
+
+.panel-settings-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.panel-settings-toggle:hover,
+.panel-settings-toggle[aria-expanded='true'] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.panel-settings-list {
+  list-style: none;
+  margin: var(--gap-2) 0 0;
+  padding: 0;
+}
+
+.panel-settings-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  padding: var(--gap-1) 0;
+}
+
+.panel-settings-list label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  cursor: pointer;
+}
+
+.panel-settings-list button {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 var(--gap-1);
+  color: var(--text-2);
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.panel-settings-list button:disabled {
+  color: var(--line-strong);
+  cursor: default;
+}
+
+/* 다이어그램 테마 줄. 패널 설정 아래, 설정 메뉴가 생기면 같은 모양으로 옮긴다. */
+.mermaid-theme-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--gap-2);
+  margin-top: var(--gap-2);
+  color: var(--text-2);
+}
+
+.mermaid-theme-select {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.mermaid-theme-desc {
+  grid-column: 1 / -1;
+  margin: var(--gap-1) 0 0;
+  color: var(--text-3);
+}
+
+/* 패널 제목은 접기·펴기 단추다. 접힌 패널은 제목만 남고(본문 미마운트) 설정에 남는다. */
+.panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.panel-toggle:hover {
+  color: var(--text);
+}
+
+.panel-caret {
+  width: 10px;
+  color: var(--text-3);
+}
+
+/* 제목 앞 아이콘(14px). 제목 글자 색을 따르고(currentColor), 줄 높이에 맞춰 가운데에 둔다. */
+.panel-icon {
+  display: inline-flex;
+}
+
+.panel-collapsed h3 {
+  margin-bottom: calc(-1 * var(--gap-3));
+  padding-bottom: var(--gap-3);
+}
