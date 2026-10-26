@@ -1,0 +1,7 @@
+/* 화면 테마 묶음. 테마 하나 = 파일 하나, 여기 한 줄. tokens.css 다음에 불러와야 덮는다(main.tsx).
+   등록부는 src/app/themes.ts 의 THEMES 이고, tests/ui/themes.test.ts 가 둘이 맞는지 본다. */
+@import './github.css';
+@import './dracula.css';
+@import './catppuccin.css';
+@import './tokyo-night.css';
+@import './solarized.css';

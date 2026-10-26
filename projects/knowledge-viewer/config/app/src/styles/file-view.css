@@ -1,0 +1,106 @@
+/* 텍스트 파일 보기(FileView). 바뀐 줄 색은 리더의 PR 변경 표시(.doc .changed — reader.css)를 그대로 쓴다. */
+.file-view {
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  overflow-wrap: normal;
+}
+
+.file-view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--gap-2) var(--gap-3);
+}
+
+.doc .file-view-name {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xl);
+}
+
+.file-view-meta,
+.file-view-path {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.file-view-path {
+  margin: var(--gap-1) 0 var(--gap-3);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.file-view-raw {
+  font-size: var(--fs-sm);
+}
+
+/* 긴 줄을 접지 않는다 — 가로로 스크롤한다. code 를 inline-block·min-width 100% 로 두어 줄 배경이 스크롤 폭 끝까지 간다. */
+.file-code {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  tab-size: 4;
+}
+
+.file-code > code {
+  display: inline-block;
+  min-width: 100%;
+  padding: var(--gap-2) 0;
+  font: inherit;
+  background: none;
+}
+
+.file-line,
+.file-hunk,
+.file-removed {
+  display: block;
+}
+
+.file-line {
+  min-height: 1.5em;
+  padding-right: var(--gap-3);
+}
+
+/* 줄 번호. ::before 라 본문을 고를 때 따라오지 않는다. 폭은 자릿수(--ln-ch)에 맞춘다. */
+.file-ln::before {
+  content: attr(data-ln);
+  display: inline-block;
+  box-sizing: content-box;
+  width: calc(var(--ln-ch, 3) * 1ch);
+  padding: 0 var(--gap-3) 0 var(--gap-2);
+  margin-right: var(--gap-2);
+  border-right: 1px solid var(--line);
+  color: var(--text-2);
+  text-align: right;
+  user-select: none;
+}
+
+.file-line-target {
+  background: var(--tone-amber-bg);
+}
+
+/* 바뀐 덩어리: 리더 규칙(왼쪽 3px 선·안쪽 여백)이 줄 번호를 밀지 않게 선을 그림자로 바꾼다. */
+.doc.file-view .file-hunk.changed {
+  border-left: 0;
+  padding-left: 0;
+  box-shadow: inset 3px 0 0 var(--tone-green-line);
+}
+
+/* 지운 자리: 줄 번호 칸 뒤에 −n줄(reader.css 의 [data-removed]::after). */
+.file-removed {
+  min-height: 1.5em;
+  padding-left: calc(var(--ln-ch, 3) * 1ch + var(--gap-2) + var(--gap-3) + var(--gap-2) + 1px);
+  box-shadow: inset 3px 0 0 var(--tone-red-line);
+  background: var(--tone-red-bg);
+}
+
+.doc .file-removed[data-removed]::after {
+  margin-left: var(--gap-2);
+  font-size: var(--fs-xs);
+}

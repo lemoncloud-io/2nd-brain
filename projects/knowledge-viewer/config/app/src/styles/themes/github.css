@@ -1,0 +1,144 @@
+/* 화면 테마 github — GitHub Light · Dark. 계약: projects/knowledge-viewer/README.md § 화면 테마.
+   Primer 색(primer/primitives)을 옮겼다. 중립은 canvas·fg·border, 강조는 accent, tone 은 success·attention·danger 의 subtle/fg.
+   토큰 집합은 tokens.css 와 같다(늘리지 않는다). 라이트 블록 하나, 다크 블록 둘(OS 다크 · data-scheme=dark)은 값이 같다.
+   --graph-* 는 캔버스가 늘 어둡다는 결정을 따라 두 블록이 같은 값이다. 시험: tests/ui/themes.test.ts */
+
+:root[data-theme='github'] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #eff2f5;
+  --surface-3: #e6eaef;
+  --line: #d1d9e0;
+  --line-strong: #afb8c1;
+  --text: #1f2328;
+  --text-2: #59636e;
+  --text-3: #6e7781;
+  --accent: #0969da;
+  --accent-strong: #0550ae;
+  --accent-soft: #ddf4ff;
+  --focus: #0969da;
+  --tone-muted-bg: #eff2f5;
+  --tone-muted-fg: #59636e;
+  --tone-muted-line: #d1d9e0;
+  --tone-blue-bg: #ddf4ff;
+  --tone-blue-fg: #0550ae;
+  --tone-blue-line: #b6e3ff;
+  --tone-amber-bg: #fff8c5;
+  --tone-amber-fg: #7d4e00;
+  --tone-amber-line: #eac54f;
+  --tone-green-bg: #dafbe1;
+  --tone-green-fg: #116329;
+  --tone-green-line: #aceebb;
+  --tone-red-bg: #ffebe9;
+  --tone-red-fg: #a40e26;
+  --tone-red-line: #ffcecb;
+  --graph-bg: #010409;
+  --graph-accent: #4493f8;
+  --graph-label-2: #7d8590;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='github']:not([data-scheme='light']) {
+    --bg: #010409;
+    --surface: #0d1117;
+    --surface-2: #151b23;
+    --surface-3: #212830;
+    --line: #30363d;
+    --line-strong: #3d444d;
+    --text: #f0f6fc;
+    --text-2: #9198a1;
+    --text-3: #7d8590;
+    --accent: #4493f8;
+    --accent-strong: #79c0ff;
+    --accent-soft: #121d2f;
+    --focus: #1f6feb;
+    --tone-muted-bg: #212830;
+    --tone-muted-fg: #9198a1;
+    --tone-muted-line: #3d444d;
+    --tone-blue-bg: #121d2f;
+    --tone-blue-fg: #79c0ff;
+    --tone-blue-line: #1f3f6b;
+    --tone-amber-bg: #272115;
+    --tone-amber-fg: #e3b341;
+    --tone-amber-line: #5c4515;
+    --tone-green-bg: #12261e;
+    --tone-green-fg: #56d364;
+    --tone-green-line: #1f4a2c;
+    --tone-red-bg: #25171c;
+    --tone-red-fg: #ff7b72;
+    --tone-red-line: #5c2329;
+    --graph-bg: #010409;
+    --graph-accent: #4493f8;
+    --graph-label-2: #7d8590;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-theme='github'][data-scheme='dark'] {
+  --bg: #010409;
+  --surface: #0d1117;
+  --surface-2: #151b23;
+  --surface-3: #212830;
+  --line: #30363d;
+  --line-strong: #3d444d;
+  --text: #f0f6fc;
+  --text-2: #9198a1;
+  --text-3: #7d8590;
+  --accent: #4493f8;
+  --accent-strong: #79c0ff;
+  --accent-soft: #121d2f;
+  --focus: #1f6feb;
+  --tone-muted-bg: #212830;
+  --tone-muted-fg: #9198a1;
+  --tone-muted-line: #3d444d;
+  --tone-blue-bg: #121d2f;
+  --tone-blue-fg: #79c0ff;
+  --tone-blue-line: #1f3f6b;
+  --tone-amber-bg: #272115;
+  --tone-amber-fg: #e3b341;
+  --tone-amber-line: #5c4515;
+  --tone-green-bg: #12261e;
+  --tone-green-fg: #56d364;
+  --tone-green-line: #1f4a2c;
+  --tone-red-bg: #25171c;
+  --tone-red-fg: #ff7b72;
+  --tone-red-line: #5c2329;
+  --graph-bg: #010409;
+  --graph-accent: #4493f8;
+  --graph-label-2: #7d8590;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}

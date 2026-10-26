@@ -1,0 +1,3 @@
+# origin: lemoncloud-io/knowledge@d26ab8bf:projects/knowledge-viewer/config/app/.gitignore
+/node_modules/
+/dist/

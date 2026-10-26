@@ -1,0 +1,217 @@
+.tree {
+  padding: var(--gap-2) 0;
+  font-size: var(--fs-sm);
+}
+
+.tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  width: 100%;
+  min-height: 26px;
+  padding-right: var(--gap-2);
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-row:hover {
+  background: var(--surface-2);
+}
+
+.tree-other {
+  cursor: default;
+  color: var(--text-3);
+}
+
+.tree-other:hover {
+  background: none;
+}
+
+.tree-current {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.tree-caret {
+  flex: none;
+  width: 12px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.tree-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-note {
+  padding: var(--gap-1) var(--gap-2);
+  color: var(--text-3);
+}
+
+.tree-error {
+  color: var(--tone-red-fg);
+}
+
+.badge {
+  flex: none;
+  padding: 0 var(--gap-2);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  line-height: 16px;
+}
+
+.badge-local {
+  background: var(--tone-muted-bg);
+  color: var(--tone-muted-fg);
+  border: 1px solid var(--tone-muted-line);
+}
+
+.badge-html {
+  background: var(--tone-blue-bg);
+  color: var(--tone-blue-fg);
+  border: 1px solid var(--tone-blue-line);
+}
+
+a.tree-row {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* PR 변경 표시. 폴더는 하위 변경 점, 파일은 배지(+ · Δ · −), 지운 파일은 회색 취소선. */
+.tree-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone-green-fg);
+}
+
+.tree-delta {
+  flex: none;
+  min-width: 14px;
+  color: var(--tone-green-fg);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+.tree-deleted {
+  color: var(--tone-muted-fg);
+  text-decoration: line-through;
+}
+
+/* 검색 필터가 걸린 트리. 머리말은 건수, 일치 글자는 mark.hl(search.css). */
+.tree-filter-note {
+  padding-bottom: var(--gap-2);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--gap-1);
+}
+
+/* 트리 위 ★ 북마크 섹션. 헤더는 폴더 행과 같은 모양, 행은 제목 위·흐린 경로 아래. */
+.tree-bms-head {
+  padding-left: 8px;
+  font-weight: 600;
+}
+
+.tree-bms-star {
+  flex: none;
+  color: var(--tone-amber-fg);
+}
+
+.tree-bms-count {
+  flex: none;
+  padding: 0 var(--gap-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.tree-bms-row {
+  padding-left: 8px;
+}
+
+.tree-bms-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0;
+}
+
+.tree-bms-path {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-current .tree-bms-path {
+  color: var(--accent-strong);
+  opacity: 0.7;
+}
+
+.tree-sep {
+  margin: var(--gap-2) var(--gap-2);
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* 행 오른쪽 끝 ★ 북마크 토글. 행(링크)의 형제라 누르면 문서가 열리지 않는다. 북마크된 행은 늘, 아닌 행은 올리거나 포커스할 때만 보인다. */
+.tree-item-file {
+  position: relative;
+}
+
+.tree-item-file > a.tree-row {
+  padding-right: 30px;
+}
+
+.tree-star {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-3);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tree-item-file:hover > .tree-star,
+.tree-star:focus-visible,
+.tree-star-on {
+  opacity: 1;
+}
+
+.tree-star:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.tree-star-on {
+  color: var(--tone-amber-fg);
+}

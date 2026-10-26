@@ -1,0 +1,278 @@
+/* 모바일 보기. 경계는 둘이다 — 태블릿 ≤ 900px(서랍·큰 터치 대상), 폰 ≤ 640px(상단바 줄임·좁은 여백).
+   900 은 src/app/useDrawer.ts 의 NARROW_QUERY 와 같아야 한다. 이 파일은 layout.css 등 뒤에 실린다(main.tsx). */
+
+/* 노치·홈 표시줄 여백. 그런 화면이 아니면 env() 가 0 이라 데스크톱은 그대로다(viewport-fit=cover, index.html). */
+.app {
+  grid-template-rows: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)) minmax(0, 1fr);
+}
+
+.topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: calc(var(--gap-3) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--gap-3) + env(safe-area-inset-right, 0px));
+}
+
+/* 검색 아이콘은 폰 폭에서만 보인다. 넓은 폭은 상자가 늘 있다. */
+.search-toggle {
+  display: none;
+}
+
+/* 지도 캔버스: 터치 끌기·핀치를 브라우저 스크롤·확대가 가로채지 않게. 3D 는 TrackballControls 가 스스로 걸고,
+   2D(force-graph, d3-zoom)는 걸지 않는다. 미니 지도는 서랍 스크롤을 막지 않게 두지 않는다. */
+.graph-root {
+  touch-action: none;
+}
+
+/* 서랍 바깥 덮개는 좁은 폭에서만 그린다(App 이 drawer 가 열렸을 때만 넣는다). */
+.drawer-scrim {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* 가운데 열만 전폭. 넓은 폭의 접힘 class 가 있어도 같다. */
+  .app,
+  .app.app-left-collapsed,
+  .app.app-right-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'top'
+      'center';
+  }
+
+  .col-resizer {
+    display: none;
+  }
+
+  /* 상단바의 팝오버(⚙·배지 카드·검색 줄)가 서랍·덮개 위에 오게. */
+  .topbar {
+    position: relative;
+    z-index: 55;
+    gap: var(--gap-1);
+  }
+
+  .topbar-actions {
+    gap: var(--gap-1);
+  }
+
+  /* 터치 대상 40×40. */
+  .icon-btn,
+  .bm-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .vault-badge,
+  .pr-badge {
+    height: 40px;
+  }
+
+  /* 서랍: 접힘 저장값과 상관없이 그려 두고 화면 밖으로 밀어 둔다. visibility 로 숨겨 탭 순서에서도 뺀다. */
+  .app:not(.app-agent) .col-left,
+  .app:not(.app-agent) .col-right {
+    display: block;
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+    bottom: 0;
+    z-index: 50;
+    width: min(86vw, 360px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    visibility: hidden;
+    box-shadow: 0 8px 32px rgb(0 0 0 / 0.28);
+    transition:
+      transform 0.2s ease,
+      visibility 0.2s;
+    /* 서랍 안 스크롤이 뒤 문서로 번지지 않게. */
+    overscroll-behavior: contain;
+  }
+
+  .app:not(.app-agent) .col-left {
+    left: 0;
+    padding-left: env(safe-area-inset-left, 0px);
+    transform: translateX(-100%);
+  }
+
+  .app:not(.app-agent) .col-right {
+    right: 0;
+    padding-right: env(safe-area-inset-right, 0px);
+    transform: translateX(100%);
+  }
+
+  .app:not(.app-agent).app-drawer-left .col-left,
+  .app:not(.app-agent).app-drawer-right .col-right {
+    visibility: visible;
+    transform: none;
+  }
+
+  .drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)) 0 0 0;
+    z-index: 45;
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  /* 팝오버는 화면 안에, 길면 세로 스크롤. */
+  .settings-pop {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - var(--topbar-h) - env(safe-area-inset-top, 0px) - 16px);
+    overflow-y: auto;
+  }
+
+  .badge-tip,
+  .search-results {
+    max-width: calc(100vw - 16px);
+  }
+
+  .search-results {
+    z-index: 60;
+  }
+
+  .kbd-help-backdrop {
+    padding: calc(var(--gap-3) + env(safe-area-inset-top, 0px)) var(--gap-2) var(--gap-2);
+  }
+
+  .kbd-help {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 2 * var(--gap-3));
+    padding: var(--gap-3);
+  }
+
+  /* 리더: 긴 수식도 가로로 스크롤(코드·표·mermaid 는 이미 그렇다). */
+  .doc .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .doc img {
+    height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 경로는 끝 두 조각만. 칸이 모자라면 부모 조각이 먼저 줄임표가 된다. */
+  .crumbs {
+    mask-image: none;
+    min-width: 0;
+  }
+
+  .crumb-root,
+  .crumb-item:not(.crumb-tail) {
+    display: none;
+  }
+
+  .crumb-item.crumb-tail {
+    min-width: 0;
+    flex: 0 10 auto;
+  }
+
+  .crumb-item.crumb-tail:last-child {
+    flex-shrink: 1;
+  }
+
+  .crumb-tail .crumb {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: var(--gap-1);
+  }
+
+  /* 검색: 아이콘을 누르면 상단바 아래 전폭 줄로 편다(SearchBox 그대로). */
+  .search-toggle {
+    display: inline-flex;
+  }
+
+  .search-slot {
+    display: none;
+  }
+
+  .search-slot.search-slot-open {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: var(--gap-2) calc(var(--gap-3) + env(safe-area-inset-right, 0px)) var(--gap-2) calc(var(--gap-3) + env(safe-area-inset-left, 0px));
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+
+  .search-slot-open .search-input {
+    width: 100%;
+    height: 40px;
+    /* 16px 미만이면 iOS 가 포커스 때 화면을 확대한다. */
+    font-size: 16px;
+  }
+
+  /* 배지는 색점 하나. 누르면(포커스) 카드가 화면 폭으로 뜬다. */
+  .badge-wrap {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .badge-wrap .vault-badge {
+    width: 14px;
+    min-width: 0;
+    max-width: none;
+    height: 14px;
+    padding: 0;
+    border-radius: 50%;
+    border-color: currentColor;
+    background: currentColor;
+  }
+
+  .badge-wrap .vault-badge > * {
+    display: none;
+  }
+
+  .badge-tip {
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+    left: var(--gap-2);
+    right: var(--gap-2);
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* PR 배지: 번호·제목 앞부분만. */
+  .pr-badge-wrap {
+    min-width: 0;
+  }
+
+  .pr-badge {
+    max-width: 112px;
+    padding: 0 var(--gap-2);
+  }
+
+  /* ⚙ 메뉴는 화면 오른쪽에 붙여 연다. */
+  .settings-pop {
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+    right: calc(var(--gap-2) + env(safe-area-inset-right, 0px));
+    width: min(300px, calc(100vw - 16px));
+  }
+
+  /* 리더 여백 --gap-5 → --gap-3. 지도·HTML 은 여백이 0 이라 건드리지 않는다. 글자 크기는 그대로. */
+  .col-center:not(.col-center-graph):not(.col-center-frame) {
+    padding: var(--gap-3) calc(var(--gap-3) + env(safe-area-inset-right, 0px)) calc(var(--gap-3) + env(safe-area-inset-bottom, 0px))
+      calc(var(--gap-3) + env(safe-area-inset-left, 0px));
+  }
+
+  .folder-view {
+    padding: var(--gap-3) 0;
+  }
+
+  .notice-src {
+    margin: var(--gap-2) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .col-left,
+  .col-right {
+    transition: none !important;
+  }
+}

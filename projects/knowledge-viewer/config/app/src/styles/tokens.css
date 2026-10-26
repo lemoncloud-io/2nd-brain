@@ -1,0 +1,195 @@
+/* 출처: projects/project-viewer/config/shell/src/styles/tokens.css 복사. 색·글꼴·간격의 단일 출처이며 다크 모드(prefers-color-scheme)를 포함한다.
+   이 파일의 색이 기본 화면 테마 `vault` 다. 밝기 강제는 <html data-scheme="light|dark">, 다른 테마는 styles/themes/<id>.css 가 [data-theme] 로 덮는다. */
+/* 색·글꼴·간격의 단일 출처. 컴포넌트는 여기의 변수만 쓴다. */
+
+:root {
+  /* 중립 — 순회색이 아니라 살짝 푸른 기를 준다 */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --surface-3: #e3e8ef;
+  --line: #d6dce5;
+  --line-strong: #b9c2ce;
+  --text: #1a2430;
+  --text-2: #4d5a68;
+  --text-3: #71808f;
+
+  /* 강조는 하나. 짙은 청록 */
+  --accent: #0f6b6b;
+  --accent-strong: #0a5252;
+  --accent-soft: #e2efee;
+  --focus: #1b8f8f;
+
+  /* tone 5색 — 의미색이라 강조색과 별개다 */
+  --tone-muted-bg: #e8ecf1;
+  --tone-muted-fg: #4f5b68;
+  --tone-muted-line: #c9d1da;
+  --tone-blue-bg: #e2ebfa;
+  --tone-blue-fg: #1c4d94;
+  --tone-blue-line: #b9cdec;
+  --tone-amber-bg: #faeed7;
+  --tone-amber-fg: #86571a;
+  --tone-amber-line: #e6cfa4;
+  --tone-green-bg: #dcefe1;
+  --tone-green-fg: #205c36;
+  --tone-green-line: #b3d8bf;
+  --tone-red-bg: #f7dfdf;
+  --tone-red-fg: #8c2b2b;
+  --tone-red-line: #e3b8b8;
+
+  /* 글꼴 — 시스템 글꼴만. 런타임에 외부 네트워크를 쓰지 않는다 */
+  --font: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR',
+    'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* 글자 크기 단계 — 이 여섯 개 밖으로 나가지 않는다 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+
+  --radius: 6px;
+  --gap-1: 4px;
+  --gap-2: 8px;
+  --gap-3: 12px;
+  --gap-4: 16px;
+  --gap-5: 24px;
+  --gap-6: 32px;
+
+  --topbar-h: 52px;
+  --stampbar-h: 34px;
+  --measure: 65ch; /* 호버 미리보기 등 좁은 상자용. 본문(.doc)은 2026-10-24 부터 열 폭을 다 쓴다. */
+
+  /* 그래프(지도) 캔버스 — 테마와 무관하게 늘 어둡다. 값·대비 표는 src/graph/palette.ts 상단 */
+  --graph-bg: #0b1017;
+  --graph-accent: #57bdb5;
+  /* 2D 지도의 클러스터 이름. 캔버스가 늘 어두워 두 테마 모두 다크 --text-3 값이다. */
+  --graph-label-2: #83919f;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme='light']) {
+    --bg: #12171d;
+    --surface: #182029;
+    --surface-2: #1f2832;
+    --surface-3: #2a3540;
+    --line: #2f3a46;
+    --line-strong: #46535f;
+    --text: #e4eaf0;
+    --text-2: #aab6c2;
+    --text-3: #83919f;
+
+    --accent: #57bdb5;
+    --accent-strong: #7fd3cb;
+    --accent-soft: #1b2f30;
+    --focus: #63cfc6;
+
+    --tone-muted-bg: #242e38;
+    --tone-muted-fg: #a9b5c1;
+    --tone-muted-line: #3a4550;
+    --tone-blue-bg: #1c2b40;
+    --tone-blue-fg: #93bbec;
+    --tone-blue-line: #2f4664;
+    --tone-amber-bg: #392d18;
+    --tone-amber-fg: #dcb473;
+    --tone-amber-line: #574328;
+    --tone-green-bg: #1c3226;
+    --tone-green-fg: #8ccfa4;
+    --tone-green-line: #2e4d3a;
+    --tone-red-bg: #3a2122;
+    --tone-red-fg: #e79d9d;
+    --tone-red-line: #563335;
+
+    /* 그래프(지도) 캔버스 — 테마와 무관하게 늘 어둡다. 값·대비 표는 src/graph/palette.ts 상단 */
+    --graph-bg: #0b1017;
+    --graph-accent: #57bdb5;
+    /* 2D 지도의 클러스터 이름. 캔버스가 늘 어두워 두 테마 모두 다크 --text-3 값이다. */
+    --graph-label-2: #83919f;
+    --graph-concept: #f2777a;
+    --graph-tool: #f5a25d;
+    --graph-model: #b5d96a;
+    --graph-framework: #5cc98a;
+    --graph-pattern: #a58cf5;
+    --graph-protocol: #d98ce8;
+    --graph-topic: #f283b8;
+    --graph-project: #57bdb5;
+    --graph-idea: #f2d45c;
+    --graph-doc: #5b9cf0;
+    --graph-output: #7d8995;
+    --graph-other: #b8c1ca;
+  }
+}
+
+:root[data-scheme='dark'] {
+  --bg: #12171d;
+  --surface: #182029;
+  --surface-2: #1f2832;
+  --surface-3: #2a3540;
+  --line: #2f3a46;
+  --line-strong: #46535f;
+  --text: #e4eaf0;
+  --text-2: #aab6c2;
+  --text-3: #83919f;
+
+  --accent: #57bdb5;
+  --accent-strong: #7fd3cb;
+  --accent-soft: #1b2f30;
+  --focus: #63cfc6;
+
+  --tone-muted-bg: #242e38;
+  --tone-muted-fg: #a9b5c1;
+  --tone-muted-line: #3a4550;
+  --tone-blue-bg: #1c2b40;
+  --tone-blue-fg: #93bbec;
+  --tone-blue-line: #2f4664;
+  --tone-amber-bg: #392d18;
+  --tone-amber-fg: #dcb473;
+  --tone-amber-line: #574328;
+  --tone-green-bg: #1c3226;
+  --tone-green-fg: #8ccfa4;
+  --tone-green-line: #2e4d3a;
+  --tone-red-bg: #3a2122;
+  --tone-red-fg: #e79d9d;
+  --tone-red-line: #563335;
+
+  /* 그래프(지도) 캔버스 — 테마와 무관하게 늘 어둡다. 값·대비 표는 src/graph/palette.ts 상단 */
+  --graph-bg: #0b1017;
+  --graph-accent: #57bdb5;
+  /* 2D 지도의 클러스터 이름. 캔버스가 늘 어두워 두 테마 모두 다크 --text-3 값이다. */
+  --graph-label-2: #83919f;
+  --graph-concept: #f2777a;
+  --graph-tool: #f5a25d;
+  --graph-model: #b5d96a;
+  --graph-framework: #5cc98a;
+  --graph-pattern: #a58cf5;
+  --graph-protocol: #d98ce8;
+  --graph-topic: #f283b8;
+  --graph-project: #57bdb5;
+  --graph-idea: #f2d45c;
+  --graph-doc: #5b9cf0;
+  --graph-output: #7d8995;
+  --graph-other: #b8c1ca;
+}
+
+/* 밝기를 강제하면 폼 컨트롤·스크롤바도 따라가게 한다(자동이면 index.html 의 color-scheme: light dark). */
+:root[data-scheme='light'] {
+  color-scheme: light;
+}
+
+:root[data-scheme='dark'] {
+  color-scheme: dark;
+}

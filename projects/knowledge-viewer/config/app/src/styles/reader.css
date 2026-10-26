@@ -1,0 +1,749 @@
+/* md 리더와 오른쪽 패널. 색은 tokens.css 변수만 쓴다. */
+
+.doc {
+  /* 2026-10-24 오너 요청: 가운데 열 폭을 다 쓴다. 읽기 폭(--measure)으로 가두지 않는다 — 표·코드·그림이 많은 문서가 좁게 보였다. */
+  max-width: none;
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.doc h1,
+.doc h2,
+.doc h3,
+.doc h4,
+.doc h5,
+.doc h6 {
+  line-height: 1.3;
+  margin: var(--gap-5) 0 var(--gap-3);
+  scroll-margin-top: var(--gap-4);
+}
+
+.doc h1 {
+  font-size: var(--fs-2xl);
+  margin-top: 0;
+}
+
+.doc h2 {
+  font-size: var(--fs-xl);
+  padding-bottom: var(--gap-1);
+  border-bottom: 1px solid var(--line);
+}
+
+.doc h3 {
+  font-size: var(--fs-lg);
+}
+
+.doc h4,
+.doc h5,
+.doc h6 {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+.doc p,
+.doc ul,
+.doc ol,
+.doc pre,
+.doc blockquote,
+.doc details {
+  margin: 0 0 var(--gap-4);
+}
+
+.doc ul,
+.doc ol {
+  padding-left: var(--gap-5);
+}
+
+.doc a {
+  color: var(--accent);
+}
+
+.doc a:hover {
+  color: var(--accent-strong);
+}
+
+.doc a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.doc code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+.doc pre {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-3);
+  overflow: auto;
+  line-height: 1.5;
+}
+
+.doc pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--fs-sm);
+}
+
+.doc blockquote {
+  border-left: 3px solid var(--line-strong);
+  padding: 0 var(--gap-4);
+  color: var(--text-2);
+}
+
+/* 표 보기 — 구조는 src/reader/Table.tsx. 이 블록 하나에 표 규칙을 모은다. */
+
+/* 감싸개가 가로 스크롤을 맡는다. 스크롤바는 .col 과 같이 마우스를 올렸을 때만 가늘게 보인다. */
+.table-wrap {
+  margin: 0 0 var(--gap-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.table-wrap:hover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.table-wrap::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.table-wrap:hover::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-wrap:hover::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+/* 너비는 auto 레이아웃이 정한다. 열 폭을 끌면 Table.tsx 가 table-layout: fixed 와 colgroup 폭을 준다. */
+.doc table {
+  border-collapse: collapse;
+  margin: 0;
+  font-size: var(--fs-md);
+}
+
+/* 긴 셀: 한국어는 어절 단위로, 끊을 곳이 없는 긴 토큰만 아무 데서나 끊는다. */
+.doc th,
+.doc td {
+  border: 1px solid var(--line);
+  padding: var(--gap-1) var(--gap-3);
+  text-align: left;
+  vertical-align: top;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.doc th {
+  position: relative;
+  background: var(--surface-2);
+}
+
+/* 첫 열과 짧은 셀은 한 줄. 링크·코드 안도 끊지 않는다. */
+.doc .cell-first,
+.doc .cell-short,
+.doc th a,
+.doc th code,
+.doc td a,
+.doc td code {
+  white-space: nowrap;
+}
+
+/* 열 폭을 고정한 뒤에는 넘치는 한 줄 셀을 말줄임으로 자른다. */
+.doc .table-fixed th,
+.doc .table-fixed td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 사람 모드: 셀을 누르면 행 상세가 열린다. */
+.doc .table-live tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.doc .table-live td:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* th 오른쪽 가장자리의 열 폭 손잡이 — .col-resizer 와 같은 꼴 */
+.th-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 1;
+}
+
+.th-resizer:hover,
+.th-resizer:active {
+  background: var(--accent-soft);
+}
+
+/* 마지막 열의 손잡이는 표 밖으로 나가지 않는다(나가면 감싸개가 몇 px 스크롤된다). */
+.doc th:last-child .th-resizer {
+  right: 0;
+  width: 4px;
+}
+
+/* 행 상세 모달 — 포털로 body 에 붙는다. 호버 미리보기 카드(z 50)보다 아래. */
+.row-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gap-4);
+  background: rgb(0 0 0 / 0.35);
+}
+
+.row-dialog {
+  box-sizing: border-box;
+  width: min(640px, 100%);
+  max-height: calc(100vh - 2 * var(--gap-4));
+  overflow: auto;
+  padding: var(--gap-4);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+}
+
+.row-dialog:focus {
+  outline: none;
+}
+
+.row-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--gap-3);
+}
+
+.row-dialog-title {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.row-dialog-close {
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: var(--fs-xl);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 var(--gap-1);
+}
+
+.row-dialog-close:hover {
+  color: var(--text);
+}
+
+.row-dialog-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--gap-2) var(--gap-4);
+  margin: 0;
+}
+
+.row-dialog-item {
+  display: contents;
+}
+
+.row-dialog-item dt {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  padding-top: 2px;
+}
+
+.row-dialog-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.row-dialog a {
+  color: var(--accent);
+}
+
+.row-dialog code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+.doc hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--gap-5) 0;
+}
+
+.doc details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-2) var(--gap-3);
+  background: var(--surface);
+}
+
+.doc summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.doc kbd {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0 0.35em;
+}
+
+.link-dead {
+  color: var(--text-3);
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.img-badge {
+  display: inline-block;
+  font-size: var(--fs-xs);
+  color: var(--tone-muted-fg);
+  background: var(--tone-muted-bg);
+  border: 1px solid var(--tone-muted-line);
+  border-radius: var(--radius);
+  padding: 0 var(--gap-2);
+  overflow-wrap: anywhere;
+}
+
+/* 허용 밖 원격 이미지(⚙ 원격 이미지 보기 켬): 배지 + "불러오기". 누를 때만 그 이미지 하나를 요청한다. */
+.img-remote {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-1);
+  max-width: 100%;
+}
+
+.img-load {
+  padding: 0 var(--gap-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.img-load:hover {
+  background: var(--accent-soft);
+}
+
+/* ⚙ "이미지" 줄의 허용 호스트 편집 칸(SettingsMenu RemoteImageRow). */
+.remote-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-1);
+}
+
+.remote-hosts-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--gap-1) var(--gap-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  resize: vertical;
+}
+
+.remote-hosts-actions {
+  display: flex;
+}
+
+.remote-hosts-hint {
+  flex: 1 1 auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.remote-hosts .settings-link:disabled {
+  color: var(--text-3);
+  cursor: default;
+  text-decoration: none;
+}
+
+.link-cands {
+  position: relative;
+  margin-left: 2px;
+}
+
+.cands-toggle {
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: var(--fs-sm);
+}
+
+.cands-toggle:hover {
+  color: var(--accent);
+}
+
+.cands-list {
+  display: block;
+  margin: var(--gap-1) 0;
+  padding: var(--gap-2) var(--gap-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.cands-list a {
+  display: block;
+}
+
+.mermaid {
+  margin: 0 0 var(--gap-4);
+  overflow-x: auto;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-pending {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.mermaid-error-line {
+  margin: 0 0 var(--gap-2);
+  color: var(--tone-red-fg);
+  font-size: var(--fs-sm);
+}
+
+/* 오른쪽 패널 */
+.panel {
+  padding: var(--gap-3) var(--gap-4);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.panel h3 {
+  /* 오른쪽 열을 스크롤하면 패널 제목이 열 위에 붙는다(2026-10-24 오너 요청). 패널 안쪽 여백을 제목이 덮도록 음수 여백 + 같은 패딩. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: calc(-1 * var(--gap-3)) calc(-1 * var(--gap-4)) var(--gap-2);
+  padding: var(--gap-3) var(--gap-4) var(--gap-1);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.panel-empty {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.meta-list {
+  margin: 0 0 var(--gap-3);
+}
+
+.meta-row {
+  margin-bottom: var(--gap-2);
+}
+
+.meta-row dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.meta-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.meta-row ul {
+  margin: 0;
+  padding-left: var(--gap-4);
+}
+
+.meta-stamp {
+  margin: 0 0 var(--gap-2);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.meta-dirty {
+  color: var(--tone-amber-fg);
+}
+
+.copy-path {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-3);
+  cursor: pointer;
+}
+
+.copy-path:hover {
+  background: var(--surface-3);
+}
+
+.toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc li {
+  padding: 2px 0;
+}
+
+.toc a {
+  display: block;
+  padding: 1px 0 1px var(--gap-2);
+  border-left: 2px solid transparent;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.toc a:hover {
+  color: var(--accent);
+}
+
+/* 스크롤 스파이: 가운데 열에서 지금 읽는 절. 왼쪽 2px 선과 글 모두 --accent(오른쪽 열 바탕 --surface 위 4.5:1 은 themes.test 가 지킨다).
+   --accent-soft 바탕은 쓰지 않는다 — solarized 다크에서 그 위의 --accent 글 4.11·--text 글 4.25 로 4.5:1 에 못 미친다(2026-10-24 실측). */
+.toc li.toc-active > a {
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+.doc img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 볼트 이미지(`/raw`)는 누르면 원본을 새 탭으로 연다. 링크는 inline 그대로 둔다 — inline-block 이면
+   크기 없는 그림(폭 지정 없음)의 max-width: 100% 가 0 으로 접혀 lazy 로딩이 시작되지 않는다. */
+.doc a.img-open {
+  cursor: zoom-in;
+}
+
+.doc a.img-badge-link {
+  text-decoration: none;
+}
+
+/* 호버 미리보기 카드 — 포털로 body에 붙는다 */
+.preview-card {
+  position: fixed;
+  z-index: 50;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(400px, calc(100vw - 24px));
+  max-height: min(350px, calc(100vh - 24px));
+  overflow: auto;
+  padding: var(--gap-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  font-family: var(--font);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-2);
+  margin-bottom: var(--gap-2);
+}
+
+.preview-title {
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+
+.preview-excerpt p {
+  margin: 0 0 var(--gap-2);
+}
+
+.preview-excerpt table {
+  font-size: var(--fs-xs);
+}
+
+.preview-path {
+  margin: var(--gap-2) 0 0;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.preview-note {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.preview-error {
+  color: var(--tone-red-fg);
+}
+
+/* 역링크 */
+.backlinks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.backlinks li + li {
+  margin-top: var(--gap-1);
+}
+
+.backlinks a {
+  display: block;
+  padding: var(--gap-1) var(--gap-2);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.backlinks a:hover {
+  background: var(--surface-2);
+}
+
+.backlink-title {
+  display: block;
+  color: var(--accent);
+}
+
+.backlink-path {
+  display: block;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+.backlink-count {
+  display: block;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+/* PR 변경 표시(remarkChanged). 에이전트 모드는 클래스 대신 data-changed 라 이 규칙에 닿지 않는다. */
+.doc .changed {
+  border-left: 3px solid var(--tone-green-line);
+  background: var(--tone-green-bg);
+}
+
+/* 코드 블록·표·mermaid 그릇은 자기 안쪽 여백을 지킨다. */
+.doc .changed:not(pre):not(table):not(.mermaid) {
+  padding-left: var(--gap-2);
+}
+
+.doc [data-removed]::after {
+  content: '−' attr(data-removed) '줄';
+  color: var(--tone-red-fg);
+  font-size: var(--fs-sm);
+  margin-left: var(--gap-2);
+}
+
+.doc-change-summary {
+  margin: 0 0 var(--gap-3);
+  color: var(--tone-muted-fg);
+  font-size: var(--fs-sm);
+}
+
+.toc-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--gap-1);
+  border-radius: 50%;
+  background: var(--tone-green-fg);
+  vertical-align: middle;
+}
+
+/* 템플릿 원문 보기 */
+.template-view {
+  max-width: 900px;
+}
+
+.template-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  margin-bottom: var(--gap-2);
+}
+
+.template-title {
+  margin: 0;
+  font-size: var(--fs-xl, 22px);
+}
+
+.badge-template {
+  background: var(--tone-blue-bg);
+  color: var(--tone-blue-fg);
+  border: 1px solid var(--tone-blue-line);
+}
+
+.template-placeholders code {
+  margin-right: var(--gap-2);
+}
+
+.template-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.template-source {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-3);
+  background: var(--surface-2);
+  overflow: auto;
+  white-space: pre;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
