@@ -129,6 +129,9 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
   irm https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-windows.ps1 -OutFile "$env:TEMP\setup-vault-windows.ps1"
   powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\setup-vault-windows.ps1" -NonInteractive -RepoUrl $REPO_URL -Name $NAME -Email $EMAIL
   ```
+  Windows에서는 설치가 끝난 뒤 8~10단계 명령을 실행할 PowerShell 세션에서 PATH를 다시 읽는다:
+  `$env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path`
+  도구 호출마다 새 셸이 생기면 이후 각 호출의 명령 앞에서도 이 갱신을 실행한다.
 - **확인**: 마지막 줄이 `SETUP_OK vault=<설치 경로>`다. 이 경로를 `VAULT`로 기억한다.
 - **실패 시**: 스크립트의 `[실패]` 문구가 원인과 할 일을 적는다. 그대로 따르고 같은 명령을 다시 실행한다.
   - `Homebrew가 없습니다` → 2단계 "실패 시".
