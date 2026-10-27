@@ -106,7 +106,7 @@ register_brew() {
   done
   return 1
 }
-if command -v brew >/dev/null 2>&1 || register_brew; then
+if register_brew || command -v brew >/dev/null 2>&1; then
   say "Homebrew 확인됨"
 elif [ "$NON_INTERACTIVE" = "1" ]; then
   # 설치기가 sudo 비밀번호를 TTY로 묻는다 — 에이전트 셸에서는 멈추거나 실패한다.
