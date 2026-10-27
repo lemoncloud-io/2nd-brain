@@ -110,7 +110,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 ### 팀 위키가 있는 경우
 
 - **실행**: `gh repo view <받은 주소> --json nameWithOwner,viewerPermission`
-- **확인**: `viewerPermission`이 `WRITE`·`MAINTAIN`·`ADMIN` 중 하나다. `REPO_URL`은 받은 주소에 `.git`을 붙인 값.
+- **확인**: `viewerPermission`이 `WRITE`·`MAINTAIN`·`ADMIN` 중 하나다. `REPO_URL`은 반환된 `nameWithOwner`로 만든 `https://github.com/<nameWithOwner>.git`이다.
 - **실패 시**: 찾을 수 없거나 `READ`면 팀 관리자의 초대를 수락하지 않은 것이다 — GitHub 알림 메일의 초대를 수락해 달라고 하고
   수락했다고 하면 다시 확인한다.
 
