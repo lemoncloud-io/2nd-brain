@@ -136,7 +136,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/
 
 The script asks for your **team vault repo URL** partway through. Pressing Enter clones this public template instead of your team's wiki, so supply the URL if you are joining a team. To decide up front, set `REPO_URL` / `TARGET_DIR` (on Windows, the `-RepoUrl` / `-TargetDir` parameters); to skip the converters, pass `SKIP_CONVERTERS=1` (`-SkipConverters` on Windows).
 
-> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path — one install, then everything happens in Obsidian and a Claude chat. It also carries the checklist for whoever runs the onboarding.
+> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path — they type one line in the Claude desktop **Code** tab (`github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘`) and Claude follows the [`SETUP.md`](SETUP.md) runbook, then everything happens in a Code-tab session on the vault folder. It also carries the checklist for whoever runs the onboarding. Agents run these scripts with `--non-interactive` (Windows `-NonInteractive`); see the script header for the options.
 
 ### Manual setup
 
@@ -240,7 +240,7 @@ Humans and LLMs read the same documents. Each one owns a different layer.
 | [`docs/raw-layout.md`](docs/raw-layout.md) | The five `raw/` lanes (web clippings, screenshots, converted originals, …), append-only definition, filename normalization, index |
 | [`docs/github-linked-projects.md`](docs/github-linked-projects.md) | Contract for tracking external GitHub repos |
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP (`workspace-mcp`) connection procedure — OAuth credential issuance, `claude mcp add` registration, localhost callback re-auth pitfall |
-| [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | Non-developer onboarding path (setup script → Obsidian → Claude chat) |
+| [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | Non-developer onboarding path (one Code-tab line → `SETUP.md` runbook → new session on the vault folder) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | Historical execution ledger (frozen — new run logs are notes under `outputs/runs/`) |
 | [`docs/raw-index.yml`](docs/raw-index.yml) · [`docs/raw-index.md`](docs/raw-index.md) | The generated `raw/` index — machine-readable YAML plus a human summary. Never hand-edited; `generate_raw_index.py` rewrites both |
 | [`projects/second-brain/config/team-settings.yaml`](projects/second-brain/config/team-settings.yaml) | Single source for org/personal deployment values |

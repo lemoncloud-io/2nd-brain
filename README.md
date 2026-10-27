@@ -118,7 +118,15 @@ gh --version         # 선택
 
 ## 설치 및 시작
 
-### 설치 스크립트 (권장 — 터미널 한 줄)
+### Claude에게 맡기기 (터미널 없이)
+
+Claude 데스크톱 앱 **Code 탭**의 로컬 세션에 아래 한 줄을 입력하면 Claude가 [`SETUP.md`](SETUP.md) 런북대로 도구 설치·GitHub 로그인·내 비공개 위키 repo 생성·clone·환경 설정·검증까지 진행한다. Obsidian은 설치하지 않는다.
+
+```text
+github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
+```
+
+### 설치 스크립트 (터미널 한 줄)
 
 Git·Obsidian·Claude Code·GitHub CLI와 문서 변환 도구(pandoc·uv)를 설치하고, GitHub 브라우저 로그인·git 사용자 정보 설정·vault clone·`VAULT_DIR` 등록·구조 검증까지 한 번에 끝낸다. 이미 설치·설정된 항목은 건너뛰므로 **재실행해도 안전**하다.
 
@@ -136,7 +144,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/
 
 스크립트는 실행 중 **팀 vault repo URL**을 묻는다. 그냥 Enter로 넘기면 팀 위키가 아니라 이 공개 템플릿이 clone되므로, 팀에서 쓰는 경우 반드시 주소를 입력한다. repo·경로를 미리 지정하려면 `REPO_URL`·`TARGET_DIR` 환경변수(Windows는 `-RepoUrl`·`-TargetDir` 인자)를 쓰고, 변환 도구를 빼려면 `SKIP_CONVERTERS=1`(Windows는 `-SkipConverters`)을 준다.
 
-> 터미널을 쓰지 않는 팀원을 온보딩한다면 **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** 가 전용 경로다 — 설치 한 번 이후 모든 작업을 Obsidian과 Claude 채팅으로만 한다. 팀 관리자용 체크리스트도 그 문서에 있다.
+> 터미널을 쓰지 않는 팀원을 온보딩한다면 **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** 가 전용 경로다 — 설치도 이후 작업도 Claude 데스크톱 Code 탭에서 말로 한다. 팀 관리자용 체크리스트도 그 문서에 있다. 에이전트가 이 스크립트를 실행할 때는 `--non-interactive`(Windows `-NonInteractive`) 모드를 쓴다 — 옵션은 스크립트 머리 주석.
 
 ### 수동 설치
 
@@ -244,7 +252,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 | [`docs/raw-layout.md`](docs/raw-layout.md) | `raw/` 5개 레인(웹 클리핑·스크린샷·변환 원본 등)·append-only 정의·파일명 정규화·색인 |
 | [`docs/github-linked-projects.md`](docs/github-linked-projects.md) | 외부 GitHub repo 추적 계약 |
 | [`docs/google-workspace-mcp-setup.md`](docs/google-workspace-mcp-setup.md) | Google Workspace MCP(`workspace-mcp`) 연결 절차 — OAuth 자격증명 발급, `claude mcp add` 등록, localhost 콜백 재인증 함정 |
-| [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | 비개발자 온보딩 경로 (설치 스크립트 → Obsidian → Claude 채팅) |
+| [`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md) | 비개발자 온보딩 경로 (Code 탭 한 줄 → `SETUP.md` 런북 → 위키 폴더 새 세션) |
 | [`docs/vault-ingest-log.md`](docs/vault-ingest-log.md) | 과거 실행 이력 원장 (동결 — 신규 run-log는 `outputs/runs/`에 노트로 생성) |
 | [`docs/raw-index.yml`](docs/raw-index.yml) · [`docs/raw-index.md`](docs/raw-index.md) | `raw/` 자동 생성 색인 — 기계용 YAML과 사람용 요약. 수동 편집 금지, `generate_raw_index.py`가 재생성 |
 | [`projects/second-brain/config/team-settings.yaml`](projects/second-brain/config/team-settings.yaml) | 조직·개인 배포 값의 단일 출처 |
