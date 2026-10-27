@@ -26,7 +26,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 
 ## 0단계 — 환경 확인
 
-- **실행**: `uname -s` (Windows PowerShell 도구라면 `$PSVersionTable.OS`)
+- **실행**: `uname -s` (Windows PowerShell 도구라면 `$env:OS`)
 - **확인**: 결과가 나오면 셸이 있다. `Darwin` = macOS, `MINGW*`·`MSYS*` 또는 Windows 문자열 = Windows.
   이후 단계의 macOS·Windows 갈래를 여기서 정한다.
 - **실패 시**: 명령을 실행할 수 없으면 위 "에이전트가 지킬 것" 첫 항목대로 Code 탭 안내 후 멈춘다.
