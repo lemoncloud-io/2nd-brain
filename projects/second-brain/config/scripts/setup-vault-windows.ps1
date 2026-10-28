@@ -22,6 +22,13 @@
 #   Set-ExecutionPolicy -Scope Process Bypass -Force
 #   .\setup-vault-windows.ps1 [-RepoUrl <url>] [-TargetDir <경로>] [-SkipConverters]
 #
+# 비대화형 모드 — 사람이 아니라 에이전트(Claude Code의 셸 도구 등)가 실행할 때. SETUP.md가 쓴다:
+#   powershell -ExecutionPolicy Bypass -File setup-vault-windows.ps1 -NonInteractive `
+#     -RepoUrl <url> -Name <이름> -Email <이메일> [-TargetDir <경로>] [-WithObsidian]
+#   묻는 단계를 전부 인자로 받고, 입력이 필요한 단계는 기다리지 않고 이유를 출력하며 실패한다:
+#   gh 미로그인이면 중단(gh auth login --web 선행), -RepoUrl이 없거나 공개 템플릿이면 중단.
+#   Claude Code 설치는 건너뛰고(이미 실행 중), Obsidian은 -WithObsidian일 때만 설치한다.
+#
 # 필요 선행 조건: winget(Windows 10/11 기본 내장 '앱 설치 관리자') — 없으면 안내 후 중단
 # 재실행해도 안전하다(이미 설치/클론/설정된 항목은 건너뜀).
 #
@@ -30,9 +37,14 @@
 param(
     [string]$RepoUrl   = "https://github.com/lemoncloud-io/2nd-brain.git",
     [string]$TargetDir = "$HOME\knowledge",
-    [switch]$SkipConverters
+    [switch]$SkipConverters,
+    [switch]$NonInteractive,
+    [switch]$WithObsidian,
+    [string]$Name  = "",
+    [string]$Email = ""
 )
 $ErrorActionPreference = "Stop"
+$canPrompt = -not $NonInteractive
 $TemplateUrl = "https://github.com/lemoncloud-io/2nd-brain.git"
 
 function Say($msg)  { Write-Host "`n==> $msg" -ForegroundColor Green }
@@ -48,6 +60,12 @@ function Get-NormalizedRepoUrl($u) {
     (($u -replace '^https?://','' -replace '^git@','' -replace ':','/' -replace '\.git$','').TrimEnd('/'))
 }
 
+# 비대화형 입력은 설치를 시작하기 전에 검사한다 — 도구를 다 깐 뒤 clone 단계에서 멈추지 않게.
+if ($NonInteractive -and -not (Test-Path (Join-Path $TargetDir ".git")) -and
+    ((Get-NormalizedRepoUrl $RepoUrl) -eq (Get-NormalizedRepoUrl $TemplateUrl))) {
+    Fail "-NonInteractive에는 -RepoUrl <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).`n새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/2nd-brain --private"
+}
+
 # ── 0. winget 확인 ───────────────────────────────────────────
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Fail "winget이 없습니다. Microsoft Store에서 '앱 설치 관리자(App Installer)'를 설치한 뒤 재실행하세요."
@@ -61,6 +79,17 @@ function Invoke-Native {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try { & $Command } finally { $ErrorActionPreference = $prev }
+}
+
+# 이미 있는 checkout이 고른 repo가 아니면 그 vault를 설정·push하게 된다 — 다른 경로를 받는다.
+if ((Test-Path (Join-Path $TargetDir ".git")) -and
+    ((Get-NormalizedRepoUrl $RepoUrl) -ne (Get-NormalizedRepoUrl $TemplateUrl)) -and
+    (Get-Command git -ErrorAction SilentlyContinue)) {
+    $existingOrigin = Invoke-Native { git -C $TargetDir remote get-url origin 2>$null }
+    if ((Get-NormalizedRepoUrl "$existingOrigin") -ne (Get-NormalizedRepoUrl $RepoUrl)) {
+        $shown = if ($existingOrigin) { $existingOrigin } else { "origin 없음" }
+        Fail "$TargetDir 는 다른 repo($shown)의 checkout입니다 — $RepoUrl 이 아닙니다.`n다른 설치 경로를 지정해 재실행하세요: -TargetDir <경로>"
+    }
 }
 
 # 심링크 생성 권한(개발자 모드 또는 관리자) 점검. 이 vault는 .claude/skills를 심링크로
@@ -98,17 +127,22 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
     }
 }
 
-# ── 2. Obsidian ──────────────────────────────────────────────
+# ── 2. Obsidian (비대화형 모드는 -WithObsidian일 때만) ───────
 $obsidianInstalled = Invoke-Native { winget list --id Obsidian.Obsidian -e 2>$null } | Select-String "Obsidian"
 if ($obsidianInstalled) {
     Say "Obsidian 확인됨"
+} elseif ($NonInteractive -and -not $WithObsidian) {
+    Say "Obsidian 설치 건너뜀 (필요하면 -WithObsidian)"
 } else {
     Say "Obsidian 설치 중..."
     winget install --id Obsidian.Obsidian -e --accept-source-agreements --accept-package-agreements
 }
 
 # ── 3. Claude Code CLI (공식 설치기 — 자동 업데이트됨) ──────
-if (Get-Command claude -ErrorAction SilentlyContinue) {
+# 비대화형 모드는 Claude 안에서 돌므로 설치하지 않는다(PATH 등록만 아래에서 보장).
+if ($NonInteractive) {
+    Say "Claude Code 설치 건너뜀 (비대화형 모드)"
+} elseif (Get-Command claude -ErrorAction SilentlyContinue) {
     Say "Claude Code 확인됨"
 } else {
     Say "Claude Code 설치 중..."
@@ -153,6 +187,22 @@ if ($SkipConverters) {
     }
 }
 
+# ── 3c. 지식 뷰어 런타임 (Node.js 24+) ───────────────────────
+# "볼트 뷰어 열어줘"·"연결 그래프 보여줘"(projects/knowledge-viewer)의 전제 — 루트 package.json engines.
+# 실패해도 온보딩은 계속된다.
+$nodeMajor = 0
+if (Get-Command node -ErrorAction SilentlyContinue) { $nodeMajor = [int](Invoke-Native { node -p "process.versions.node.split('.')[0]" }) }
+if ($nodeMajor -ge 24) {
+    Say "Node.js 확인됨: $(node --version)"
+} else {
+    Say "Node.js 설치 중 (지식 뷰어용)..."
+    winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
+    Update-SessionPath
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Warn "node 명령을 아직 찾지 못했습니다 — 새 PowerShell에서 'node --version'으로 확인하세요. (지식 뷰어에만 필요, 온보딩은 계속됩니다)"
+    }
+}
+
 # ── 4. GitHub 로그인 + git 사용자 정보 ───────────────────────
 # 프라이빗 팀 repo clone과 이후 커밋·PR(Claude 위임 포함)에 필요하다.
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -166,6 +216,9 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 Invoke-Native { gh auth status 2>$null } | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Say "GitHub 로그인 확인됨"
+} elseif ($NonInteractive) {
+    # 로그인은 일회용 코드를 사용자가 브라우저에 입력해야 한다 — 호출자(SETUP.md)가 먼저 끝낸다.
+    Fail "GitHub 로그인이 필요합니다. 먼저 'gh auth login --web --git-protocol https'로 로그인한 뒤 재실행하세요."
 } else {
     Say "GitHub 로그인 — 브라우저가 열리면 안내를 따르세요"
     Invoke-Native { gh auth login --web --git-protocol https }
@@ -175,12 +228,14 @@ Invoke-Native { gh auth setup-git 2>$null } | Out-Null   # HTTPS clone/push에 g
 
 # gh 로그인 단계의 "Press Enter"에서 엔터를 여러 번 누르면 남은 개행을 아래 Read-Host가
 # 먹어 이름·이메일이 빈 값으로 넘어간다(실기기 확인). 묻기 전에 입력 버퍼를 비운다.
-try { while ([Console]::KeyAvailable) { [Console]::ReadKey($true) | Out-Null } } catch { }
-if (-not (Invoke-Native { git config --global user.name 2>$null })) {
+if ($canPrompt) { try { while ([Console]::KeyAvailable) { [Console]::ReadKey($true) | Out-Null } } catch { } }
+if ($Name)  { git config --global user.name $Name }
+if ($Email) { git config --global user.email $Email }
+if ($canPrompt -and -not (Invoke-Native { git config --global user.name 2>$null })) {
     $gitName = Read-Host "git 커밋에 기록할 이름 (예: 홍길동)"
     if ($gitName) { git config --global user.name $gitName }
 }
-if (-not (Invoke-Native { git config --global user.email 2>$null })) {
+if ($canPrompt -and -not (Invoke-Native { git config --global user.email 2>$null })) {
     $gitEmail = Read-Host "git 커밋에 기록할 이메일 (회사 이메일)"
     if ($gitEmail) { git config --global user.email $gitEmail }
 }
@@ -189,11 +244,11 @@ if (-not (Invoke-Native { git config --global user.name 2>$null }) -or -not (Inv
 }
 
 # ── 5. 팀 repo 지정 + vault clone ────────────────────────────
-if (-not (Test-Path (Join-Path $TargetDir ".git")) -and ($RepoUrl -eq $TemplateUrl)) {
+if ($canPrompt -and -not (Test-Path (Join-Path $TargetDir ".git")) -and ($RepoUrl -eq $TemplateUrl)) {
     $inputUrl = Read-Host "팀 vault repo URL을 입력하세요 (예: https://github.com/<org>/<repo>.git — 엔터 = 공개 템플릿으로 시작)"
     if ($inputUrl) { $RepoUrl = $inputUrl }
     if ($RepoUrl -eq $TemplateUrl) {
-        Warn "공개 템플릿($TemplateUrl)을 clone합니다 — 팀 위키가 아닙니다.`n팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.`n팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:`n  docs/wiki-vault-setup-free.md 참조 (gh repo create --template lemoncloud-io/2nd-brain --private)"
+        Warn "공개 템플릿($TemplateUrl)을 clone합니다 — 팀 위키가 아닙니다.`n팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.`n팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:`n  SETUP.md 6단계 참조 (gh repo create --template lemoncloud-io/2nd-brain --private)"
     }
 }
 
@@ -251,6 +306,11 @@ if ($brokenLinks.Count -gt 0) {
 }
 
 # ── 8. 다음 단계 안내 ────────────────────────────────────────
+# 비대화형 모드의 다음 단계는 호출자(SETUP.md)가 안내한다 — 기계가 읽을 한 줄만 남긴다.
+if ($NonInteractive) {
+    Write-Host "`nSETUP_OK vault=$TargetDir"
+    return
+}
 Write-Host @"
 
 ────────────────────────────────────────────

@@ -19,21 +19,64 @@
 # 파일로 받아 실행할 때는 인자로도 가능:
 #   bash setup-vault-mac.sh [repo-url] [설치경로]
 #
+# 비대화형 모드 — 사람이 아니라 에이전트(Claude Code의 Bash 도구 등)가 실행할 때. SETUP.md가 쓴다:
+#   bash setup-vault-mac.sh --non-interactive --repo <url> --name <이름> --email <이메일> \
+#     [--target <설치경로>] [--with-obsidian]
+#   묻는 단계를 전부 인자로 받고, 입력·sudo가 필요한 단계는 기다리지 않고 이유를 출력하며 실패한다:
+#   Homebrew가 없으면 설치하지 않고 중단(sudo 필요), gh 미로그인이면 중단(gh auth login --web 선행),
+#   --repo가 없거나 공개 템플릿이면 중단. Claude Code 설치는 건너뛰고(이미 실행 중),
+#   Obsidian은 --with-obsidian일 때만 설치한다.
+#
 # 필요 선행 조건: 없음 (curl·bash는 macOS 기본 내장, Homebrew·Git은 스크립트가 설치)
 # 재실행해도 안전하다(이미 설치/클론/설정된 항목은 건너뜀).
 set -euo pipefail
 
-# 기본값은 공개 부트스트랩 템플릿이다. 실제 clone 대상은 6번 단계에서 팀 repo URL을
-# 물어 결정한다 — 조직 값의 단일 출처는 projects/second-brain/config/team-settings.yaml.
-TEMPLATE_URL="https://github.com/lemoncloud-io/2nd-brain.git"
-REPO_URL="${1:-${REPO_URL:-$TEMPLATE_URL}}"
-TARGET_DIR="${2:-${TARGET_DIR:-$HOME/knowledge}}"
-
 say()  { printf '\n\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\n\033[1;33m[주의]\033[0m %s\n' "$*"; }
 fail() { printf '\n\033[1;31m[실패]\033[0m %s\n' "$*"; exit 1; }
+
+# 기본값은 공개 부트스트랩 템플릿이다. 실제 clone 대상은 6번 단계에서 팀 repo URL을
+# 물어 결정한다 — 조직 값의 단일 출처는 projects/second-brain/config/team-settings.yaml.
+TEMPLATE_URL="https://github.com/lemoncloud-io/2nd-brain.git"
+NON_INTERACTIVE=0
+WITH_OBSIDIAN=0
+GIT_NAME_ARG=""
+GIT_EMAIL_ARG=""
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --non-interactive) NON_INTERACTIVE=1 ;;
+    --with-obsidian)   WITH_OBSIDIAN=1 ;;
+    --repo)   [ $# -ge 2 ] || fail "$1 뒤에 값이 필요합니다."; REPO_URL="$2"; shift ;;
+    --name)   [ $# -ge 2 ] || fail "$1 뒤에 값이 필요합니다."; GIT_NAME_ARG="$2"; shift ;;
+    --email)  [ $# -ge 2 ] || fail "$1 뒤에 값이 필요합니다."; GIT_EMAIL_ARG="$2"; shift ;;
+    --target) [ $# -ge 2 ] || fail "$1 뒤에 값이 필요합니다."; TARGET_DIR="$2"; shift ;;
+    --*) fail "알 수 없는 옵션: $1" ;;
+    *) POSITIONAL+=("$1") ;;
+  esac
+  shift
+done
+REPO_URL="${POSITIONAL[0]:-${REPO_URL:-$TEMPLATE_URL}}"
+TARGET_DIR="${POSITIONAL[1]:-${TARGET_DIR:-$HOME/knowledge}}"
+# 사람이 터미널에서 실행했을 때만 묻는다. 비대화형 모드는 TTY가 있어도 묻지 않는다.
+if [ "$NON_INTERACTIVE" = "0" ] && [ -t 0 ]; then CAN_PROMPT=1; else CAN_PROMPT=0; fi
 # URL 비교용 정규화: 프로토콜·ssh 접두·.git 접미를 벗겨 host/org/repo만 남긴다
 norm_url() { printf '%s' "$1" | sed -E 's#^https?://##; s#^git@##; s#:#/#; s#\.git$##; s#/$##'; }
+
+# 비대화형 입력은 설치를 시작하기 전에 검사한다 — 도구를 다 깐 뒤 clone 단계에서 멈추지 않게.
+if [ "$NON_INTERACTIVE" = "1" ] && [ ! -d "$TARGET_DIR/.git" ] \
+   && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ]; then
+  fail "--non-interactive에는 --repo <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).
+  새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/2nd-brain --private"
+fi
+# 이미 있는 checkout이 고른 repo가 아니면 그 vault를 설정·push하게 된다 — 다른 경로를 받는다.
+if [ -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" != "$(norm_url "$TEMPLATE_URL")" ] && command -v git >/dev/null 2>&1; then
+  EXISTING_ORIGIN="$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null || echo "")"
+  if [ "$(norm_url "$EXISTING_ORIGIN")" != "$(norm_url "$REPO_URL")" ]; then
+    fail "$TARGET_DIR 는 다른 repo(${EXISTING_ORIGIN:-origin 없음})의 checkout입니다 — $REPO_URL 이 아닙니다.
+  다른 설치 경로를 지정해 재실행하세요: --target <경로>"
+  fi
+fi
 
 SHELL_NAME="${SHELL##*/}"
 case "$SHELL_NAME" in
@@ -58,22 +101,30 @@ ensure_rc_line() {
 }
 
 # ── 1. Homebrew ───────────────────────────────────────────────
-if ! command -v brew >/dev/null 2>&1; then
-  say "Homebrew 설치 중 (관리자 비밀번호를 물을 수 있습니다)..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  # Apple Silicon 기본 경로 반영
-  # Homebrew 설치기는 PATH 등록을 사용자에게 맡기고 안내문만 출력한다. 등록하지 않으면
-  # 이 프로세스에서만 brew가 잡히고, 이후 brew로 깐 git·gh·pandoc·uv도 새 터미널에서 사라진다.
+# Homebrew 설치기는 PATH 등록을 사용자에게 맡기고 안내문만 출력한다. 등록하지 않으면
+# 이 프로세스에서만 brew가 잡히고, 이후 brew로 깐 git·gh·pandoc·uv도 새 터미널에서 사라진다.
+# 설치는 됐는데 PATH에 없는 경우(다른 터미널에서 방금 설치, 에이전트 셸)도 여기서 잡는다.
+register_brew() {
   for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
     if [ -x "$brew_bin" ]; then
       eval "$("$brew_bin" shellenv)"
       ensure_rc_line "eval \"\$($brew_bin shellenv)\"" "Homebrew PATH 등록됨"
-      break
+      return 0
     fi
   done
-  command -v brew >/dev/null 2>&1 || fail "Homebrew 설치 실패 — https://brew.sh 에서 수동 설치 후 재실행하세요."
-else
+  return 1
+}
+if register_brew || command -v brew >/dev/null 2>&1; then
   say "Homebrew 확인됨"
+elif [ "$NON_INTERACTIVE" = "1" ]; then
+  # 설치기가 sudo 비밀번호를 TTY로 묻는다 — 에이전트 셸에서는 멈추거나 실패한다.
+  fail "Homebrew가 없습니다. 설치는 관리자 비밀번호가 필요해 사용자가 터미널 앱에서 직접 실행해야 합니다:
+  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"
+  설치가 끝나면 이 스크립트를 다시 실행하세요."
+else
+  say "Homebrew 설치 중 (관리자 비밀번호를 물을 수 있습니다)..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  register_brew || fail "Homebrew 설치 실패 — https://brew.sh 에서 수동 설치 후 재실행하세요."
 fi
 
 # ── 2. Git ────────────────────────────────────────────────────
@@ -84,16 +135,21 @@ else
   say "Git 확인됨: $(git --version)"
 fi
 
-# ── 3. Obsidian ───────────────────────────────────────────────
+# ── 3. Obsidian (비대화형 모드는 --with-obsidian일 때만) ─────
 if [ -d "/Applications/Obsidian.app" ]; then
   say "Obsidian 확인됨"
+elif [ "$NON_INTERACTIVE" = "1" ] && [ "$WITH_OBSIDIAN" = "0" ]; then
+  say "Obsidian 설치 건너뜀 (필요하면 --with-obsidian)"
 else
   say "Obsidian 설치 중..."
   brew install --cask obsidian
 fi
 
 # ── 4. Claude Code CLI (공식 native 설치 — 자동 업데이트됨) ──
-if command -v claude >/dev/null 2>&1; then
+# 비대화형 모드는 Claude 안에서 돌므로 설치하지 않는다(PATH 등록만 아래에서 보장).
+if [ "$NON_INTERACTIVE" = "1" ]; then
+  say "Claude Code 설치 건너뜀 (비대화형 모드)"
+elif command -v claude >/dev/null 2>&1; then
   say "Claude Code 확인됨: $(claude --version 2>/dev/null || echo installed)"
 else
   say "Claude Code 설치 중..."
@@ -123,6 +179,16 @@ else
   done
 fi
 
+# ── 4c. 지식 뷰어 런타임 (Node.js 24+) ───────────────────────
+# "볼트 뷰어 열어줘"·"연결 그래프 보여줘"(projects/knowledge-viewer)의 전제 — 루트 package.json engines.
+# 실패해도 온보딩은 계속된다.
+if command -v node >/dev/null 2>&1 && [ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)" -ge 24 ]; then
+  say "Node.js 확인됨: $(node --version)"
+else
+  say "Node.js 설치 중 (지식 뷰어용)..."
+  brew install node || warn "Node.js 설치 실패 — 지식 뷰어에만 필요합니다. 나중에 'brew install node'로 설치하세요."
+fi
+
 # ── 5. GitHub 로그인 + git 사용자 정보 ───────────────────────
 # 프라이빗 팀 repo clone과 이후 커밋·PR(Claude 위임 포함)에 필요하다.
 if ! command -v gh >/dev/null 2>&1; then
@@ -131,7 +197,10 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 if gh auth status >/dev/null 2>&1; then
   say "GitHub 로그인 확인됨"
-elif [ -t 0 ]; then
+elif [ "$NON_INTERACTIVE" = "1" ]; then
+  # 로그인은 일회용 코드를 사용자가 브라우저에 입력해야 한다 — 호출자(SETUP.md)가 먼저 끝낸다.
+  fail "GitHub 로그인이 필요합니다. 먼저 'gh auth login --web --git-protocol https'로 로그인한 뒤 재실행하세요."
+elif [ "$CAN_PROMPT" = "1" ]; then
   say "GitHub 로그인 — 브라우저가 열리면 안내를 따르세요"
   gh auth login --web --git-protocol https || fail "GitHub 로그인 실패 — 재실행하세요."
 else
@@ -139,12 +208,14 @@ else
 fi
 gh auth setup-git 2>/dev/null || true  # HTTPS clone/push에 gh 자격증명 사용
 
-if [ -z "$(git config --global user.name 2>/dev/null || true)" ] && [ -t 0 ]; then
+[ -n "$GIT_NAME_ARG" ] && git config --global user.name "$GIT_NAME_ARG"
+[ -n "$GIT_EMAIL_ARG" ] && git config --global user.email "$GIT_EMAIL_ARG"
+if [ -z "$(git config --global user.name 2>/dev/null || true)" ] && [ "$CAN_PROMPT" = "1" ]; then
   printf 'git 커밋에 기록할 이름 (예: 홍길동): '
   read -r GIT_NAME || GIT_NAME=""
   [ -n "$GIT_NAME" ] && git config --global user.name "$GIT_NAME"
 fi
-if [ -z "$(git config --global user.email 2>/dev/null || true)" ] && [ -t 0 ]; then
+if [ -z "$(git config --global user.email 2>/dev/null || true)" ] && [ "$CAN_PROMPT" = "1" ]; then
   printf 'git 커밋에 기록할 이메일 (회사 이메일): '
   read -r GIT_EMAIL || GIT_EMAIL=""
   [ -n "$GIT_EMAIL" ] && git config --global user.email "$GIT_EMAIL"
@@ -155,16 +226,16 @@ if [ -z "$(git config --global user.name 2>/dev/null || true)" ] || [ -z "$(git 
 fi
 
 # ── 6. 팀 repo 지정 + vault clone ────────────────────────────
-if [ ! -d "$TARGET_DIR/.git" ] && [ "$REPO_URL" = "$TEMPLATE_URL" ] && [ -t 0 ]; then
+if [ ! -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ] && [ "$CAN_PROMPT" = "1" ]; then
   printf '팀 vault repo URL을 입력하세요 (예: https://github.com/<org>/<repo>.git — 엔터 = 공개 템플릿으로 시작): '
   read -r INPUT_URL || INPUT_URL=""
   [ -n "$INPUT_URL" ] && REPO_URL="$INPUT_URL"
 fi
-if [ ! -d "$TARGET_DIR/.git" ] && [ "$REPO_URL" = "$TEMPLATE_URL" ]; then
+if [ ! -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ]; then
   warn "공개 템플릿($TEMPLATE_URL)을 clone합니다 — 팀 위키가 아닙니다.
   팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.
   팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:
-  docs/wiki-vault-setup-free.md 참조 (gh repo create --template lemoncloud-io/2nd-brain --private)"
+  SETUP.md 6단계 참조 (gh repo create --template lemoncloud-io/2nd-brain --private)"
 fi
 
 if [ -d "$TARGET_DIR/.git" ]; then
@@ -208,6 +279,11 @@ fi
 say "구조 검증 통과"
 
 # ── 9. 다음 단계 안내 ────────────────────────────────────────
+# 비대화형 모드의 다음 단계는 호출자(SETUP.md)가 안내한다 — 기계가 읽을 한 줄만 남긴다.
+if [ "$NON_INTERACTIVE" = "1" ]; then
+  printf '\nSETUP_OK vault=%s\n' "$TARGET_DIR"
+  exit 0
+fi
 cat <<'NEXT'
 
 ────────────────────────────────────────────

@@ -126,7 +126,7 @@ def first_add_dates() -> dict:
     out = subprocess.run(
         GIT + ["log", "--reverse", "--no-renames", "--diff-filter=A",
                "--name-only", "--format=@%ad", "--date=short", "--", "raw/"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8",
     ).stdout
     dates, current = {}, None
     for line in out.splitlines():
@@ -138,7 +138,7 @@ def first_add_dates() -> dict:
 
 
 def tracked_raw() -> set:
-    out = subprocess.run(GIT + ["ls-files", "--", "raw/"], capture_output=True, text=True).stdout
+    out = subprocess.run(GIT + ["ls-files", "--", "raw/"], capture_output=True, text=True, encoding="utf-8").stdout
     return {nfc(indexed_name(l)) for l in out.splitlines() if indexed_name(l)}
 
 
@@ -149,7 +149,7 @@ def tracked_lane_files(lane: str) -> list:
     originals (docs/raw-layout.md § 레인 4), so only the lane's own level counts.
     """
     prefix = f"raw/{lane}/"
-    out = subprocess.run(GIT + ["ls-files", "--", prefix], capture_output=True, text=True).stdout
+    out = subprocess.run(GIT + ["ls-files", "--", prefix], capture_output=True, text=True, encoding="utf-8").stdout
     return sorted(nfc(l) for l in out.splitlines()
                   if l.startswith(prefix) and "/" not in l[len(prefix):])
 

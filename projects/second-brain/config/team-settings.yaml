@@ -12,7 +12,7 @@ vault:
 
 github:
   vault_repo: "lemoncloud-io/2nd-brain"  # 이 vault의 GitHub 좌표 (org/repo). clone 후 본인/팀 저장소로 교체
-  default_reviewer: "steve-lemon"  # PR 기본 리뷰어. clone 후 본인/팀 리뷰어로 교체
+  default_reviewer: "steve-lemon"  # PR 기본 리뷰어. clone 후 본인/팀 리뷰어로 교체. 빈 값("")이면 리뷰어 없이 PR을 연다(--reviewer 생략)
 
 mail:
   weekly_report:

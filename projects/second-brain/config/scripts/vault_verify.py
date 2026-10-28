@@ -188,11 +188,11 @@ def _changed_paths(
     """
     try:
         diff = subprocess.run(["git", "diff", "--name-status", base, "--", *pathspecs],
-                              cwd=vault, capture_output=True, text=True, timeout=60)
+                              cwd=vault, capture_output=True, text=True, encoding="utf-8", timeout=60)
         others = None
         if untracked:
             others = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", *pathspecs],
-                                    cwd=vault, capture_output=True, text=True, timeout=60)
+                                    cwd=vault, capture_output=True, text=True, encoding="utf-8", timeout=60)
     except (OSError, subprocess.SubprocessError):
         return None
     if diff.returncode != 0 or (others is not None and others.returncode != 0):
@@ -287,9 +287,9 @@ def check_snapshot_lane_placement(
     git = ["git", "-c", "core.quotepath=false", "-C", str(vault)]
     try:
         diff = subprocess.run(git + ["diff", "--name-status", "--find-renames", base, "--", "raw"],
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, encoding="utf-8", timeout=60)
         others = subprocess.run(git + ["ls-files", "--others", "--exclude-standard", "--", "raw"],
-                                capture_output=True, text=True, timeout=60)
+                                capture_output=True, text=True, encoding="utf-8", timeout=60)
     except (OSError, subprocess.SubprocessError) as exc:
         defects.append(f"snapshot lane placement check could not run: {exc}")
         return
@@ -768,7 +768,7 @@ def check_frontmatter(vault: Path, defects: list[str]) -> None:
             ["git", "ls-files", "-z", "*.md"],
             cwd=vault,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -808,7 +808,7 @@ def check_append_only(vault: Path, base: str, defects: list[str]) -> None:
             ["git", "diff", "--name-status", base, "--"] + existing,
             cwd=vault,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=60,
         )
     except (OSError, subprocess.SubprocessError) as exc:

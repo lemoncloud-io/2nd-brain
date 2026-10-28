@@ -69,7 +69,7 @@ def run(
     timeout: int = 60,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, timeout=timeout, check=False, env=env)
+    return subprocess.run(cmd, cwd=cwd, text=True, encoding="utf-8", capture_output=True, timeout=timeout, check=False, env=env)
 
 
 def acquire_lock(vault: Path) -> Path | None:
