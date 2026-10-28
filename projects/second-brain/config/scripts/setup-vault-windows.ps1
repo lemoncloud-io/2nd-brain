@@ -81,6 +81,17 @@ function Invoke-Native {
     try { & $Command } finally { $ErrorActionPreference = $prev }
 }
 
+# 이미 있는 checkout이 고른 repo가 아니면 그 vault를 설정·push하게 된다 — 다른 경로를 받는다.
+if ((Test-Path (Join-Path $TargetDir ".git")) -and
+    ((Get-NormalizedRepoUrl $RepoUrl) -ne (Get-NormalizedRepoUrl $TemplateUrl)) -and
+    (Get-Command git -ErrorAction SilentlyContinue)) {
+    $existingOrigin = Invoke-Native { git -C $TargetDir remote get-url origin 2>$null }
+    if ((Get-NormalizedRepoUrl "$existingOrigin") -ne (Get-NormalizedRepoUrl $RepoUrl)) {
+        $shown = if ($existingOrigin) { $existingOrigin } else { "origin 없음" }
+        Fail "$TargetDir 는 다른 repo($shown)의 checkout입니다 — $RepoUrl 이 아닙니다.`n다른 설치 경로를 지정해 재실행하세요: -TargetDir <경로>"
+    }
+}
+
 # 심링크 생성 권한(개발자 모드 또는 관리자) 점검. 이 vault는 .claude/skills를 심링크로
 # 추적하므로, 권한이 없으면 core.symlinks=true clone이 체크아웃 단계에서 실패한다.
 # New-Item -ItemType SymbolicLink는 쓰지 않는다 — Windows PowerShell 5.1의 구현이 개발자 모드를

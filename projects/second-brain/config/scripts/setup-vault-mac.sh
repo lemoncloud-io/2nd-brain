@@ -69,6 +69,14 @@ if [ "$NON_INTERACTIVE" = "1" ] && [ ! -d "$TARGET_DIR/.git" ] \
   fail "--non-interactive에는 --repo <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).
   새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/2nd-brain --private"
 fi
+# 이미 있는 checkout이 고른 repo가 아니면 그 vault를 설정·push하게 된다 — 다른 경로를 받는다.
+if [ -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" != "$(norm_url "$TEMPLATE_URL")" ] && command -v git >/dev/null 2>&1; then
+  EXISTING_ORIGIN="$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null || echo "")"
+  if [ "$(norm_url "$EXISTING_ORIGIN")" != "$(norm_url "$REPO_URL")" ]; then
+    fail "$TARGET_DIR 는 다른 repo(${EXISTING_ORIGIN:-origin 없음})의 checkout입니다 — $REPO_URL 이 아닙니다.
+  다른 설치 경로를 지정해 재실행하세요: --target <경로>"
+  fi
+fi
 
 SHELL_NAME="${SHELL##*/}"
 case "$SHELL_NAME" in

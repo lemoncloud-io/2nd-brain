@@ -7,7 +7,7 @@
 github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 ```
 
-끝나면 사용자 컴퓨터에 사용자 본인의 비공개 위키 repo(`~/knowledge`)가 생기고, 그 폴더로 연 새 세션에서
+끝나면 사용자 컴퓨터에 사용자 본인의 비공개 위키 repo(기본 `~/knowledge`)가 생기고, 그 폴더로 연 새 세션에서
 "클리핑 처리해줘"·"볼트 뷰어 열어줘" 같은 말로 위키를 쓴다. Obsidian은 필요 없다.
 
 사람이 터미널에서 직접 설치하려면 이 문서 대신 [`README.md`](README.md) § 빠른 시작의 설치 스크립트를 쓴다.
@@ -20,7 +20,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
   사용자가 손으로 할 일은 이 문서가 그렇게 적은 단계(Homebrew 설치·GitHub 승인·Windows 개발자 모드)뿐이다.
 - 각 단계는 **실행 → 확인 → 실패 시** 순서다. 확인이 통과해야 다음 단계로 간다. 실패하면 그 단계의 "실패 시"를 따르고,
   거기에 없는 실패는 에러 문구 한 줄을 사용자에게 보여주고 멈춘다.
-- 기존 폴더·파일을 지우거나 덮어쓰지 않는다. `~/knowledge`가 이미 있으면 7단계 설치 스크립트가 판단한다.
+- 기존 폴더·파일을 지우거나 덮어쓰지 않는다. 설치 위치에 폴더가 이미 있으면 7단계 설치 스크립트가 판단한다.
 - 설치 스크립트는 재실행해도 안전하다. 중간에 멈췄으면 고친 뒤 같은 명령을 다시 실행한다.
 - 오래 걸리는 명령(설치 스크립트, `npm ci`)은 타임아웃을 10분으로 잡거나 백그라운드로 돌린다.
 
@@ -38,8 +38,13 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 - **이미 쓰는 팀 위키 repo가 있나요?** 팀 관리자에게 주소를 받았다면 그 주소(`https://github.com/<org>/<repo>`).
   없으면 새로 만든다 — 기본 이름 `my-2nd-brain`(사용자가 다른 이름을 원하면 그 이름).
 
-설치 위치는 `~/knowledge`(Windows `$HOME\knowledge`)로 고정한다. 사용자가 다른 위치를 명시했을 때만 바꾸고,
-7단계에 `--target`(Windows `-TargetDir`)으로 넘긴다.
+설치 위치(`VAULT`)는 고정하지 않고 아래 순서로 정한다. 처음 맞는 값을 쓰고 사용자에게 한 줄로 알린다.
+
+1. 사용자가 위치를 말했으면 그 위치.
+2. 환경변수 `VAULT_DIR`가 있으면 그 경로(`echo "$VAULT_DIR"` · Windows `$env:VAULT_DIR`) — 예전에 설치한 위키다.
+3. 둘 다 없으면 `~/knowledge`(Windows `$HOME\knowledge`)를 제안하고 사용자가 좋다고 하면 쓴다.
+
+정한 위치는 7단계에 항상 `--target`(Windows `-TargetDir`)으로 넘긴다.
 
 ## 2단계 — 도구 확인
 
@@ -138,6 +143,8 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
   - `GitHub 로그인이 필요합니다` → 4단계.
   - `폴더가 이미 있고 비어있지 않은데 git repo가 아닙니다` → 사용자에게 그 폴더를 어떻게 할지 묻는다. 지우지 말고,
     다른 위치를 원하면 `--target`(Windows `-TargetDir`)으로 다시 실행한다.
+  - `다른 repo(…)의 checkout입니다` → 그 폴더는 6단계에서 고른 repo가 아닌 다른 위키다. 건드리지 말고 사용자에게
+    다른 설치 위치를 물어 `--target`(Windows `-TargetDir`)으로 다시 실행한다.
   - (Windows) `심링크 … 텍스트 파일로 체크아웃됐습니다` 경고 → 사용자에게 **설정 → 시스템 → 개발자용 → 개발자 모드 켜기**를
     부탁한 뒤 `git -C "$VAULT" checkout -- .`을 실행한다.
 
@@ -149,7 +156,8 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 - **실행**: `$VAULT/projects/second-brain/config/team-settings.yaml`에서 세 값만 바꾼다. 다른 줄과 주석은 그대로 둔다.
   - `vault.name` → `"<NAME>의 2nd-brain"`
   - `github.vault_repo` → `"<LOGIN>/<이름>"`
-  - `github.default_reviewer` → `"<LOGIN>"`
+  - `github.default_reviewer` → `""` — 혼자 쓰는 위키라 리뷰어를 비운다(GitHub은 PR 작성자 본인을 리뷰어로 지정할 수 없다).
+    함께 볼 사람이 있으면 그 사람의 GitHub 아이디.
 
   그 다음 커밋해 올린다:
   ```bash
@@ -164,14 +172,19 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 
 "볼트 뷰어 열어줘"·"연결 그래프 보여줘"가 쓰는 로컬 뷰어를 미리 빌드해 둔다.
 
-- **실행**: `cd "$VAULT/projects/knowledge-viewer/config/app" && npm ci && npm run build`
+- **실행**: macOS `cd "$VAULT/projects/knowledge-viewer/config/app" && npm ci && npm run build`
+  · Windows PowerShell(`&&` 미지원 — 5.1):
+  ```powershell
+  Set-Location "$VAULT\projects\knowledge-viewer\config\app" -ErrorAction Stop; npm ci; if ($LASTEXITCODE -eq 0) { npm run build }
+  ```
 - **확인**: 두 명령이 0으로 끝난다.
 - **실패 시**: `node`가 없거나 24 미만이면 macOS `brew install node` · Windows `winget install --id OpenJS.NodeJS.LTS -e` 후
   다시 실행한다. 그래도 실패하면 건너뛰고 10단계 안내에 "지식 뷰어는 아직 준비되지 않았다"를 한 줄 덧붙인다.
 
 ## 10단계 — 구조 검증
 
-- **실행**: `cd "$VAULT" && uv run --no-project projects/second-brain/config/scripts/vault_verify.py`
+- **실행**: macOS `cd "$VAULT" && uv run --no-project projects/second-brain/config/scripts/vault_verify.py`
+  · Windows PowerShell: `Set-Location "$VAULT" -ErrorAction Stop; uv run --no-project projects\second-brain\config\scripts\vault_verify.py`
   (`uv`가 없으면 `python3`, Windows는 `python`으로 같은 파일을 실행한다)
 - **확인**: 첫 줄이 `PASS`로 시작하고 종료 코드가 0이다.
 - **실패 시**: `FAIL` 줄을 사용자에게 그대로 보여주고 멈춘다 — 막 만든 repo에서 실패하면 템플릿 결함이므로
@@ -186,7 +199,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 >
 > 이제 위키 폴더에서 새로 시작해야 합니다.
 > 1. Claude 앱 **Code 탭**에서 새 세션을 엽니다.
-> 2. 폴더 선택에서 홈 폴더의 **`knowledge`** 를 고릅니다.
+> 2. 폴더 선택에서 **`<VAULT>`** 폴더를 고릅니다.
 > 3. 그 세션에서 이렇게 말해 보세요.
 >    - "클리핑 처리해줘" — `Clippings/` 폴더에 넣어 둔 글을 위키 문서로 정리
 >    - "○○에 대해 위키에서 찾아줘" — 위키를 근거로 답변

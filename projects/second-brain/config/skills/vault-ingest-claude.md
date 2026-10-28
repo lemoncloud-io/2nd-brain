@@ -79,7 +79,7 @@ Claude가 ingest를 수행할 때는 파일만 고치는 것이 아니라 결과
    - `Clippings/`에 아직 커밋되지 않은 파일이 있으면, 이번에 처리할 파일들만 정리해 별도의 시작 커밋으로 남긴다(예: `chore: stage N clippings for ingest`). 이미 커밋되어 있으면 이 하위 단계는 건너뛰고 그 사실을 최종 보고에 남긴다.
 2. **ingest 처리**: 아래 "Claude job spec"에 따라 실제 컨텐츠 변환을 수행한다(원문에서 개념 추출, wiki 작성/갱신, `raw/` 이동, `wiki/INDEX.md`·`wiki/topics/`·`wiki/TOPIC_MAP.md` 갱신, `outputs/runs/`에 run-log 노트 작성). `wiki/VAULT_MEMORY.md`는 건드리지 않는다 — 2026-09-03부터 실행 카운터가 없다. 이 단계 자체에서는 커밋하지 않는다.
 3. **결과 커밋**: 처리로 변경된 파일만 스테이징해 하나의 커밋으로 남긴다. 커밋 메시지는 처리한 클리핑 수와 새/갱신 wiki 문서를 요약한다(예: `feat: ingest 3 clippings into wiki (ai-agents, knowledge-management)`). 시작 커밋(선택)과 결과 커밋(필수) 두 개로 정리하고, 중간에 커밋을 더 쪼개지 않는다. raw 색인 생성기(`generate_raw_index.py`)는 돌리지 않고 `docs/raw-index.*`는 스테이징하지 않는다 — 색인은 다음 lint 패스가 갱신한다(`docs/raw-layout.md` § 색인).
-4. **PR 오픈**: 결과 커밋 뒤 확인을 기다리지 않고 바로 브랜치를 push하고 `gh pr create`로 PR을 연다. base는 `master`, 기본 리뷰어는 `projects/second-brain/config/team-settings.yaml`의 `github.default_reviewer`다(`gh pr create --base master --reviewer <github.default_reviewer 값> ...`). PR 본문에는 처리한 클리핑, wiki 변경 요약, 남은 needs-update/open question을 적는다.
+4. **PR 오픈**: 결과 커밋 뒤 확인을 기다리지 않고 바로 브랜치를 push하고 `gh pr create`로 PR을 연다. base는 `master`, 기본 리뷰어는 `projects/second-brain/config/team-settings.yaml`의 `github.default_reviewer`다(`gh pr create --base master --reviewer <github.default_reviewer 값> ...`, 값이 비었으면 `--reviewer`를 뺀다). PR 본문에는 처리한 클리핑, wiki 변경 요약, 남은 needs-update/open question을 적는다.
 5. **완료 보고**: 처리한 클리핑, 생성/갱신 문서, topic/index 갱신, 남은 needs-update/open question, 그리고 열린 PR 링크를 사용자에게 요약해서 보고한다. 이 단계는 사후 보고이며 진행 여부를 묻지 않는다.
 
 ### git/PR 관련 금지 사항
@@ -153,7 +153,8 @@ Rules:
   slugified `git config user.name`, then `whoami` — this vault is a shared team space,
   so the branch name must show who ran the ingest), commit the processed result, then
   push the branch and open a PR automatically (base master; reviewer = the
-  `github.default_reviewer` value in projects/second-brain/config/team-settings.yaml)
+  `github.default_reviewer` value in projects/second-brain/config/team-settings.yaml;
+  omit `--reviewer` when that value is empty)
   without waiting for confirmation.
 - Do not run generate_raw_index.py and do not stage docs/raw-index.yml or docs/raw-index.md —
   only the lint lane commits the raw index; the next lint pass updates it
