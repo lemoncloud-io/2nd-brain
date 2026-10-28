@@ -51,7 +51,7 @@ DELETED_RE = re.compile(
 
 
 def git(*args: str, check: bool = True) -> str:
-    r = subprocess.run(["git", *args], capture_output=True, text=True)
+    r = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8")
     if check and r.returncode != 0:
         raise SystemExit(f"git {' '.join(args)} failed: {r.stderr.strip()}")
     return r.stdout
@@ -103,7 +103,7 @@ def find_pr(path: str, fm_pr: str) -> str | None:
         try:
             r = subprocess.run(["gh", "api", f"repos/{repo}/commits/{sha}/pulls",
                                 "--jq", "[.[]|select(.merged_at!=null)][0].number // empty"],
-                               capture_output=True, text=True, timeout=20)
+                               capture_output=True, text=True, encoding="utf-8", timeout=20)
             if r.returncode == 0 and r.stdout.strip().isdigit():
                 return r.stdout.strip()
         except (OSError, subprocess.TimeoutExpired):
@@ -310,7 +310,7 @@ def main() -> int:
                   f"{', Answer needed' if not note['answer'] or note['answer'] == PLACEHOLDER else ''}")
         return 0
     if gone_now:
-        dry = subprocess.run(["git", "rm", "-n", "-q", "--", *sorted(gone_now)], capture_output=True, text=True)
+        dry = subprocess.run(["git", "rm", "-n", "-q", "--", *sorted(gone_now)], capture_output=True, text=True, encoding="utf-8")
         if dry.returncode != 0:
             print(f"refusing: git rm would fail, nothing written ({dry.stderr.strip().splitlines()[0]})", file=sys.stderr)
             return 4

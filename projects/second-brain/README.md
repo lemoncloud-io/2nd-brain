@@ -78,6 +78,7 @@ Use the resolved `$VAULT_DIR` (the cloned vault root) as the setup and testing e
 - 2026-10-19: `config/` 갱신(6파일) — 고아 스캐너 보정(`{{…}}` 템플릿 슬롯은 링크가 아님, `--broken` 은 `Clippings/` 제외, mention 수정은 frontmatter 를 건드리지 않음), 스킬·계약 문서의 참조 표기 정리. 검증: scripts unittest 157 OK(skip 6).
   origin: lemoncloud-io/knowledge@6f4088ca:projects/second-brain/config/
 - 2026-10-27: `scripts/setup-vault-mac.sh`·`setup-vault-windows.ps1`에 비대화형 모드(`--non-interactive`·`-NonInteractive`) 추가 — 루트 [`SETUP.md`](../../SETUP.md) 에이전트 런북이 Claude 데스크톱 Code 탭에서 실행한다. 이름·이메일·repo를 인자로 받고, sudo·로그인이 필요한 단계는 기다리지 않고 이유를 출력하며 실패, Claude Code 설치 생략, Obsidian은 옵션. 두 스크립트 모두 Node.js 24+(지식 뷰어용)를 설치한다. 이 vault에서 직접 고친 것이라 `lemoncloud-io/knowledge` 원본에 옮기기 전까지 다음 `config/` 동기화가 덮어쓴다.
+- 2026-10-28: `scripts/`의 git·gh 호출(`subprocess.run(text=True)`)에 `encoding="utf-8"` 지정 — `vault_verify.py`·`generate_raw_index.py`·`outputs_compact.py`·`vault_ingest_once.py` 13곳. 지정하지 않으면 Windows가 로캘 코드페이지(cp1252·cp949)로 디코드해 한글 경로에서 `UnicodeDecodeError`로 죽는다(Windows PowerShell 5.1 러너에서 SETUP 10단계 재현). 검증: scripts unittest 157 OK(skip 6). 위 항목과 같이 원본에 옮기기 전까지 다음 동기화가 덮어쓴다.
 
 ## Outputs
 
