@@ -1,5 +1,5 @@
 # 볼트 읽기 뷰어 — 코어 유닛
-<!-- origin: lemoncloud-io/knowledge@f68f1d38:projects/knowledge-viewer/config/README.md -->
+<!-- origin: lemoncloud-io/knowledge@121d6640:projects/knowledge-viewer/config/README.md -->
 
 볼트 문서를 주소 하나(`/v/<path>`)로 여는 읽기 전용 로컬 뷰어다. md 리더·HTML 틀·연결 지도·검색·사이드 패널·PR 리뷰 모드·앱 플러그인 런타임이 여기 있다.
 이 폴더(`config/`)는 볼트마다 같은 코드다. 볼트마다 다른 것(앱 등록·가운데 열 화면·기본 허용 호스트)은 이 폴더 밖 볼트 소유 확장 층(`../ext/`)에 둔다.
@@ -23,6 +23,21 @@
 
 확장을 끈 채로 보려면 `KNOWLEDGE_VIEWER_EXT=off npm run build` 처럼 환경 변수를 준다.
 
+## 이름으로 열기(선택)
+
+역프록시 뒤 개인 이름(예: `vault.local` — 이름은 각자 고른다)으로 상시 서버를 여는 사용법이다. 이름이 없으면 `127.0.0.1:<그 볼트의 포트>`(기본 8778) 그대로다.
+
+- **허용.** 실행 환경에 `KNOWLEDGE_VIEWER_PUBLIC_HOSTS=<이름>`(쉼표로 여럿) 또는 `--public-host <이름>`을 준다. 없으면 그 이름은 `127.0.0.1`로 넘겨진다.
+- **주소 꼴.** 문서 `http://<이름>/v/<경로>?src=local#<앵커>`, 앱 `http://<이름>/apps/<id>`, PR 보기 `http://<이름>/v/<경로>?src=pr:<n>`.
+- **볼트 하나.** 상시 서버는 `--vault`로 준 볼트 루트 하나만 낸다. 세션 워크트리의 문서는 그 이름으로 열지 못한다.
+  그때는 `knowledge-viewer-open` 스킬의 원래 절차(launch.json 항목 · 다른 포트)로 띄운다.
+- **한 기기에 볼트가 여럿.** 이름·포트·상시 서비스가 볼트마다 하나씩이다. 여는 스킬은 같은 앱의 이름 후보를 차례로 견줘 자기 볼트의 이름을 고른다.
+  라벨·로그·포트 규칙은 아래 셋업 절차 문서의 "한 기기에 볼트가 여럿일 때" 절이다.
+- **여는 스킬의 흐름.** 볼트에 로컬 이름 생성기가 있으면 `render.mjs url --app knowledge-viewer`로 그 사람의 이름을 찾는다.
+  답한 이름(여럿이면 `candidates` 순서)마다 `app/same-vault.ts`로 같은 볼트인지 견준다. 같은 첫 이름으로 연다. 없으면 기본 주소다.
+- **셋업 절차.** 상시 서비스(LaunchAgent) · 이름 추가 · 갱신 · AI 키 파일 · 문제 해결은 이 유닛 밖 로컬 이름 프록시 스킬이 정본이다:
+  `projects/local-nginx-proxy/config/skills/local-nginx-proxy/references/vault-viewer.md`(해당 문서가 있는 볼트에서만).
+
 ## 확장 지점
 
 코어를 고치지 않고 붙일 수 있는 것은 아래가 전부다. 확장은 세 파일에 나눠 쓴다.
@@ -34,6 +49,8 @@
 | `ext/build.ts` | Node(Vite 설정·`start.ts` 설치 전) | `defineBuildExtension({...})` | `app/ext-build.ts` |
 
 세 파일 모두 선택이다. 없는 파일은 빈 확장으로 읽는다.
+
+프로젝트 리뷰 뷰어(`viewer.yml`)를 붙이는 자리는 이 표가 아니라 동반 유닛의 [셸 확장 지점](../../project-viewer/config/README.md#확장-지점)이다.
 
 ### 위치
 
