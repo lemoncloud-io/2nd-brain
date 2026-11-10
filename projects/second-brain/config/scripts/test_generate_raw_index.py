@@ -395,7 +395,7 @@ class XlsxLane(unittest.TestCase):
 
 
 class GraphSchema(unittest.TestCase):
-    """설계 § raw 색인 — docs/raw-index.yml 스키마 2: 노드 키·엣지 종류·같은 줄 규칙."""
+    """계약 docs/raw-layout.md § 색인 — docs/raw-index.yml 스키마 2: 노드 키·엣지 종류·같은 줄 규칙."""
 
     def test_header_and_node_key(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -408,6 +408,9 @@ class GraphSchema(unittest.TestCase):
             run(root)
             yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
             self.assertIn("\nschema: 2\n", yml)
+            # 머리 주석은 배포되는 계약 문서만 가리킨다(설계 문서는 일부 볼트에만 있다).
+            self.assertIn("\n# 계약·형식: docs/raw-layout.md § 색인", yml)
+            self.assertNotIn("superpowers", yml)
             self.assertNotIn("entries", yml)
             k = hashlib.sha1("raw/a.md".encode("utf-8")).hexdigest()[:12]
             self.assertRegex(

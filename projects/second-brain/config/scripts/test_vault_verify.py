@@ -1140,6 +1140,8 @@ class SkillLintGitTest(unittest.TestCase):
         self._git("commit", "-qam", "break")
         defects, _ = self._check()
         self.assertTrue(defects and "E1" in defects[0], defects)
+        # 계약 문서가 없는 볼트에서도 안내가 되게 스크립트 머리 설명을 가리킨다.
+        self.assertIn("skill_lint.py 머리의 규칙 설명", defects[0])
 
     def test_warnings_are_notes_not_defects(self):
         body = self.GOOD.format(name="alpha") + "".join(f"- 줄 {i}\n" for i in range(120))

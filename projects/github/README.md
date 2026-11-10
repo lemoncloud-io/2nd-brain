@@ -6,7 +6,7 @@ due:
 milestones: []
 next_action: ""
 managed: vault-sync
-origin: lemoncloud-io/knowledge@f68f1d38:projects/github/
+origin: lemoncloud-io/knowledge@d035feac:projects/github/
 ---
 
 # github
@@ -23,3 +23,4 @@ PR 을 리뷰하는 절차 스킬을 둔다. 핵심 질문은 "지시 없이 무
 ## Sync Notes
 
 - `config/` 아래 파일은 출처 스탬프(`origin:`)가 있는 사본이다. 손으로 고치지 않는다. 바꿀 것이 있으면 볼트 운영자에게 요청한다.
+- 2026-11-11: 스킬 계약 정비 — `SKILL.md` 에 § 언제 쓰나·§ 하지 않는 것, `review-checklist.md` 에 목차. 리뷰 절차는 그대로다.

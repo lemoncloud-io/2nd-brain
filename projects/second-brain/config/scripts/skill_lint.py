@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Lint SKILL.md files against the vault's skill authoring contract.
 
-Contract: `docs/agent-skills-registration.md` § 7 (SKILL.md 검증 항목). Stdlib only.
+Contract: `docs/agent-skills-registration.md` § 7 (SKILL.md 검증 항목). 그 문서가 없는 볼트에서는
+아래 규칙 설명이 기준이다 — 문서를 읽지 않아도 E1~E3·W1~W2 를 고칠 수 있게 적었다. Stdlib only.
 
     python3 projects/second-brain/config/scripts/skill_lint.py <SKILL.md | 폴더>...
     python3 projects/second-brain/config/scripts/skill_lint.py --changed --base "$(git merge-base HEAD origin/master)"
@@ -14,7 +15,10 @@ Errors (exit 1):
   E3 SKILL.md의 상대 링크(Markdown 링크·`references/…` 경로)가 실제 파일로 풀린다.
 Warnings (exit 0):
   W1 100줄 초과 SKILL.md는 첫 100줄 안에 트리거 절과 금지·경계 절 제목을 둔다(키워드 휴리스틱).
-  W2 스킬 폴더 안의 참조 md가 100줄을 넘으면 첫 100줄 안에 목차를 둔다.
+     제목에 트리거 절은 "언제·트리거·When to use" 류, 금지·경계 절은 "하지 않는 것·금지·경계·
+     Boundaries" 류 낱말이 들면 된다(목록은 TRIGGER_KEYWORDS·BOUNDARY_KEYWORDS).
+  W2 스킬 폴더 안의 참조 md가 100줄을 넘으면 첫 100줄 안에 목차를 둔다. 목차 제목(목차·Contents·ToC)
+     또는 앵커 링크 목록 두 줄 이상을 목차로 본다.
 
 --changed: base 이후 바뀐(추가·수정·이름 변경·미추적) SKILL.md, 또는 바뀐 md를 폴더 안에
 가진 스킬만 검사한다. --all: `git ls-files`의 SKILL.md 전부(raw/·archive/ 제외).
@@ -278,7 +282,7 @@ def lint_many(skills: list[Path], root: Path | None = None) -> list[dict]:
 
 def main(argv: list[str] | None = None) -> int:
     """명령행 진입점 — 결과를 사람용 또는 JSON으로 출력한다."""
-    parser = argparse.ArgumentParser(description="Lint SKILL.md files (docs/agent-skills-registration.md § 7).")
+    parser = argparse.ArgumentParser(description="Lint SKILL.md files (docs/agent-skills-registration.md § 7; 그 문서가 없는 볼트에서는 이 스크립트 머리의 규칙 설명).")
     parser.add_argument("paths", nargs="*", help="SKILL.md 또는 스킬 폴더")
     parser.add_argument("--changed", action="store_true", help="--base 이후 바뀐 스킬만")
     parser.add_argument("--base", default="HEAD", help="--changed의 기준 ref (기본 HEAD)")

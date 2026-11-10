@@ -1,8 +1,16 @@
 # 의사결정 리뷰 항목표
-<!-- origin: lemoncloud-io/knowledge@f68f1d38:projects/github/config/skills/github-review/references/review-checklist.md -->
+<!-- origin: lemoncloud-io/knowledge@d035feac:projects/github/config/skills/github-review/references/review-checklist.md -->
 
 사용자가 제시한 세 축(Decision · Metrics · 시각화/AI 교차 검증)을 실제 리뷰 질문으로 옮긴 표다.
 매번 전 항목을 채우는 양식이 아니다. 변경의 위험과 목적에 맞게 선택한다.
+
+## 목차
+
+- [결정 검증 항목](#결정-검증-항목) · [결정 원장](#결정-원장)
+- [지표 기록](#지표-기록)
+- [다이어그램 확인](#다이어그램-확인)
+- [교차 검증 요청 틀](#교차-검증-요청-틀) · [이견 처리 기록](#이견-처리-기록)
+- [보고와 완료 기준](#보고와-완료-기준) · [지적 한 건](#지적-한-건)
 
 ## 결정 검증 항목
 

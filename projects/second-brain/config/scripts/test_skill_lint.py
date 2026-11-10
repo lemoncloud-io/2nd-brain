@@ -33,6 +33,16 @@ def long_body(head: str, total: int) -> str:
     return "\n".join(lines + [f"- 줄 {i}" for i in range(total - len(lines))]) + "\n"
 
 
+class SelfContainedRulesTest(unittest.TestCase):
+    """계약 문서가 없는 볼트에서도 스크립트 머리 설명만으로 규칙을 읽을 수 있다."""
+
+    # 규칙 코드 다섯이 모두 머리 설명에 한 줄 이상으로 적혀 있다.
+    def test_docstring_names_every_rule(self):
+        doc = skill_lint.__doc__ or ""
+        for code in ("E1", "E2", "E3", "W1", "W2"):
+            self.assertRegex(doc, rf"\n  {code} \S")
+
+
 class LintSkillTest(unittest.TestCase):
     """lint_skill 한 건 단위 검사."""
 
