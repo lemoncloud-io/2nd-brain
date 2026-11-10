@@ -1,5 +1,5 @@
 ---
-type: run-log
+type: run-log           # 볼트 운영 전용. 프로젝트 작업 기록은 query-output.md → projects/<name>/outputs/
 kind: ingest            # ingest | promotion | maintenance
 run_date: "{{date}}"
 author:                 # 작업자 slug (gh login)
@@ -13,7 +13,7 @@ tags: []                # 주제 태그 — 새 태그보다 기존 태그 재�
 sources: []
 # notes: 산출/갱신한 wiki 노트 — quoted wikilinks ("[[slug|Alias]]")
 notes: []
-# origin: lemoncloud-io/knowledge@2bebda4:templates/run-log.md
+# origin: lemoncloud-io/knowledge@f68f1d38:templates/run-log.md
 ---
 
 # {{title}}

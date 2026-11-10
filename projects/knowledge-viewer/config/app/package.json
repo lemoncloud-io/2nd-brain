@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "description": "볼트 전체를 읽는 읽기 전용 로컬 뷰어. md·HTML·React 뷰어를 /v/<path> 주소 하나로 연다.",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
-    "test": "node --test \"tests/**/*.test.ts\"",
+    "test": "node --import ./tests/helpers/ext-hooks.ts --test \"tests/**/*.test.ts\"",
     "build": "vite build",
     "dev": "vite",
     "start": "node start.ts",
     "link-cache": "node link-cache.ts",
     "viewers-build": "node viewers-build.ts",
+    "same-vault": "node same-vault.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +22,7 @@
     "d3-force-3d": "^3.0.6",
     "force-graph": "^1.52.0",
     "github-slugger": "^2.0.0",
+    "highlight.js": "^11.12.0",
     "mdast-util-from-markdown": "^2.0.2",
     "mdast-util-to-hast": "^13.2.1",
     "mdast-util-to-string": "^4.0.0",
@@ -26,13 +30,15 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.5",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "three": "^0.186.1",
     "three-spritetext": "^1.10.0",
     "unist-util-visit": "^5.0.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/mdast": "^4.0.4",

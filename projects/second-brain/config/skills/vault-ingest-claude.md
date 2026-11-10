@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)의 Clippings 처리를 Claude CLI/Claude Code에
   우선 위임한다. Hermes는 트리거, 동시 실행 방지, Claude 가용성 확인, Hermes-native
   fallback, 결과 검증, 요약 보고를 담당한다.
-origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-ingest-claude.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-ingest-claude.md
 ---
 
 # Vault Ingest Claude (Hermes -> Claude)
@@ -121,6 +121,10 @@ Process every markdown file in Clippings/.
 Before processing a clipping, check whether its `source:` URL already exists in raw/
 frontmatter; if it does, update the existing wiki note(s) instead of creating a duplicate,
 and still preserve the re-clipped original in raw/ with a `-1`/`-2` suffix.
+Run `python3 projects/second-brain/config/scripts/raw_source_gate.py Clippings/*.md` for this check: it
+also reads the raw/ files of open PRs. Exit 1 lists each taken source with its raw path or PR number
+(a source in an open PR means that PR's note is the one to update); exit 2 means `gh` failed and
+the gate did not finish — report it, never treat the clipping as new.
 Move processed originals to raw/ without changing their content. Normalize only the
 FILENAME at move time (docs/raw-layout.md): smart punctuation to ASCII (never producing
 a straight double quote), strip Windows-forbidden characters (`< > : " / \ | ? *`,
@@ -145,6 +149,9 @@ Rules:
 - Use Obsidian aliases as [[note-slug|Alias]], not [[note-slug\|Alias]] — except inside a
   Markdown table cell, where the pipe MUST be escaped ([[note-slug\|Alias]]) or it splits the cell.
 - Mark unsupported or time-sensitive claims as needs-update or TODO.
+- In a note's `## Open Questions`, write only what the sources and a quick check cannot answer — one question
+  per top-level bullet. Prefix `needs-update:` when re-reading a primary source would close it. Every bullet
+  joins the open-question queue (vault-questions skill); a bullet the ingest itself could have answered is debt.
 - Never append a per-run narrative to wiki/VAULT_MEMORY.md: it is loaded every session and capped at
   8 KB. Narrative goes to the run-log note. Do not restate project status in memory either —
   projects/<name>/README.md frontmatter is the source of truth.

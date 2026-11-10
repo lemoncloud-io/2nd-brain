@@ -29,10 +29,28 @@ Fix plan, simulated round by round until nothing changes (each fix can open up m
   readme   the nearest ancestor README.md is reachable — list the orphan under that README's
            `## Document Map` section (created at the end of the README if absent)
   hub      neither applies — a hub page must be linked by hand (reported, never applied)
+Folder index: a README whose `## Document Map` section carries `<!-- docmap: folder -->` reaches
+every Markdown document in its folder tree by itself, stopping at a subfolder that has its own
+README (that README is one entry; its documents are its job). A PR that adds a document there
+edits no shared list — a hand-kept list conflicted (2026-10-21) when parallel PRs each
+appended an output to the same project README § Outputs. --apply regenerates the list from the
+tree, sorted by path: a hand-written line stays verbatim while its path exists, an entry whose
+file is gone is dropped, an unlisted document is added as `- [title](path)`. The lint lane
+refreshes it; a PR author never edits it by hand to make a document reachable.
 Never edited by a fix: dated records (outputs/runs/, outputs/monthly/, areas/weekly/, files
 named YYYY-MM-DD-*) — a plain mention inside a record stays as written —, frozen or generated
-files (the ingest ledger, the raw index summary, VAULT_MEMORY), and tooling
+files (the ingest ledger, the raw index summary, VAULT_MEMORY, and any file whose frontmatter
+carries `frozen:` — vault_verify.py check 14 fails a change set that edits one), and tooling
 (config/ trees, templates/), whose text agents and scripts read as is.
+Never edited either: a copy managed elsewhere — a file whose top carries an origin stamp
+(`origin: <org>/<repo>@<hash>:<path>` as a frontmatter key, or, without frontmatter, a
+`# origin: …` or `<!-- origin: … -->` line in the first 10 lines). An edit would make the copy
+differ from its source and block the next refresh. A mention inside such a copy is passed over
+for the next mention, then a README fix; a stamped README is passed over for the README above;
+a stamped folder index is not regenerated. --plan, --apply and --json list every skip
+(`skipped_managed`); an orphan with no other way stays a hub with the copies that blocked it.
+To change such a file, ask the side that manages the copy. Reachability and --broken read the
+copy like any other document.
 
 Broken links (--broken): a link in a scanned document that resolves to no document — not to a
 scanned one, not to a file on disk (raw/, archive/ and non-Markdown paths are looked up by
@@ -62,6 +80,7 @@ EXCLUDED_TOP = {"private", "raw", "archive"}
 MAP_HEADING = "## Document Map"
 MAP_INTRO = ("> `vault_orphans.py --apply`가 채운 목록이다 — `wiki/INDEX.md`에서 이 아래 문서로 가는 연결. "
              "손으로 다듬어도 된다.")
+FOLDER_MARKER = "<!-- docmap: folder -->"
 
 FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.S | re.M)
 INLINE_CODE = re.compile(r"`([^`\n]+)`")
@@ -69,6 +88,7 @@ WIKILINK = re.compile(r"!?\[\[([^\]]+?)\]\]")
 MDLINK = re.compile(r"\]\((?!https?:|mailto:|#)<?([^)\s>]+?)>?(?:#[^)]*)?\)")
 DATED = re.compile(r"(^|/)\d{4}-\d{2}-\d{2}[^/]*\.md$")
 PLACEHOLDER = re.compile(r"[<>]|\{\{")  # `[[<slug>]]`, `[x](docs/<file>.md)`, `{{company}}` — an example or a template slot, not a link
+ATTACHMENT = re.compile(r"\.(?!md$)[A-Za-z0-9]{1,5}$", re.I)  # `x.png`, `docs/y.pdf` — a file Obsidian embeds or opens
 RECORD_PREFIXES = ("outputs/runs/", "outputs/monthly/", "areas/weekly/")
 
 
@@ -127,7 +147,33 @@ FROZEN = {"docs/vault-ingest-log.md",  # frozen ledger (2026-08-14)
           "wiki/VAULT_MEMORY.md"}      # loaded every session, 8 KB cap
 
 
+FROZEN_KEY = re.compile(r"^frozen:", re.M)  # frontmatter `frozen: YYYY-MM-DD` (VAULT_RULES § Frozen files)
+
+
 RULE_FILES = {"CLAUDE.md", "AGENTS.md", "VAULT_RULES.md"}  # the vault's own rules: never rewritten by a fix
+
+
+STAMP_VALUE = r"[\"']?[^\s\"'@/]+/[^\s\"'@]+@[0-9A-Za-z]+:[^\n\"']+?[\"']?"  # <org>/<repo>@<hash>:<path>
+STAMP_KEY = re.compile(r"^origin:[ \t]*" + STAMP_VALUE + r"[ \t]*$", re.M)  # frontmatter key form
+STAMP_COMMENT = re.compile(r"^(?:#[ \t]*origin:[ \t]*" + STAMP_VALUE + r"|<!--[ \t]*origin:[ \t]*"
+                           + STAMP_VALUE + r"[ \t]*-->)[ \t]*$")  # comment-line form
+STAMP_LINES = 10  # without frontmatter, a comment stamp must sit in the first 10 lines
+
+
+def is_managed_copy(text):
+    """True when the file's top carries an origin stamp: a copy managed elsewhere, never edited by a fix.
+
+    With frontmatter only its `origin:` key counts; without it, a `# origin:` or `<!-- origin: -->`
+    line in the first 10 lines before any code fence. An `origin:` example in the body is not a stamp.
+    """
+    if text.startswith("---"):
+        return bool(STAMP_KEY.search(frontmatter(text)))
+    for line in text.split("\n", STAMP_LINES)[:STAMP_LINES]:
+        if line.startswith(("```", "~~~")):  # a code example from here on, not a stamp
+            break
+        if STAMP_COMMENT.match(line.strip()):
+            return True
+    return False
 
 
 def editable(path):
@@ -139,6 +185,25 @@ def editable(path):
 
 def strip_code(text):
     return INLINE_CODE.sub("", FENCE.sub("", text))
+
+
+def split_docmap(text):
+    """(head, section, rest) around the `## Document Map` section, or None when there is none.
+
+    `section` is everything after the heading up to the next `## ` heading (exclusive);
+    text == head + MAP_HEADING + section + rest.
+    """
+    if MAP_HEADING not in text:
+        return None
+    head, tail = text.split(MAP_HEADING, 1)
+    nxt = re.search(r"^## ", tail, re.M)
+    section, rest = (tail[:nxt.start()], tail[nxt.start():]) if nxt else (tail, "")
+    return head, section, rest
+
+
+def is_folder_index(text):
+    parts = split_docmap(text)
+    return bool(parts) and FOLDER_MARKER in parts[1]
 
 
 def extract_targets(text):
@@ -181,9 +246,16 @@ class Vault:
                 self.suffix_count[suffix] += 1
                 self.by_suffix[suffix.lower()].append(f)
         self.edges = {f: self._edges(f) for f in self.files}
+        self._folder_indexes = {f: self.covered(f) for f in sorted(self.files)
+                                if os.path.basename(f) == "README.md" and is_folder_index(self.text[f])}
+        for readme, covered in self._folder_indexes.items():
+            self.edges[readme] |= covered
         self.personal_dirs = sorted(os.path.dirname(f) for f in self.files
                                     if os.path.basename(f) == "README.md" and "/" in f
                                     and SCOPE_PERSONAL.search(frontmatter(self.text[f])))
+        # copies managed elsewhere: still nodes and edges, never edited by a fix
+        self.managed = {f for f in self.files if is_managed_copy(self.text[f])}
+        self.skipped_managed = []  # filled by plan(): {"orphan", "via", "file"} per passed-over copy
 
     def is_required(self, path):
         return required(path, self.skip, self.personal_dirs)
@@ -214,6 +286,56 @@ class Vault:
             if dst and dst != f:
                 out.add(dst)
         return out
+
+    def covered(self, readme):
+        """Documents a folder-index README reaches by itself: its folder tree, where a subfolder
+        with a README contributes that README only."""
+        folder = os.path.dirname(readme)
+        prefix = folder + "/" if folder else ""
+        out = set()
+        for f in self.files:
+            if f == readme or not f.startswith(prefix):
+                continue
+            parts = f[len(prefix):].split("/")
+            for i in range(1, len(parts)):
+                sub_readme = prefix + "/".join(parts[:i]) + "/README.md"
+                if sub_readme in self.files:
+                    if f == sub_readme:
+                        out.add(f)
+                    break
+            else:
+                out.add(f)
+        return out
+
+    def folder_indexes(self):
+        """README → documents it covers, for every folder-index README."""
+        return self._folder_indexes
+
+    def listed_entries(self, readme):
+        """Bullet entries of the README's Document Map: [(resolved path or None, [lines])]."""
+        parts = split_docmap(self.text[readme])
+        if not parts:
+            return []
+        _, block, _ = docmap_block(parts[1])
+        entries = []
+        for line in block:
+            if line.startswith("- "):
+                targets = extract_targets(line)
+                path = self.resolve(readme, *targets[0]) if targets else None
+                if path is None and targets and targets[0][0] == "md":  # a file that is gone: keep its path for the diff
+                    path = os.path.normpath(os.path.join(os.path.dirname(readme), targets[0][1])).replace(os.sep, "/")
+                entries.append((path, [line]))
+            elif entries:
+                entries[-1][1].append(line)
+        return entries
+
+    def folder_index_diff(self, readme):
+        """(unlisted covered documents, listed entries whose file is gone or outside the tree)."""
+        covered = self._folder_indexes[readme]
+        listed = [p for p, _ in self.listed_entries(readme)]
+        missing = sorted(covered - set(listed))
+        gone = sorted({p for p in listed if p is not None and p not in covered})
+        return missing, gone
 
     def reachable(self, extra=None):
         extra = extra or {}
@@ -266,10 +388,33 @@ class Vault:
             return not (self.inside_root(path) and os.path.exists(path))
         t = target[:-3] if target.lower().endswith(".md") else target
         t = t.strip("/")
+        if ATTACHMENT.search(t) and self.is_attachment(t):
+            return False
         if "/" in t:
             path = os.path.normpath(os.path.join(os.path.abspath(self.root), t))
             return not (self.inside_root(path) and (os.path.exists(path + ".md") or os.path.isdir(path)))
         return t.lower() not in self.outside_stems()
+
+    def attachment_names(self):
+        """Lower-cased names of the non-Markdown files in the vault — names only, never read."""
+        if not hasattr(self, "_attachment_names"):
+            names = set()
+            for dirpath, dirnames, filenames in os.walk(self.root):
+                top = os.path.relpath(dirpath, self.root).split(os.sep)[0]
+                if top == "private":
+                    dirnames[:] = []
+                    continue
+                dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
+                names.update(n.lower() for n in filenames if not n.endswith(".md"))
+            self._attachment_names = names
+        return self._attachment_names
+
+    def is_attachment(self, t):
+        """An embed like `![[shot.png]]`: Obsidian finds it by file name anywhere, or by its path from the root."""
+        if "/" in t:
+            path = os.path.normpath(os.path.join(os.path.abspath(self.root), t))
+            return self.inside_root(path) and os.path.isfile(path)
+        return t.lower() in self.attachment_names()
 
     def broken_links(self):
         """(source, kind, target) for every broken link outside templates/ and the Clippings/ inbox, as a set."""
@@ -298,6 +443,8 @@ class Vault:
             if not editable(src):
                 continue
             text = self.text[src]
+            if FROZEN_KEY.search(frontmatter(text)):  # a frozen file is never a mention site
+                continue
             body = FENCE.sub(lambda m: " " * len(m.group(0)), text)
             if body.startswith("---\n") and "\n---" in body[4:]:  # frontmatter is data, never a mention site
                 fm_end = body.index("\n---", 4) + 4
@@ -320,27 +467,44 @@ class Vault:
         self._code_index = index
         return index
 
-    def find_mention(self, orphan, seen):
-        """First inline-code span in a reachable living document that names `orphan`."""
+    def find_mention(self, orphan, seen, skipped=None):
+        """First inline-code span in a reachable living document that names `orphan`.
+
+        A managed copy is passed over (and added to `skipped`) for the next mention.
+        """
         index = self.code_index()
         for suffix in self.unique_suffixes(orphan):
             for entry in index.get(suffix, ()):
                 if entry["file"] in seen and entry["file"] != orphan:
+                    if entry["file"] in self.managed:  # a copy managed elsewhere: try the next mention
+                        if skipped is not None:
+                            skipped.append(entry["file"])
+                        continue
                     return dict(entry)
         return None
 
-    def nearest_readme(self, orphan, seen):
+    def nearest_readme(self, orphan, seen, skipped=None):
+        """Nearest reachable ancestor README; a managed copy is passed over for the one above."""
         parts = orphan.split("/")[:-1]
         while parts:
             readme = "/".join(parts) + "/README.md"
             if readme != orphan and readme in seen:
-                return readme
+                if readme not in self.managed:
+                    return readme
+                if skipped is not None:  # a copy managed elsewhere: climb to the README above
+                    skipped.append(readme)
             parts.pop()
         return None
 
     def plan(self):
         extra = collections.defaultdict(set)
         fixes = []
+        skipped = {}  # (orphan, via, file) → record, in first-seen order across rounds
+
+        def note_skips(orphan, via, files):
+            # remember each managed copy a fix passed over
+            for f in files:
+                skipped.setdefault((orphan, via, f), {"orphan": orphan, "via": via, "file": f})
 
         def open_up(node, seen):
             # a fix makes `node` reachable, and with it everything `node` already links to
@@ -360,7 +524,9 @@ class Vault:
             for orphan in orphans:  # pass 1: link existing mentions
                 if orphan in seen:  # opened up by an earlier fix in this round
                     continue
-                mention = self.find_mention(orphan, seen)
+                passed = []
+                mention = self.find_mention(orphan, seen, passed)
+                note_skips(orphan, "mention", passed)
                 if mention:
                     fixes.append({"orphan": orphan, "via": "mention", **mention})
                     extra[mention["file"]].add(orphan)
@@ -373,7 +539,9 @@ class Vault:
             for orphan in sorted(pending, key=lambda o: (o in linked_from_pending, o)):
                 if orphan in seen:
                     continue
-                readme = self.nearest_readme(orphan, seen)
+                passed = []
+                readme = self.nearest_readme(orphan, seen, passed)
+                note_skips(orphan, "readme", passed)
                 if readme:
                     fixes.append({"orphan": orphan, "via": "readme", "file": readme})
                     extra[readme].add(orphan)
@@ -382,7 +550,18 @@ class Vault:
             if not progress:
                 break
         seen = self.reachable(extra)
-        hubs = [{"orphan": o, "via": "hub"} for o in self.unreachable(seen)]
+        for readme in sorted(self._folder_indexes):  # a stale managed folder index is left as is
+            text = self.text[readme]
+            if readme in self.managed and regenerate_folder_index(self, readme, text) != text:
+                note_skips(None, "folder", [readme])
+        self.skipped_managed = list(skipped.values())
+        hubs = []
+        for o in self.unreachable(seen):
+            hub = {"orphan": o, "via": "hub"}
+            blocked = sorted({s["file"] for s in self.skipped_managed if s["orphan"] == o})
+            if blocked:  # only managed copies stood in the way
+                hub["skipped_managed"] = blocked
+            hubs.append(hub)
         return fixes, hubs
 
 
@@ -401,12 +580,57 @@ def title_of(text, path):
     return m.group(1) if m else os.path.basename(path)[:-3]
 
 
+def docmap_block(section):
+    """Split a Document Map section into (lines before the bullet list, bullet lines, lines after).
+
+    The list is the first run of `- ` lines and their indented continuation lines; a blank line
+    ends it. Without a list the section is all prefix.
+    """
+    lines = section.split("\n")
+    start = next((i for i, l in enumerate(lines) if l.startswith("- ")), None)
+    if start is None:
+        return lines, [], []
+    end = start
+    while end < len(lines) and (lines[end].startswith("- ")
+                                or (lines[end][:1] in (" ", "\t") and lines[end].strip())):
+        end += 1
+    return lines[:start], lines[start:end], lines[end:]
+
+
+def regenerate_folder_index(vault, readme, text):
+    """The README text with its Document Map list rebuilt from the folder tree (sorted by path).
+
+    A listed entry keeps its lines verbatim while its file is covered; the first entry wins when a
+    path is listed twice; anything else in the section (intro, marker, notes after the list)
+    stays where it is.
+    """
+    head, section, rest = split_docmap(text)
+    kept = {}
+    for path, lines in vault.listed_entries(readme):
+        if path in vault.folder_indexes()[readme] and path not in kept:
+            kept[path] = lines
+    block = []
+    for path in sorted(vault.folder_indexes()[readme]):
+        block.extend(kept.get(path) or [f"- [{title_of(vault.text[path], path)}]({rel_link(readme, path)})"])
+    prefix, old, suffix = docmap_block(section)
+    if not old:
+        while prefix and not prefix[-1].strip():
+            prefix.pop()
+        prefix.append("")
+        suffix = [""]
+    return head + MAP_HEADING + "\n".join(prefix + block + suffix) + rest
+
+
 def apply_fixes(vault, fixes):
     by_file = collections.defaultdict(list)
     for fx in fixes:
         by_file[fx["file"]].append(fx)
+    for readme in vault.folder_indexes():
+        by_file.setdefault(readme, [])
     changed = []
     for path, items in sorted(by_file.items()):
+        if path in vault.managed:  # a copy managed elsewhere is never written
+            continue
         text = vault.text[path]
         mentions = sorted((f for f in items if f["via"] == "mention"), key=lambda f: -f["start"])
         for fx in mentions:
@@ -423,6 +647,10 @@ def apply_fixes(vault, fixes):
                 text = head + MAP_HEADING + section + ("\n" + rest if rest else "")
             else:
                 text = text.rstrip("\n") + f"\n\n{MAP_HEADING}\n\n{MAP_INTRO}\n\n" + "\n".join(lines) + "\n"
+        if path in vault.folder_indexes():
+            text = regenerate_folder_index(vault, path, text)
+        if text == vault.text[path]:
+            continue
         with open(os.path.join(vault.root, path), "w", encoding="utf-8") as fh:
             fh.write(text)
         changed.append(path)
@@ -456,10 +684,18 @@ def main(argv=None):
     needed = sum(vault.is_required(f) for f in vault.files)
     result = {"scanned_files": len(vault.files), "local_only": len(vault.local_only),
               "personal_dirs": len(vault.personal_dirs), "must_reach": needed,
-              "reachable": needed - len(orphans), "orphans": orphans}
+              "reachable": needed - len(orphans), "orphans": orphans,
+              "folder_indexes": [{"file": r, "covered": len(c), "missing": m, "gone": g,
+                                  **({"managed": True} if r in vault.managed else {})}
+                                 for r, c in sorted(vault.folder_indexes().items())
+                                 for m, g in [vault.folder_index_diff(r)]]}
     if args.plan or args.apply:
         fixes, hubs = vault.plan()
         result.update({"fixes": fixes, "hubs": hubs})
+        if vault.skipped_managed:  # key present only when a managed copy was passed over
+            left = {h["orphan"] for h in hubs}
+            result["skipped_managed"] = [{**s, "resolved": s["orphan"] is not None and s["orphan"] not in left}
+                                         for s in vault.skipped_managed]
         if args.apply:
             result["changed"] = apply_fixes(vault, fixes)
     if args.broken:
@@ -474,6 +710,13 @@ def main(argv=None):
           f"개인 범위 프로젝트 {result['personal_dirs']}곳 예외) · 고아 {len(orphans)}")
     for group, n in group_counts(orphans):
         print(f"  {n:4d}  {group}")
+    if result["folder_indexes"]:
+        stale = [fi for fi in result["folder_indexes"] if fi["missing"] or fi["gone"]]
+        print(f"폴더 색인 {len(result['folder_indexes'])}곳 · 목록 갱신 필요 {len(stale)}곳"
+              + (" (--apply가 다시 만든다)" if any(not fi.get("managed") for fi in stale) else ""))
+        for fi in stale:
+            print(f"  {fi['file']}: 빠진 문서 {len(fi['missing'])} · 사라진 항목 {len(fi['gone'])}"
+                  + (" · 출처 스탬프 사본이라 다시 만들지 않는다" if fi.get("managed") else ""))
     if args.plan or args.apply:
         kinds = collections.Counter(f["via"] for f in result["fixes"])
         print(f"수정 계획: mention {kinds['mention']} · readme {kinds['readme']} · hub(수동) {len(result['hubs'])}")
@@ -482,7 +725,17 @@ def main(argv=None):
                 where = f"{fx['file']}:{fx['line']}" if fx["via"] == "mention" else fx["file"]
                 print(f"  [{fx['via']}] {fx['orphan']}  ← {where}")
         for h in result["hubs"]:
-            print(f"  [hub] {h['orphan']}")
+            print(f"  [hub] {h['orphan']}"
+                  + (f"  (출처 스탬프 사본 건너뜀: {', '.join(h['skipped_managed'])})" if h.get("skipped_managed") else ""))
+        if result.get("skipped_managed"):  # managed copies passed over: ask the side that manages them
+            print(f"출처 스탬프 사본 건너뜀 {len(result['skipped_managed'])}건"
+                  " (다른 곳에서 관리되는 사본 — 고치려면 사본을 관리하는 쪽에 변경을 요청한다):")
+            for s in result["skipped_managed"]:
+                if s["via"] == "folder":
+                    print(f"  [folder] {s['file']}  (목록을 다시 만들지 않음)")
+                else:
+                    state = "다른 길로 연결" if s["resolved"] else "남은 고아"
+                    print(f"  [{s['via']}] {s['orphan']}  ✕ {s['file']}  ({state})")
         if args.apply:
             print(f"수정한 파일 {len(result['changed'])}개:")
             for p in result["changed"]:

@@ -17,7 +17,11 @@ Eligible records (`--until` defaults to today):
 The summary note keeps, for every record of its month, one line: on-disk records as wikilinks,
 deleted records as a link to the PR that added them plus the record name and its `summary`.
 A refresh keeps the hand-written `## Answer` and every deleted entry already in the note and only
-re-renders the rest, so running `write` twice yields the same bytes. Deleted ingest run-logs are
+re-renders the rest, so running `write` twice yields the same bytes. Hand-written text outside
+`## Answer` survives a refresh too: lines under the H1, hand lines in `## Notes` and `## Follow-ups`
+(after the generated bullets) and whole `##` sections the script does not own stay as they are.
+`## Evidence` is generated; a hand line found there moves to the end of `## Notes` and the script
+says so on stderr. Deleted ingest run-logs are
 frozen into `compacted_ingest_runs`/`compacted_clippings`/`compacted_first`/`compacted_last`,
 which vault_volume.py folds. Raw files that only deleted records mentioned are listed in the note
 so the raw index keeps a reference to them (no new orphans).
@@ -46,6 +50,12 @@ PLACEHOLDER = "- (작성 필요) 아래 Evidence를 읽고 이 달의 흐름을 
 KINDS = ("ingest", "promotion", "maintenance")
 KO = {"lint-report": "lint 보고서", "query-output": "질의 답변"}
 SCAN_GLOBS = ["wiki/**/*.md", "outputs/**/*.md", "projects/**/*.md", "areas/**/*.md"]
+# Generated lines per owned section; anything else in the note is hand-written and is kept.
+OWNED = ("Answer", "Evidence", "Notes", "Follow-ups")
+RAW_INTRO = "아래 raw는 이 달에 지운 기록만 출처로 가리키고 있었다."
+NOTES_GEN = ("- 질의 답변", "- 요약 노트일 뿐이다.", "- 실행 로그 한 줄은 원본의 `summary` 그대로다.",
+             "- 지운 ingest 실행 로그가 세던 몫", "- 이달이 끝나지 않았다.")
+FOLLOW_GEN = ("- 다음 정비(vault-lint)에서 `outputs_compact.py`가 이 노트를 갱신한다.",)
 DELETED_RE = re.compile(
     r"^- (?:\[(?P<label>[^\]]+)\]\((?P<url>[^)\s]+)\)|(?P<plain>[^`\[]+?)) `(?P<name>[^`]+)`(?: — (?P<summary>.*))?$")
 
@@ -156,8 +166,44 @@ def eligible(records: list[dict], until: str) -> list[dict]:
     return out
 
 
+def evidence_generated(line: str) -> bool:
+    """True for a line build_note writes under `## Evidence` (headings, table, entries, raw list)."""
+    s = line.strip()
+    return (not s or s.startswith(("#", "|", "- [[", RAW_INTRO)) or bool(re.match(r'^- "raw/.+"$', s))
+            or bool(DELETED_RE.match(line)))
+
+
+def hand_block(lines: list[str], generated) -> list[str]:
+    """Drop generated lines, collapse blank runs, trim blank edges — the hand-written remainder."""
+    out: list[str] = []
+    for line in lines:
+        if line.strip() and generated(line):
+            continue
+        if not line.strip() and (not out or not out[-1].strip()):
+            continue
+        out.append(line.rstrip())
+    while out and not out[-1].strip():
+        out.pop()
+    return out
+
+
+def split_h2(body: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
+    """Body → (lines between the H1 and the first `## `, [(`## ` heading, its lines)])."""
+    lead: list[str] = []
+    sections: list[tuple[str, list[str]]] = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            sections.append((line.rstrip(), []))
+        elif sections:
+            sections[-1][1].append(line)
+        elif not line.startswith("# "):
+            lead.append(line)
+    return lead, sections
+
+
 def parse_note(path: Path) -> dict:
-    note = {"answer": None, "created": None, "deleted": {}, "keep_raw": [], "compacted": None}
+    note = {"answer": None, "created": None, "deleted": {}, "keep_raw": [], "compacted": None,
+            "lead": [], "hand_notes": [], "hand_follow": [], "moved": [], "extra": []}
     if not path.exists():
         return note
     fm, _, body = split_fm(path.read_text(encoding="utf-8"))
@@ -165,6 +211,19 @@ def parse_note(path: Path) -> dict:
     if "compacted_ingest_runs" in fm:
         note["compacted"] = {"runs": int(fm["compacted_ingest_runs"]), "clips": int(fm.get("compacted_clippings", 0)),
                              "first": fm.get("compacted_first"), "last": fm.get("compacted_last")}
+    # hand-written text outside `## Answer`, kept by build_note
+    lead, sections = split_h2(body)
+    note["lead"] = hand_block(lead, lambda _l: False)
+    for heading, lines in sections:
+        name = heading[3:].strip()
+        if name == "Evidence":
+            note["moved"] += hand_block(lines, evidence_generated)
+        elif name == "Notes":
+            note["hand_notes"] += hand_block(lines, lambda l: l.startswith(NOTES_GEN))
+        elif name == "Follow-ups":
+            note["hand_follow"] += hand_block(lines, lambda l: l.startswith(FOLLOW_GEN))
+        elif name not in OWNED:
+            note["extra"].append((heading, hand_block(lines, lambda _l: False)))
     m = re.search(r"^## Answer\n(.*?)(?=^## )", body, re.S | re.M)
     if m:
         lines = [l for l in m.group(1).splitlines() if not l.lstrip().startswith("|")]
@@ -248,8 +307,10 @@ def build_note(month: str, records: list[dict], gone_now: set[str], note: dict, 
     L.append("sources:" if on_disk_reports else "sources: []")
     for r in sorted(on_disk_reports, key=lambda r: r["name"]):
         L.append(f'  - "[[outputs/{r["name"]}|{r["date"]}]]"')
-    L += ["---", "", f"# outputs 월간 요약 — {month}" + (f" ({until} 기준, 진행 중)" if partial else ""), "",
-          "## Answer", "", note["answer"] or PLACEHOLDER, "", "## Evidence", "", "### 건수", "",
+    L += ["---", "", f"# outputs 월간 요약 — {month}" + (f" ({until} 기준, 진행 중)" if partial else ""), ""]
+    if note["lead"]:
+        L += note["lead"] + [""]
+    L += ["## Answer", "", note["answer"] or PLACEHOLDER, "", "## Evidence", "", "### 건수", "",
           "| 구분 | 건수 |", "| --- | --- |"]
     order = ["질의 답변", "lint 보고서"] + [f"실행 로그 · {k}" for k in KINDS]
     order += sorted(k for k in entries if k not in order)
@@ -281,7 +342,17 @@ def build_note(month: str, records: list[dict], gone_now: set[str], note: dict, 
                  " `compacted_*`에 고정했다. `vault_volume.py`가 이 값을 더한다 — 손으로 고치지 않는다.")
     if partial:
         L.append(f"- 이달이 끝나지 않았다. {until}까지의 기록만 들어 있다. 다음 정비 때 같은 스크립트가 이후 항목을 덧붙인다.")
-    L += ["", "## Follow-ups", "", "- 다음 정비(vault-lint)에서 `outputs_compact.py`가 이 노트를 갱신한다. `## Answer`는 사람이·lint가 쓴다.", ""]
+    # hand lines: Notes' own, then any moved out of Evidence
+    hand_notes = note["hand_notes"] + ([""] if note["hand_notes"] and note["moved"] else []) + note["moved"]
+    if hand_notes:
+        L += [""] + hand_notes
+    L += ["", "## Follow-ups", "", "- 다음 정비(vault-lint)에서 `outputs_compact.py`가 이 노트를 갱신한다. `## Answer`는 사람이·lint가 쓴다."]
+    if note["hand_follow"]:
+        L += [""] + note["hand_follow"]
+    # sections the script does not own stay verbatim, in their order
+    for heading, block in note["extra"]:
+        L += ["", heading] + ([""] + block if block else [])
+    L.append("")
     return "\n".join(L)
 
 
@@ -354,6 +425,9 @@ def main() -> int:
         if mine and (not note["answer"] or note["answer"] == PLACEHOLDER):
             blocked.append(m)
         text = build_note(m, recs, gone_now, note, a.until, keep_raw, compacted, today, base, prs)
+        if note["moved"]:
+            print(f"{path.as_posix()}: moved {len(note['moved'])} hand line(s) from ## Evidence to ## Notes",
+                  file=sys.stderr)
         if not path.exists() or path.read_text(encoding="utf-8") != text:
             path.write_text(text, encoding="utf-8")
             written.append(path.as_posix())

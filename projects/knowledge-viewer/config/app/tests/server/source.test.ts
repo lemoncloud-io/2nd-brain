@@ -181,6 +181,8 @@ describe('git 소스 리더', () => {
       head: 'pr-1',
       base: 'master',
       headOid: prHead,
+      // gh 가 state 를 주지 않으면 OPEN, mergeCommit 은 없다.
+      state: 'OPEN',
       updatedAt: '2026-10-23T00:00:00Z',
       url: 'https://example.test/pull/1',
     });

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import Markdown, { type Components, type Options } from 'react-markdown';
 import { defaultHandlers, type Handlers } from 'mdast-util-to-hast';
 import rehypeRaw from 'rehype-raw';
@@ -14,13 +14,16 @@ import { CalloutIcon } from './CalloutIcon.tsx';
 import { CHANGED_SELECTOR } from './changed-dom.ts';
 import { BodyLink, InlineCode, type LinkEnv } from './DocLink.tsx';
 import { EmbedBlock } from './Embed.tsx';
-import { frameOrigin, gitRawOrigin } from './frame.ts';
+import { frameOrigin, gitRawOrigin, isNamedHost } from './frame.ts';
 import { rehypeImageSrcToTitle, type ImageEnv } from './imageSrc.ts';
+import { renderHl, useHighlight } from './highlight.ts';
+import { langOfClassName } from './highlight-langs.ts';
 import { Mermaid, type BlockMarks } from './Mermaid.tsx';
 import { isRemoteLoaded, markRemoteLoaded, useRemoteImages, type RemoteImageView } from './remote-images.ts';
 import { SANITIZE_SCHEMA } from './sanitize.ts';
 import { tableComponents } from './Table.tsx';
 import { transformUrl } from './urls.ts';
+import { useCodePaths, type CodePathMap } from './useCodePaths.ts';
 
 type HastText = { type: string; value?: string };
 type HastEl = { type: string; tagName?: string; properties?: { className?: unknown }; children?: Array<HastEl & HastText> };
@@ -52,6 +55,25 @@ export function codeHandler(agent: boolean): Handlers['code'] {
     if (mark.hRemoved !== undefined) el.properties.dataRemoved = String(mark.hRemoved);
     return el;
   };
+}
+
+/** `pre > code.language-<x>` 이고 강조할 언어면 그 언어·클래스·소스. 아니면 null. */
+function fencedSource(node: HastEl | undefined): { lang: NonNullable<ReturnType<typeof langOfClassName>>; className: string; text: string } | null {
+  const code = node?.children?.[0];
+  if (code?.type !== 'element' || code.tagName !== 'code') return null;
+  const lang = langOfClassName(code.properties?.className);
+  if (lang === null) return null;
+  const cls = code.properties?.className;
+  return { lang, className: Array.isArray(cls) ? cls.join(' ') : String(cls), text: (code.children ?? []).map((c) => c.value ?? '').join('') };
+}
+
+/**
+ * 언어가 붙은 펜스 코드 블록. 강조가 준비되면 글자를 토큰 span 으로 바꾸고, 그 전·실패·상한 초과면 기본 그림(children) 그대로.
+ * 표식(changed·data-changed·data-removed)은 <pre> 에 둔다.
+ */
+function CodeBlock({ src, marks, children }: { src: NonNullable<ReturnType<typeof fencedSource>>; marks: BlockMarks; children: ReactNode }) {
+  const nodes = useHighlight(src.text, src.lang);
+  return <pre {...marks}>{nodes === null ? children : <code className={src.className}>{renderHl(nodes)}</code>}</pre>;
 }
 
 /** react-markdown 이 넘긴 속성에서 블록 표식만 고른다. */
@@ -196,7 +218,8 @@ function EmbedBody({
   gitOrigin: string;
   remote: RemoteImageView;
 }) {
-  const inner: LinkEnv = { ...env, links: embed.links, docPath: embed.path };
+  // 인라인 코드 경로는 바깥 문서 기준으로 풀린 것이라 임베드 본문에는 싣지 않는다.
+  const inner: LinkEnv = { ...env, links: embed.links, docPath: embed.path, codePaths: undefined };
   const image: ImageEnv = { agent, docPath: embed.path, links: embed.links, src: env.src, gitOrigin, remote };
   return (
     <Markdown
@@ -237,7 +260,10 @@ function bodyComponents(env: LinkEnv, agent: boolean, embeds: DocResponse['embed
     pre: ({ node, children, ...rest }) => {
       const marks = marksOf(rest as Record<string, unknown>);
       const src = mermaidSource(node as HastEl | undefined);
-      return src === null ? <pre {...marks}>{children}</pre> : <Mermaid code={src} marks={marks} />;
+      if (src !== null) return <Mermaid code={src} marks={marks} env={env} />;
+      // 에이전트 모드는 강조하지 않는다 — 텍스트 그대로.
+      const fenced = agent ? null : fencedSource(node as HastEl | undefined);
+      return fenced === null ? <pre {...marks}>{children}</pre> : <CodeBlock src={fenced} marks={marks}>{children}</CodeBlock>;
     },
     img: ({ node: _node, src, alt, title, width, height, ...rest }) => {
       const ask = (rest as Record<string, unknown>)['data-remote-ask'];
@@ -287,8 +313,12 @@ export type ReaderProps = {
   change?: DocChange;
   /** /api/info 의 git 소스 출처 포트. 모르면 주 포트 + 1. */
   gitRawPort?: number | null;
+  /** /api/info 의 주 포트. 개인 이름 뒤에서만 쓴다(frameOrigin). */
+  rawPort?: number | null;
   /** 원격 이미지 보기. 빼면 ⚙ 설정(remoteImageStore)을 따른다. 시험이 바꿔 끼운다. */
   remoteImages?: RemoteImageView;
+  /** 인라인 코드 경로 표. 빼면 /api/resolve-paths 로 묻는다(useCodePaths). 시험이 바꿔 끼운다. */
+  codePaths?: CodePathMap;
 };
 
 /** 본문 위 한 줄 요약. 블록 수는 렌더 뒤에 센다. */
@@ -297,22 +327,29 @@ export function changeSummary(change: DocChange, blocks: number): string {
   return `이 PR 에서 추가 ${change.added}줄 · 삭제 ${change.deleted}줄 · 블록 ${blocks}개`;
 }
 
-export function Reader({ doc, agent, src = MAIN, anchor = '', onNavigate, change = doc.change, gitRawPort, remoteImages }: ReaderProps) {
+export function Reader({ doc, agent, src = MAIN, anchor = '', onNavigate, change = doc.change, gitRawPort, rawPort, remoteImages, codePaths: givenCodePaths }: ReaderProps) {
   const ref = useRef<HTMLElement>(null);
   const stored = useRemoteImages();
   // 에이전트 모드는 텍스트 소비자다 — 토글과 무관하게 배지 그대로(imageSrc 도 agent 면 배지로 둔다).
   const remote = remoteImages ?? stored;
   const [changedBlocks, setChangedBlocks] = useState(0);
+  // 본문 인라인 코드 중 지금 소스에 있는 볼트 경로(요청 하나, 문서별 캐시). 답이 오면 그 코드만 링크로 바뀐다.
+  const fetchedCodePaths = useCodePaths(doc, givenCodePaths === undefined);
+  const codePaths = givenCodePaths ?? fetchedCodePaths;
 
   // git 소스 이미지의 출처. SSR(시험)에는 location 이 없어 포트를 gitRawPort(없으면 기본)로만 정한다.
-  const gitOrigin = gitRawOrigin(typeof location === 'undefined' ? '' : location.port, gitRawPort);
+  // 개인 이름 뒤면 gitRawPort 를 받기 전엔 빈 출처다 — 정화(IMG_SRC)가 그 img 를 그리지 않고, 받은 뒤 다시 그린다.
+  const gitOrigin =
+    typeof location !== 'undefined' && isNamedHost(location.hostname)
+      ? frameOrigin(location.hostname, location.port, MAIN, gitRawPort, rawPort)
+      : gitRawOrigin(typeof location === 'undefined' ? '' : location.port, gitRawPort);
 
   const components = useMemo<Components>(() => {
     // SSR(시험)에는 location 이 없다. 그때는 출처 없이 상대 주소가 된다.
-    const rawOrigin = typeof location === 'undefined' ? '' : frameOrigin(location.hostname, location.port, src, gitRawPort);
-    const env: LinkEnv = { links: doc.links, agent, src, onNavigate, docPath: doc.path, rawOrigin };
+    const rawOrigin = typeof location === 'undefined' ? '' : frameOrigin(location.hostname, location.port, src, gitRawPort, rawPort);
+    const env: LinkEnv = { links: doc.links, agent, src, onNavigate, docPath: doc.path, rawOrigin, codePaths };
     return bodyComponents(env, agent, doc.embeds, gitOrigin, remote);
-  }, [doc.links, doc.path, doc.embeds, agent, src, onNavigate, gitRawPort, gitOrigin, remote]);
+  }, [doc.links, doc.path, doc.embeds, agent, src, onNavigate, gitRawPort, rawPort, gitOrigin, remote, codePaths]);
 
   const options = useMemo(
     () =>

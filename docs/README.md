@@ -7,5 +7,6 @@
 > `vault_orphans.py --apply`가 채운 목록이다 — `wiki/INDEX.md`에서 이 아래 문서로 가는 연결.
 
 - [Google Workspace MCP Setup](google-workspace-mcp-setup.md)
+- [Knowledge Wiki Setup Guide — 이 템플릿의 덧붙임](knowledge-wiki-setup-guide.local.md)
 - [비개발자 온보딩 가이드 — 터미널 없이 팀 위키 쓰기](non-developer-onboarding.md)
 - [프로젝트 `milestones` 계약](project-milestones.md)

@@ -7,6 +7,12 @@
 #   open.kind project-viewers → { ask? }   projects/<name>/outputs/viewer/index.html 마다 펼친다
 schema_version: 1
 viewers:
+  - id: project-viewers
+    title: 프로젝트 뷰어
+    description: 프로젝트의 설계·진행을 리뷰하는 읽기 전용 단일 HTML 뷰어.
+    skill: projects/project-viewer/config/skills/project-viewer-open/SKILL.md
+    open:
+      kind: project-viewers
   - id: knowledge-viewer
     title: 볼트 뷰어
     description: 볼트 문서를 렌더해 읽는 이 뷰어(knowledge-viewer). 기본 포트 8778.

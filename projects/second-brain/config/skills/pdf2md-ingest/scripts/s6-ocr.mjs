@@ -1,4 +1,3 @@
-// origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/pdf2md-ingest/scripts/s6-ocr.mjs
 // S6: PDF -> pdftoppm 150dpi -> ppu-paddle-ocr -> 페이지 마커 MD (pdf2md-ingest)
 //
 // bare import가 런타임 node_modules를 보도록, 반드시 런타임 디렉토리로 복사 후 실행:

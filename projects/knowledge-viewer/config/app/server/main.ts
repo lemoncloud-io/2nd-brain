@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { findVaultRoot } from '../shared/vault.ts';
 import { DEFAULT_EMBED_MODEL, DEFAULT_OLLAMA_URL, EmbeddingService, assertLoopbackUrl } from './embeddings.ts';
-import { EMBED_BUILD_PATH, handleApi } from './handlers.ts';
+import { CORE_API_PATHS, EMBED_BUILD_PATH, handleApi } from './handlers.ts';
 import type { Ctx } from './handlers.ts';
 import { VaultIndex } from './index-store.ts';
 import { SourceManager } from './source.ts';
@@ -15,7 +15,10 @@ import { handlePanels } from './panels/routes.ts';
 import { ViewersSource } from './panels/viewers.ts';
 import { CACHE_PATH, isUsable, readCacheResult } from './link-cache.ts';
 import { startWatch } from './watch.ts';
-import { serveDist, serveIndexHtml, serveRaw } from './static.ts';
+import { RAW_SANDBOX_HEADERS, serveDist, serveIndexHtml, serveRaw } from './static.ts';
+import type { ViewerApp } from './apps/registry.ts';
+import { assertExtApi, loadServerExtension, type ExtApiRoute } from './ext.ts';
+import { AppRuntime, matchAppApi, matchAppPage } from './apps/host.ts';
 
 export type ViewerOptions = {
   root: string;
@@ -40,13 +43,31 @@ export type ViewerOptions = {
    * 켜 두어도 사용자가 화면에서 켜기 전에는 Ollama 를 부르지 않는다.
    */
   embeddings?: false | { ollamaUrl?: string; model?: string; cacheDir?: string };
+  /**
+   * 개인 이름 — 그 사람의 역프록시가 이 서버로 넘기는 호스트 이름(정확한 소문자 DNS 이름, 포트 없음).
+   * 127.0.0.1 처럼 화면·/api·/raw 를 받는다. 능동 콘텐츠(디스크·git 소스)는 같은 호스트로 내되 CSP sandbox 로 불투명 출처다. 비면 오늘과 같다.
+   */
+  publicHosts?: string[];
+  /** 앱 플러그인 목록. 기본은 없음(빈 목록) — runCli 가 확장 층(ext/server.ts)의 앱을 넣는다. 시험이 가짜 앱을 꽂는다. */
+  apps?: ViewerApp[];
+  /** 확장 /api 경로. 기본은 없음 — runCli 가 확장 층(ext/server.ts)의 api 를 넣는다. */
+  extApi?: readonly ExtApiRoute[];
 };
+
+/** 확장 /api 경로 표. 검사를 지난 것만 만든다. */
+function extApiMap(routes: readonly ExtApiRoute[]): ReadonlyMap<string, ExtApiRoute> {
+  assertExtApi(routes, CORE_API_PATHS);
+  return new Map(routes.map((r) => [r.path, r]));
+}
+
+/** 앱 토큰을 싣는 머리. 앱 화면이 /api/apps/<id>/* 에 붙여 보낸다. */
+export const APP_TOKEN_HEADER = 'x-workbench-token';
 
 /**
  * 주 서버(SPA·/api·디스크 /raw)와 git 소스 출처 서버(gitServer: `/raw/@main/…`·`/raw/@pr/<n>/…` 만).
  * 둘 다 listen 은 호출자가 한다(listenViewer). 주 서버를 닫으면 gitServer 도 닫는다.
  */
-export type ViewerServer = http.Server & { gitServer: http.Server };
+export type ViewerServer = http.Server & { gitServer: http.Server; closeApps: () => Promise<void> };
 
 const PING_MS = 30_000;
 /** 브라우저가 문서로 그려 스크립트를 돌릴 수 있는 확장자다. */
@@ -59,9 +80,9 @@ const notFound = (req: http.IncomingMessage, res: http.ServerResponse): void => 
   res.end(req.method === 'HEAD' ? undefined : '없는 주소다');
 };
 
-/** serveRaw 의 비동기 실패를 500 으로 끝낸다 — 처리되지 않은 거부로 프로세스가 죽지 않게. */
-function serveRawSafely(ctx: Ctx, req: http.IncomingMessage, res: http.ServerResponse, p: string): void {
-  serveRaw(ctx, req, res, p).catch((e: unknown) => {
+/** serveRaw 의 비동기 실패를 500 으로 끝낸다 — 처리되지 않은 거부로 프로세스가 죽지 않게. search 는 archify 맞춤 표지용이다. */
+function serveRawSafely(ctx: Ctx, req: http.IncomingMessage, res: http.ServerResponse, p: string, search = '', extra: Readonly<Record<string, string>> = {}): void {
+  serveRaw(ctx, req, res, p, search, extra).catch((e: unknown) => {
     console.error(e);
     try {
       if (!res.headersSent) {
@@ -103,6 +124,24 @@ function portOf(host: string): string {
   }
 }
 
+const HOST_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/**
+ * 개인 이름 하나: 소문자 DNS 이름(라벨 1~63자, 전체 253자 이하). 포트·와일드카드·끝 점은 없다.
+ * 끝 라벨이 숫자뿐이면(IP) 거부하고, localhost 도 거부한다 — localhost 는 디스크 능동 콘텐츠의 출처라 화면 출처가 되면 안 된다.
+ */
+function isPublicHostName(h: string): boolean {
+  const labels = h.split('.');
+  return h.length <= 253 && h !== 'localhost' && labels.every((l) => HOST_LABEL.test(l)) && !/^\d+$/.test(labels[labels.length - 1] ?? '');
+}
+
+/** CLI(--public-host, 반복)가 있으면 환경 변수(쉼표 구분)는 무시한다. 형식이 틀리면 여기서 멈춘다. 겹친 이름은 하나로. */
+export function parsePublicHosts(cli: string[], env: string | undefined): string[] {
+  const list = cli.length > 0 ? cli : (env ?? '').split(',').map((s) => s.trim()).filter((s) => s !== '');
+  for (const h of list) if (!isPublicHostName(h)) throw new Error(`개인 이름이 올바르지 않다(소문자 DNS 이름, 포트·와일드카드 없음, localhost·IP 아님): ${h}`);
+  return [...new Set(list)];
+}
+
 export function createViewerServer(opts: ViewerOptions): ViewerServer {
   const log = opts.log ?? console.log;
   let index = opts.index;
@@ -118,6 +157,13 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
     log(`색인 ${s.files} 문서 (캐시 ${s.cached} · 파싱 ${s.parsed}) ${(s.ms / 1000).toFixed(1)}s`);
   }
   const sources = opts.sources ?? new SourceManager(opts.root, { gh: opts.gh });
+  // 개인 이름. parseArgs 를 거치지 않은 호출자도 같은 규칙으로 막는다(localhost 가 화면 출처가 되지 않게).
+  const publicHosts = new Set(parsePublicHosts(opts.publicHosts ?? [], undefined));
+  // 앱 출처(화면·/api 를 받는 호스트): 127.0.0.1 과 개인 이름. localhost 는 능동 콘텐츠 출처라 아니다.
+  const isAppHost = (host: string): boolean => {
+    const h = hostnameOf(host);
+    return h === '127.0.0.1' || publicHosts.has(h);
+  };
   // git 출처 서버는 아래에서 만든다. 포트는 listen 뒤 실제 값, 그 전엔 opts.gitPort, 그것도 없으면 주 포트 + 1.
   let gitServer: http.Server | null = null;
   let mainServer: http.Server | null = null;
@@ -137,9 +183,15 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
     gitRawPort,
     graphHub: opts.graphHub ?? 50,
     ...(opts.embeddings === false ? {} : { embeddings: new EmbeddingService({ root: opts.root, index, log, ...opts.embeddings }) }),
+    // 개인 이름 뒤의 화면은 창의 포트(프록시)로 /raw 출처를 짓지 못한다 — 주 포트를 알려 준다. 설정이 없으면 싣지 않는다.
+    ...(publicHosts.size === 0 ? {} : { publicInfo: { rawPort: () => (mainServer === null ? null : portOfServer(mainServer)) } }),
+    // 확장 /api: 경로 문법·코어 경로와 겹침을 먼저 본다(틀리면 시작부터 멈춘다).
+    ...(opts.extApi === undefined || opts.extApi.length === 0 ? {} : { extApi: extApiMap(opts.extApi) }),
   };
   const prSource = new PrSource({ root: opts.root, includePrivate: opts.includePrivate, repos: opts.prRepos ?? [], gh: opts.gh ?? spawnGh });
   const viewersSource = new ViewersSource({ root: opts.root, includePrivate: opts.includePrivate });
+  // 앱 플러그인: 토큰은 앱마다 하나(AppRuntime 이 만든다). /apps/<id> 화면의 meta 와 그 앱 ctx.token 이 같은 값이다. 로그에 싣지 않는다.
+  const apps = new AppRuntime(opts.apps ?? [], { vaultRoot: opts.root, env: process.env, log });
 
   // SSE 클라이언트. 변경이 생기면 모두에게 알린다.
   const clients = new Set<http.ServerResponse>();
@@ -156,7 +208,10 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
   const server = http.createServer((req, res) => {
     try {
       // POST 는 임베딩 색인 시작 하나만 받는다(아래 Origin 검사를 그대로 지난다).
-      const postOk = req.method === 'POST' && (req.url ?? '').split('?')[0] === EMBED_BUILD_PATH;
+      // 예외 둘째: 앱 API(/api/apps/<id>/*)는 앱 출처(127.0.0.1·개인 이름)에서만 POST 를 받는다. 출처·토큰은 아래에서 본다.
+      const appApiId = matchAppApi((req.url ?? '').split('?')[0]!);
+      const appPostOk = req.method === 'POST' && appApiId !== null && isAppHost(req.headers.host ?? '');
+      const postOk = (req.method === 'POST' && (req.url ?? '').split('?')[0] === EMBED_BUILD_PATH) || appPostOk;
       if (req.method !== 'GET' && req.method !== 'HEAD' && !postOk) {
         const isApi = (req.url ?? '').startsWith('/api/');
         res.writeHead(405, {
@@ -170,15 +225,25 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
       const p = url.pathname;
       // 호스트 분할: SPA·/api 는 127.0.0.1 만, 다른 루프백 호스트(localhost)는 /raw 만 받는다.
       // iframe 은 localhost 로 열리므로 같은 출처 fetch 로도 /api 를 읽지 못한다.
+      // 개인 이름(publicHosts)은 127.0.0.1 과 같은 자리다 — 정확히 같은 이름만, 그 밖의 이름은 오늘 그대로.
       const host = req.headers.host ?? '';
       const hostname = hostnameOf(host);
+      const named = publicHosts.has(hostname);
+      const appHost = hostname === '127.0.0.1' || named;
       if (p.startsWith('/raw/')) {
-        // /raw 는 루프백 이름 둘만 받는다(DNS 리바인딩으로 다른 이름이 오면 404).
-        if (hostname !== '127.0.0.1' && hostname !== 'localhost') {
+        // /raw 는 루프백 이름 둘과 개인 이름만 받는다(DNS 리바인딩으로 다른 이름이 오면 404).
+        // 개인 이름도 받는 까닭: 리더의 디스크 이미지가 같은 출처 /raw 다. 능동 콘텐츠는 아래에서 CSP sandbox 로 격리해 낸다.
+        if (!appHost && hostname !== 'localhost') {
           notFound(req, res);
           return;
         }
         if (ACTIVE_RAW.test(safeDecode(p))) {
+          // 개인 이름 뒤에서는 localhost 로 건너뛰지 않는다 — 그 페이지의 localhost 하위 요청은 브라우저가 끊는다.
+          // 디스크·git 소스 모두 같은 호스트로 302 없이 내되, CSP sandbox(allow-same-origin 없음)로 불투명 출처로 만든다.
+          if (named) {
+            serveRawSafely(ctx, req, res, p, url.search, RAW_SANDBOX_HEADERS);
+            return;
+          }
           // git 소스의 능동 콘텐츠는 git 포트 출처로만 낸다 — 디스크 /raw(private·워크트리)와 같은 출처에 서지 않게.
           if (isGitRawPath(p)) {
             res.writeHead(302, { Location: `http://localhost:${gitRawPort() ?? Number(portOf(host) || 80) + 1}${p}${url.search}` });
@@ -194,17 +259,17 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
           }
         }
         // git 소스의 비능동 파일(md·png·pdf …)은 스크립트를 돌리지 못하므로 여기서 그대로 낸다.
-        serveRawSafely(ctx, req, res, p);
+        serveRawSafely(ctx, req, res, p, url.search);
         return;
       }
-      if (hostname !== '127.0.0.1') {
+      if (!appHost) {
         if (p.startsWith('/api/')) {
           const text = JSON.stringify({ error: 'not found' });
           res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': String(Buffer.byteLength(text)) });
           res.end(req.method === 'HEAD' ? undefined : text);
           return;
         }
-        if (p === '/' || p === '/v' || p.startsWith('/v/') || p.startsWith('/assets/')) {
+        if (p === '/' || p === '/v' || p.startsWith('/v/') || p.startsWith('/assets/') || p === '/apps' || p.startsWith('/apps/')) {
           const port = portOf(host);
           res.writeHead(302, { Location: `http://127.0.0.1${port === '' ? '' : `:${port}`}${req.url ?? '/'}` });
           res.end();
@@ -213,6 +278,7 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
       }
       if (p.startsWith('/api/')) {
         // 다른 출처가 /api 를 읽지 못하게 한다. Origin 이 없으면 같은 출처 탐색으로 본다.
+        // 개인 이름은 프록시가 Host 를 그대로 넘기므로 같은 출처가 `http://<이름>`(포트 없음)이다.
         const origin = req.headers.origin;
         const crossOrigin = origin !== undefined && origin !== `http://${req.headers.host ?? ''}`;
         if (!crossOrigin && p === '/api/events' && req.method === 'GET') {
@@ -244,6 +310,36 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
           writeJson({ status: 403, body: { error: 'cross-origin' } });
           return;
         }
+        // 앱 목록. 앱을 (처음이면) 만들어 보고 ready·reason 을 낸다. 토큰은 싣지 않는다.
+        if (p === '/api/apps') {
+          apps.list().then(
+            (body) => writeJson({ status: 200, body }),
+            (e: unknown) => {
+              console.error(e);
+              writeJson({ status: 500, body: { error: '내부 오류' } });
+            },
+          );
+          return;
+        }
+        // 앱 API: POST 는 Origin 이 있어야 한다(같은 출처는 위에서 봤다). GET·HEAD·POST 모두 그 앱의 토큰이 맞아야 한다.
+        if (appApiId !== null) {
+          if (req.method === 'POST' && origin === undefined) {
+            writeJson({ status: 403, body: { error: 'origin required' } });
+            return;
+          }
+          // 등록되지 않은 앱은 토큰을 볼 것도 없이 404(목록 /api/apps 가 이미 id 를 낸다).
+          if (!apps.has(appApiId)) {
+            writeJson({ status: 404, body: { error: '없는 앱이다' } });
+            return;
+          }
+          // 다른 앱의 토큰은 맞지 않는다 — 토큰은 앱마다 다르다.
+          if (!apps.tokenAllows(appApiId, req.headers[APP_TOKEN_HEADER])) {
+            writeJson({ status: req.method === 'POST' ? 403 : 401, body: { error: 'app token required' } });
+            return;
+          }
+          apps.dispatch(appApiId, req, res);
+          return;
+        }
         // 패널(gh)·소스(fetch·gh)가 비동기다. 호스트·Origin 검사는 위에서 이미 지났다.
         const pending = p.startsWith('/api/panels/') ? handlePanels(prSource, url, viewersSource) : handleApi(ctx, url, req.method);
         // 핸들러 실패도, 응답 쓰기 실패도 여기서 끝낸다 — 처리되지 않은 거부로 프로세스가 죽지 않게.
@@ -258,6 +354,10 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
         });
       } else if (p === '/' || p === '/v' || p.startsWith('/v/')) {
         serveIndexHtml(opts.distDir, req, res);
+      } else if (p === '/apps' || p.startsWith('/apps/')) {
+        // 앱 화면: 같은 SPA 다. /apps/<id> 응답만 보안 헤더를 내고, 등록된 앱이면 그 앱의 토큰 meta 를 싣는다(앱 출처만 여기까지 온다).
+        const id = matchAppPage(p);
+        serveIndexHtml(opts.distDir, req, res, id === null ? undefined : { appToken: apps.tokenOf(id) });
       } else if (p.startsWith('/assets/')) {
         serveDist(opts.distDir, req, res, p);
       } else {
@@ -281,13 +381,14 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
         res.end('GET만 받는다');
         return;
       }
-      const p = new URL(req.url ?? '/', 'http://127.0.0.1').pathname;
+      const gitUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+      const p = gitUrl.pathname;
       const hostname = hostnameOf(req.headers.host ?? '');
       if ((hostname !== 'localhost' && hostname !== '127.0.0.1') || !isGitRawPath(p)) {
         notFound(req, res);
         return;
       }
-      serveRawSafely(ctx, req, res, p);
+      serveRawSafely(ctx, req, res, p, gitUrl.search);
     } catch (e) {
       console.error(e);
       if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -311,12 +412,15 @@ export function createViewerServer(opts: ViewerOptions): ViewerServer {
     return close(cb);
   }) as typeof server.close;
   server.on('close', () => {
+    // 앱들을 닫는다. 한 앱의 실패가 뷰어 닫기를 막지 않는다.
+    apps.close().catch((e: unknown) => console.error(e));
     stopWatch();
     clearInterval(pinger);
     endClients();
     if (git.listening) git.close();
   });
-  return Object.assign(server, { gitServer: git });
+  // closeApps: 신호로 끝낼 때 앱 정리(저장소 잠금 해제)를 기다리는 데 쓴다. 여러 번 불러도 된다.
+  return Object.assign(server, { gitServer: git, closeApps: () => apps.close() });
 }
 
 function listenOn(s: http.Server, port: number, host: string): Promise<number> {
@@ -362,6 +466,7 @@ export function parseArgs(
   embed: boolean;
   ollamaUrl: string;
   embedModel: string;
+  publicHosts: string[];
 } {
   let vault: string | undefined;
   let port = Number(env.KNOWLEDGE_VIEWER_PORT ?? 8778);
@@ -376,6 +481,8 @@ export function parseArgs(
   let ollamaUrl = env.KV_OLLAMA_URL || DEFAULT_OLLAMA_URL;
   let embedModel = env.KV_EMBED_MODEL || DEFAULT_EMBED_MODEL;
   const cliRepos: string[] = [];
+  // 개인 이름: --public-host(반복)가 환경 변수 KNOWLEDGE_VIEWER_PUBLIC_HOSTS(쉼표 구분)를 이긴다. 없으면 오늘과 같다.
+  const cliHosts: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--vault') vault = argv[(i += 1)];
@@ -388,6 +495,7 @@ export function parseArgs(
     else if (a === '--ollama-url') ollamaUrl = argv[(i += 1)] ?? '';
     else if (a === '--embed-model') embedModel = argv[(i += 1)] ?? '';
     else if (a === '--no-embed') embed = false;
+    else if (a === '--public-host') cliHosts.push(argv[(i += 1)] ?? '');
     else throw new Error(`알 수 없는 인자다: ${a}`);
   }
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`포트가 올바르지 않다: ${port}`);
@@ -399,6 +507,7 @@ export function parseArgs(
   if (!/^[A-Za-z0-9][\w.:/-]*$/.test(embedModel)) throw new Error(`--embed-model 이 올바르지 않다: ${embedModel}`);
   // CLI 가 있으면 환경 변수는 무시한다. 형식이 틀리면 여기서 멈춘다.
   const prRepos = parseRepos(cliRepos, env.KNOWLEDGE_VIEWER_PR_REPOS);
+  const publicHosts = parsePublicHosts(cliHosts, env.KNOWLEDGE_VIEWER_PUBLIC_HOSTS);
   // 주지 않은 선택 인자는 키째 뺀다.
   return {
     vault,
@@ -410,6 +519,7 @@ export function parseArgs(
     embed,
     ollamaUrl,
     embedModel,
+    publicHosts,
   };
 }
 
@@ -424,7 +534,9 @@ function isMain(): boolean {
 }
 
 // start.ts도 같은 프로세스에서 부를 수 있게 내보낸다. 서버가 listen하면 끝난다(프로세스는 서버가 붙들고 있다).
-export function runCli(argv: string[]): Promise<void> {
+export async function runCli(argv: string[]): Promise<void> {
+  // 확장 층(ext/server.ts)을 먼저 읽는다. 깨졌으면 시작을 멈춘다(던진 오류 한 줄로 끝난다).
+  const ext = await loadServerExtension(CORE_API_PATHS);
   return new Promise((resolve, reject) => {
     try {
       const args = parseArgs(argv);
@@ -438,9 +550,31 @@ export function runCli(argv: string[]): Promise<void> {
         gitPort: args.gitPort,
         graphHub: args.graphHub,
         embeddings: args.embed ? { ollamaUrl: args.ollamaUrl, model: args.embedModel } : false,
+        publicHosts: args.publicHosts,
+        apps: ext.apps,
+        extApi: ext.api,
       });
+      // SIGINT·SIGTERM 이면 서버를 닫고 앱 정리(저장소 잠금 해제)를 기다린 뒤 끝낸다. 오래 걸리면 5초 뒤 그냥 끝낸다.
+      let stopping = false;
+      const stop = (): void => {
+        if (stopping) return;
+        stopping = true;
+        server.close();
+        server.closeAllConnections();
+        setTimeout(() => process.exit(0), 5000).unref();
+        server.closeApps().then(
+          () => process.exit(0),
+          (e: unknown) => {
+            console.error(e);
+            process.exit(1);
+          },
+        );
+      };
+      process.on('SIGINT', stop);
+      process.on('SIGTERM', stop);
       listenViewer(server, args.port, args.gitPort).then(({ port, gitPort }) => {
         console.log(`knowledge-viewer http://127.0.0.1:${port}/ (vault: ${root}) · git 소스 출처 http://localhost:${gitPort}/raw/@…`);
+        if (args.publicHosts.length > 0) console.log(`개인 이름 ${args.publicHosts.map((h) => `http://${h}/`).join(' · ')} — 역프록시가 Host 를 그대로 넘겨야 한다`);
         resolve();
       }, reject);
     } catch (e) {

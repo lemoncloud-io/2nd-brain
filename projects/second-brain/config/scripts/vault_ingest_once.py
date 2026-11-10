@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@45f6b0f:projects/second-brain/config/scripts/vault_ingest_once.py
 """Run one Claude-first vault ingest pass.
 
 This script is intentionally thin: it resolves/locks the vault, checks whether Claude Code
@@ -69,7 +68,8 @@ def run(
     timeout: int = 60,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=cwd, text=True, encoding="utf-8", capture_output=True, timeout=timeout, check=False, env=env)
+    # errors="replace": 이 헬퍼는 git 말고 Python 자식도 돌린다 — 자식이 로케일 코드 페이지로 쓴 출력에서 디코드가 죽지 않게 한다.
+    return subprocess.run(cmd, cwd=cwd, text=True, encoding="utf-8", errors="replace", capture_output=True, timeout=timeout, check=False, env=env)
 
 
 def acquire_lock(vault: Path) -> Path | None:

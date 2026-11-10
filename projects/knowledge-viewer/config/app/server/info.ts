@@ -1,5 +1,7 @@
 // 지금 보는 볼트가 어느 체크아웃·브랜치인지. git 이 없거나 저장소가 아니면 null 값으로 답한다.
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 
 export type VaultInfo = {
@@ -21,6 +23,15 @@ function git(root: string, args: string[]): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 볼트 루트 폴더의 지문 — 장치·inode 번호의 sha256 앞 16자. 같은 머신에서 "같은 폴더인가"만 견준다.
+ * 경로(사용자 이름이 든)에서 만들지 않으므로 경로를 알려 주지 않는다. 심링크·다른 철자로 와도 같은 폴더면 같은 값이다(realpath 비교와 같다).
+ */
+export function rootId(root: string): string {
+  const s = fs.statSync(root, { bigint: true });
+  return createHash('sha256').update(`${s.dev}:${s.ino}`).digest('hex').slice(0, 16);
 }
 
 export function vaultInfo(root: string): VaultInfo {

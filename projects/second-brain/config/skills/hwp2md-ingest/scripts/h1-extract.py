@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@45f6b0f:projects/second-brain/config/skills/hwp2md-ingest/scripts/h1-extract.py
 # /// script
 # dependencies = ["hwp-hwpx-parser"]
 # ///

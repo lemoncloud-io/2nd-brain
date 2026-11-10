@@ -47,12 +47,20 @@ export type PrChanges = {
   head: string;
   base: string;
   headOid: string;
+  /** gh 의 PR 상태. */
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
+  /** 머지된 PR 의 머지 커밋 oid. */
+  mergeCommit?: string;
   updatedAt: string;
   url: string;
   baseOid: string;
+  /** 디프의 앞 커밋(열린 PR 은 merge-base, 머지된 PR 은 머지 커밋의 첫 부모). */
   mergeBase: string;
+  /** 디프의 끝 커밋 = 읽는 커밋(머지된 PR 은 머지 커밋). */
   headCommit: string;
   files: ChangedFile[];
+  /** 머지 커밋을 아직 못 받아 PR 머리 기준으로 뜬 경우 등의 짧은 안내. */
+  note?: string;
 };
 
 export type DocResponse = {
@@ -118,6 +126,8 @@ export type VaultInfo = {
   dirty: boolean;
   /** git 소스(@main·@pr) /raw 를 내는 별도 출처의 포트. 옛 서버엔 없다(그때는 주 포트 + 1). */
   gitRawPort?: number;
+  /** 주 포트(디스크 /raw 출처 localhost:<rawPort>). 개인 이름(--public-host)을 설정한 서버만 싣는다. */
+  rawPort?: number;
   /** 임베딩 묶음을 쓸 수 있는가(서버 설정). 옛 서버엔 없다(그때는 못 쓴다). */
   embeddings?: { available: boolean; model: string | null };
   sources: {

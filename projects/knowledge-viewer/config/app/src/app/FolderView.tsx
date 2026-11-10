@@ -17,10 +17,12 @@ type Props = {
   changed?: ChangedMap;
   /** /api/info 의 git 소스 출처 포트. 모르면 주 포트 + 1. */
   gitRawPort?: number | null;
+  /** /api/info 의 주 포트. 개인 이름 뒤에서만 쓴다(frameOrigin). */
+  rawPort?: number | null;
 };
 
 /** README 가 없는 폴더의 기본 화면 — 안에 있는 폴더·문서 목록. */
-export function FolderView({ dir, entries, agent, src, onNavigate, changed, gitRawPort }: Props) {
+export function FolderView({ dir, entries, agent, src, onNavigate, changed, gitRawPort, rawPort }: Props) {
   const dirs = entries.filter((e) => e.kind === 'dir');
   const files = entries.filter((e) => e.kind !== 'dir');
   const link = (target: string, label: string, badge?: string, mark?: ReactNode, deleted = false) => (
@@ -38,7 +40,7 @@ export function FolderView({ dir, entries, agent, src, onNavigate, changed, gitR
       {badge ? <span className="badge badge-local">{badge}</span> : null}
     </a>
   );
-  const origin = typeof location === 'undefined' ? '' : frameOrigin(location.hostname, location.port, src, gitRawPort);
+  const origin = typeof location === 'undefined' ? '' : frameOrigin(location.hostname, location.port, src, gitRawPort, rawPort);
   return (
     <section className="folder-view" data-vault-path={`${dir}/`}>
       <h1 className="folder-title">{dir === '' ? '/' : dir.split('/').pop()}</h1>

@@ -35,6 +35,9 @@ or writing. Read and write only under the resolved root.
   Markdown table cell, where escaping it is required (`[[note-slug\|Alias]]`); an unescaped
   pipe there splits the cell.
 - Use the matching `templates/` file before inventing a note or output structure.
+- Project work and verification records belong in `projects/<name>/outputs/` using
+  `templates/query-output.md`. Root `outputs/runs/` is for vault-wide operations.
+  Contract: `VAULT_RULES.md` § Execution Record Placement.
 
 ## Development Work
 

@@ -2,6 +2,8 @@
 // 등록은 빌드 시(이 배열)이고, 켜기·순서는 prefs.ts(localStorage)가 맡는다.
 import { createElement, type ComponentType, type ReactNode } from 'react';
 
+import { LOCAL } from '../../shared/source.ts';
+
 import { IconBacklink, IconDiff, IconGrid, IconInfo, IconMap, IconPr, IconStar, IconToc } from '../app/icons.tsx';
 import type { NavigateFn } from '../app/route.ts';
 import type { DocChange, DocResponse, PrChanges, Source } from '../app/types.ts';
@@ -33,6 +35,10 @@ export type PanelContext = {
   change: DocChange | null;
   /** 변경 목록을 받다 실패한 까닭(화면 쪽 요청). 없으면 null. */
   changesError: string | null;
+  /** main(origin/master)을 쓸 수 있나. 모르면 true 로 본다(빼도 된다). PR 상세의 닫기가 main·local 을 고른다. */
+  mainAvailable?: boolean;
+  /** /api/info 의 주 포트. 개인 이름 뒤에서 디스크 /raw 출처를 짓는다. 모르면 null(빼도 된다). */
+  rawPort?: number | null;
 };
 
 export type Panel = {
@@ -77,6 +83,8 @@ export const PANELS: Panel[] = [
             agent: ctx.agent,
             src: ctx.src,
             navigate: ctx.navigate,
+            // 닫기: 같은 경로를 main 으로 다시 연다. main 을 못 쓰는 볼트면 local 로(첫 진입 폴백은 이후 전환에 안 걸린다).
+            onExit: () => ctx.setSource(ctx.mainAvailable === false ? LOCAL : { kind: 'main' }),
           }),
   },
   // 연결 지도. 중심 문서의 1홉 이웃을 작은 2D 캔버스로 그린다. 그래프 라이브러리는 패널 안에서 lazy 로 불러온다.
@@ -106,7 +114,13 @@ export const PANELS: Panel[] = [
     render: (ctx) =>
       ctx.doc === null ? null : createElement(Backlinks, { items: ctx.doc.backlinks, agent: ctx.agent, src: ctx.src, onNavigate: ctx.navigate }),
   },
-  { id: 'meta', title: '문서 정보', icon: IconInfo, render: (ctx) => (ctx.doc === null ? null : createElement(MetaPanel, { doc: ctx.doc })) },
+  {
+    id: 'meta',
+    title: '문서 정보',
+    icon: IconInfo,
+    render: (ctx) =>
+      ctx.doc === null ? null : createElement(MetaPanel, { doc: ctx.doc, agent: ctx.agent, src: ctx.src, onNavigate: ctx.navigate }),
+  },
   // 첫 외부 패널. 문서가 없어도 뜬다(needsDoc false). 데이터는 /api/panels/prs*.
   {
     id: 'prs',
@@ -125,7 +139,7 @@ export const PANELS: Panel[] = [
     needsDoc: false,
     defaultOn: true,
     defaultCollapsed: true,
-    render: (ctx) => createElement(ViewersPanel, { agent: ctx.agent, navigate: ctx.navigate }),
+    render: (ctx) => createElement(ViewersPanel, { agent: ctx.agent, navigate: ctx.navigate, rawPort: ctx.rawPort ?? null }),
   },
   // 북마크. 문서가 없어도 뜬다. 저장은 브라우저뿐.
   {

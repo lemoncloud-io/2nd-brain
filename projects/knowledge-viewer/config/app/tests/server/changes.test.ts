@@ -410,3 +410,181 @@ describe('HTTP 서버 — PR 변경', () => {
     assert.doesNotMatch(json.changeError, /\/Users\/|\/private\//);
   });
 });
+
+describe('머지된 PR — 머지 커밋^1..머지 커밋 (git 픽스처)', () => {
+  let fx: GitFixture;
+  let masterAlpha: string;
+  let pr4: { headOid: string };
+  let merge4: string;
+  let squash5: string;
+  let afterMerge: string;
+  let strayOid: string;
+  /** 번호 → gh 가 덧붙일 state·mergeCommit. 시험이 바꾼다. */
+  const extra = new Map<number, Record<string, unknown>>();
+  let gh: GhRunner;
+
+  before(() => {
+    fx = makeGitFixture();
+    masterAlpha = fs.readFileSync(path.join(import.meta.dirname, '..', 'fixtures', 'vault', 'wiki', 'alpha.md'), 'utf8');
+    // PR 4: 참 머지. 연 뒤 master 가 앞서 나가고(INDEX.md), 그 위에 --no-ff 로 머지한다.
+    pr4 = fx.openPr(4, 'master', { 'wiki/alpha.md': prAlpha(masterAlpha), 'wiki/new.md': NEW_MD }, 'PR 4');
+    fx.commitOnMaster({ 'wiki/INDEX.md': `${fs.readFileSync(path.join(fx.root, 'wiki', 'INDEX.md'), 'utf8')}\nmaster 가 나중에 더한 줄\n` }, 'master 진행');
+    runGit(fx.root, ['checkout', '-q', '-f', 'master']);
+    runGit(fx.root, ['merge', '-q', '--no-ff', '-m', 'Merge PR 4', 'pr-4']);
+    merge4 = runGit(fx.root, ['rev-parse', 'HEAD']);
+    // PR 5: 스쿼시 머지. beta.md 한 줄.
+    const beta = fs.readFileSync(path.join(fx.root, 'wiki', 'beta.md'), 'utf8');
+    fx.openPr(5, 'master', { 'wiki/beta.md': beta.replace('본문이다.', 'PR 5 가 고친 본문이다.') }, 'PR 5');
+    runGit(fx.root, ['checkout', '-q', '-f', 'master']);
+    runGit(fx.root, ['merge', '-q', '--squash', 'pr-5']);
+    runGit(fx.root, ['commit', '-q', '-m', 'PR 5 (#5)']);
+    squash5 = runGit(fx.root, ['rev-parse', 'HEAD']);
+    runGit(fx.root, ['push', '-q', 'origin', 'master']);
+    // 머지 뒤에도 master 가 나아간다 — base 끝이 머지 커밋이 아니어도 범위는 머지 커밋 기준이다.
+    afterMerge = fx.commitOnMaster({ 'wiki/later.md': '# 나중\n' }, '머지 뒤 진행');
+    // PR 6: 열린 채로 둔다. 그 머리는 master 에 없다 — base 에 닿지 않는 oid 로 쓴다.
+    strayOid = fx.openPr(6, 'master', { 'wiki/stray.md': '# 떠돌이\n' }, 'PR 6').headOid;
+    gh = async (args, cwd) => {
+      const r = await fx.gh(args, cwd);
+      const more = extra.get(Number(args[2]));
+      if (r.status !== 0 || more === undefined) return r;
+      return { ...r, stdout: JSON.stringify({ ...JSON.parse(r.stdout), ...more }) };
+    };
+  });
+  after(() => fx.cleanup());
+
+  it('gh 응답에 state 가 없으면 OPEN 이고 mergeCommit·note 가 없다', async () => {
+    const c = await changesOf(new SourceManager(fx.root, { gh: fx.gh }), fx.root, 6);
+    assert.equal(c.state, 'OPEN');
+    assert.equal('mergeCommit' in c, false);
+    assert.equal('note' in c, false);
+    assert.deepEqual(c.files, [{ path: 'wiki/stray.md', status: 'A' }]);
+  });
+
+  it('참 머지: 범위는 머지 커밋^1..머지 커밋, 읽는 커밋·headCommit 은 머지 커밋, headOid 는 gh 머리', async () => {
+    extra.set(4, { state: 'MERGED', mergeCommit: { oid: merge4 } });
+    const mgr = new SourceManager(fx.root, { gh });
+    const seen: string[][] = [];
+    const spy: typeof git = (root, args, o) => {
+      seen.push(args);
+      return git(root, args, o);
+    };
+    const c = await prChanges(mgr, fx.root, 4, { git: spy });
+    assert.ok(isChanges(c));
+    assert.equal(c.state, 'MERGED');
+    assert.equal(c.mergeCommit, merge4);
+    assert.equal(c.headCommit, merge4);
+    assert.equal(c.headOid, pr4.headOid);
+    assert.equal(c.mergeBase, runGit(fx.root, ['rev-parse', `${merge4}^1`]));
+    assert.equal(c.baseOid, afterMerge);
+    assert.equal('note' in c, false);
+    // master 진행(INDEX.md)·머지 뒤 진행(later.md)은 섞이지 않는다.
+    assert.deepEqual(
+      [...c.files].sort((a, b) => a.path.localeCompare(b.path)),
+      [
+        { path: 'wiki/alpha.md', status: 'M' },
+        { path: 'wiki/new.md', status: 'A' },
+      ],
+    );
+    assert.equal(seen.some((a) => a[0] === 'merge-base'), false);
+    assert.ok(seen.some((a) => a.includes('--name-status') && a.includes(`${c.mergeBase}..${merge4}`)));
+    // 리더도 머지 커밋을 읽는다 — 내용과 변경 막대가 같은 커밋이다.
+    const reader = await mgr.reader({ kind: 'pr', number: 4 }, false);
+    assert.ok(!('error' in reader));
+    assert.equal(reader.commit, merge4);
+    assert.equal(reader.readText('wiki/alpha.md'), prAlpha(masterAlpha));
+    assert.equal(reader.exists('wiki/later.md'), false);
+    const d = docChange(fx.root, c, 'wiki/alpha.md');
+    assert.equal(d.status, 'M');
+    assert.deepEqual(d.hunks, [
+      { start: 8, end: 8 },
+      { start: 22, end: 23 },
+    ]);
+    assert.deepEqual(d.removed, [{ afterLine: 15, count: 3 }]);
+    await mgr.idle();
+  });
+
+  it('스쿼시 머지: 머지 커밋 하나의 부모와 비교한다', async () => {
+    extra.set(5, { state: 'MERGED', mergeCommit: { oid: squash5 } });
+    const mgr = new SourceManager(fx.root, { gh });
+    const c = await changesOf(mgr, fx.root, 5);
+    assert.equal(c.headCommit, squash5);
+    assert.equal(c.mergeBase, merge4);
+    assert.deepEqual(c.files, [{ path: 'wiki/beta.md', status: 'M' }]);
+    await mgr.idle();
+  });
+
+  it('닫힌(머지 안 된) PR 은 열린 PR 과 같다 — merge-base..머리', async () => {
+    extra.set(6, { state: 'CLOSED', mergeCommit: null });
+    const mgr = new SourceManager(fx.root, { gh });
+    const c = await changesOf(mgr, fx.root, 6);
+    assert.equal(c.state, 'CLOSED');
+    assert.equal(c.headCommit, strayOid);
+    assert.equal('mergeCommit' in c, false);
+    assert.deepEqual(c.files, [{ path: 'wiki/stray.md', status: 'A' }]);
+    extra.delete(6);
+    await mgr.idle();
+  });
+
+  it('머지 커밋이 없거나 base 에 닿지 않으면 옛 방식(merge-base..PR 머리)과 note, 오류 없음', async () => {
+    for (const oid of ['f'.repeat(40), strayOid]) {
+      extra.set(4, { state: 'MERGED', mergeCommit: { oid } });
+      const mgr = new SourceManager(fx.root, { gh });
+      const c = await changesOf(mgr, fx.root, 4);
+      assert.equal(c.state, 'MERGED');
+      assert.equal(c.headCommit, pr4.headOid, oid);
+      assert.equal(c.mergeBase, pr4.headOid, oid);
+      assert.deepEqual(c.files, []);
+      assert.equal(typeof c.note, 'string');
+      const reader = await mgr.reader({ kind: 'pr', number: 4 }, false);
+      assert.ok(!('error' in reader));
+      assert.equal(reader.commit, pr4.headOid);
+      await mgr.idle();
+    }
+    // oid 꼴이 아니면 mergeCommit 으로 받지 않는다(git 인자로 넘기지 않는다).
+    extra.set(4, { state: 'MERGED', mergeCommit: { oid: '--output=/tmp/x' } });
+    const mgr = new SourceManager(fx.root, { gh });
+    const c = await changesOf(mgr, fx.root, 4);
+    assert.equal('mergeCommit' in c, false);
+    assert.equal(c.headCommit, pr4.headOid);
+    await mgr.idle();
+  });
+
+  it('캐시된 동안 PR 이 머지되면 다시 뜬다(상태가 캐시 키에 든다)', async () => {
+    let t = 5_000_000;
+    const now = (): number => t;
+    let diffs = 0;
+    const spy: typeof git = (root, args, o) => {
+      if (args.includes('--name-status')) diffs += 1;
+      return git(root, args, o);
+    };
+    // gh 메타는 0.5초 ttl, 변경 목록 캐시는 60초 — 메타만 새로 와도 다시 떠야 한다.
+    const mgr = new SourceManager(fx.root, { gh, now, ttlMs: 500 });
+    extra.set(4, { state: 'OPEN', mergeCommit: null });
+    const open = await prChanges(mgr, fx.root, 4, { git: spy, now });
+    assert.ok(isChanges(open));
+    assert.equal(open.state, 'OPEN');
+    // 열린 PR 로 보면 머리가 이미 base 안이라 비어 보인다 — 고친 버그의 모양.
+    assert.deepEqual(open.files, []);
+    await prChanges(mgr, fx.root, 4, { git: spy, now });
+    assert.equal(diffs, 1);
+    await mgr.idle();
+    // 머지 커밋을 못 받은 MERGED 도 머리·base 가 같지만 다시 떠서 note 를 단다.
+    extra.set(4, { state: 'MERGED', mergeCommit: { oid: 'f'.repeat(40) } });
+    t += 1_000;
+    const fallback = await prChanges(mgr, fx.root, 4, { git: spy, now });
+    assert.ok(isChanges(fallback));
+    assert.equal(diffs, 2);
+    assert.equal(typeof fallback.note, 'string');
+    await mgr.idle();
+    extra.set(4, { state: 'MERGED', mergeCommit: { oid: merge4 } });
+    t += 1_000;
+    const merged = await prChanges(mgr, fx.root, 4, { git: spy, now });
+    assert.ok(isChanges(merged));
+    assert.equal(diffs, 3);
+    assert.equal(merged.headCommit, merge4);
+    assert.equal(merged.files.length, 2);
+    assert.equal('note' in merged, false);
+    await mgr.idle();
+  });
+});

@@ -1,6 +1,5 @@
 // Medium Daily Digest(html) → 아티클 목록 JSON. 의존성 0, erasable TS — `node parse-digest.mts <digest.html> [out.json]`
 // 입력: workspace-mcp get_gmail_message_content(body_format=html, full=true)가 저장한 파일(헤더 + "--- BODY ---" + html) 또는 순수 html.
-// origin: lemoncloud-io/knowledge@8480503:projects/second-brain/config/skills/medium-digest/scripts/parse-digest.mts
 import { readFileSync, writeFileSync } from "node:fs";
 
 type Article = {

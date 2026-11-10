@@ -1,0 +1,131 @@
+/* 색·글꼴·간격의 단일 출처. 컴포넌트는 여기의 변수만 쓴다. */
+
+:root {
+  /* 중립 — 순회색이 아니라 살짝 푸른 기를 준다 */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --surface-3: #e3e8ef;
+  --line: #d6dce5;
+  --line-strong: #b9c2ce;
+  --text: #1a2430;
+  --text-2: #4d5a68;
+  --text-3: #71808f;
+
+  /* 강조는 하나. 짙은 청록 */
+  --accent: #0f6b6b;
+  --accent-strong: #0a5252;
+  --accent-soft: #e2efee;
+  --focus: #1b8f8f;
+
+  /* tone 5색 — 의미색이라 강조색과 별개다 */
+  --tone-muted-bg: #e8ecf1;
+  --tone-muted-fg: #4f5b68;
+  --tone-muted-line: #c9d1da;
+  --tone-blue-bg: #e2ebfa;
+  --tone-blue-fg: #1c4d94;
+  --tone-blue-line: #b9cdec;
+  --tone-amber-bg: #faeed7;
+  --tone-amber-fg: #86571a;
+  --tone-amber-line: #e6cfa4;
+  --tone-green-bg: #dcefe1;
+  --tone-green-fg: #205c36;
+  --tone-green-line: #b3d8bf;
+  --tone-red-bg: #f7dfdf;
+  --tone-red-fg: #8c2b2b;
+  --tone-red-line: #e3b8b8;
+
+  /* 글꼴 — 시스템 글꼴만. 런타임에 외부 네트워크를 쓰지 않는다 */
+  --font: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR',
+    'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* 글자 크기 단계 — 이 여섯 개 밖으로 나가지 않는다 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+
+  --radius: 6px;
+  --gap-1: 4px;
+  --gap-2: 8px;
+  --gap-3: 12px;
+  --gap-4: 16px;
+  --gap-5: 24px;
+  --gap-6: 32px;
+
+  --topbar-h: 52px;
+  --stampbar-h: 34px;
+  --stamprail-w: 52px; /* 넓은 화면의 스탬프 레일 폭 */
+  --measure: 65ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #12171d;
+    --surface: #182029;
+    --surface-2: #1f2832;
+    --surface-3: #2a3540;
+    --line: #2f3a46;
+    --line-strong: #46535f;
+    --text: #e4eaf0;
+    --text-2: #aab6c2;
+    --text-3: #83919f;
+
+    --accent: #57bdb5;
+    --accent-strong: #7fd3cb;
+    --accent-soft: #1b2f30;
+    --focus: #63cfc6;
+
+    --tone-muted-bg: #242e38;
+    --tone-muted-fg: #a9b5c1;
+    --tone-muted-line: #3a4550;
+    --tone-blue-bg: #1c2b40;
+    --tone-blue-fg: #93bbec;
+    --tone-blue-line: #2f4664;
+    --tone-amber-bg: #392d18;
+    --tone-amber-fg: #dcb473;
+    --tone-amber-line: #574328;
+    --tone-green-bg: #1c3226;
+    --tone-green-fg: #8ccfa4;
+    --tone-green-line: #2e4d3a;
+    --tone-red-bg: #3a2122;
+    --tone-red-fg: #e79d9d;
+    --tone-red-line: #563335;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #12171d;
+  --surface: #182029;
+  --surface-2: #1f2832;
+  --surface-3: #2a3540;
+  --line: #2f3a46;
+  --line-strong: #46535f;
+  --text: #e4eaf0;
+  --text-2: #aab6c2;
+  --text-3: #83919f;
+
+  --accent: #57bdb5;
+  --accent-strong: #7fd3cb;
+  --accent-soft: #1b2f30;
+  --focus: #63cfc6;
+
+  --tone-muted-bg: #242e38;
+  --tone-muted-fg: #a9b5c1;
+  --tone-muted-line: #3a4550;
+  --tone-blue-bg: #1c2b40;
+  --tone-blue-fg: #93bbec;
+  --tone-blue-line: #2f4664;
+  --tone-amber-bg: #392d18;
+  --tone-amber-fg: #dcb473;
+  --tone-amber-line: #574328;
+  --tone-green-bg: #1c3226;
+  --tone-green-fg: #8ccfa4;
+  --tone-green-line: #2e4d3a;
+  --tone-red-bg: #3a2122;
+  --tone-red-fg: #e79d9d;
+  --tone-red-line: #563335;
+}

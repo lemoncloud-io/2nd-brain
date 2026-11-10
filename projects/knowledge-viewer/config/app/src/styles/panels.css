@@ -190,6 +190,25 @@ select.pr-repo {
   margin: 0 0 var(--gap-1);
 }
 
+/* PR 상세 머리줄: 제목은 줄어들고 닫기 단추는 오른쪽 끝에 고정. */
+.pr-detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pr-detail-head > p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+}
+
+/* 닫기 단추: 상단바 .icon-btn 보다 작게(22px). */
+.pr-detail-exit {
+  width: 22px;
+  height: 22px;
+}
+
 .pr-detail-title {
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -295,19 +314,78 @@ select.pr-repo {
   background: var(--tone-amber-bg);
 }
 
+/* 상태 글자(A/M/D/R): 작은 배지. 폭을 고정해 파일 이름이 한 줄에 맞춰 선다. 색은 뜻별 tone(추가 초록·변경 호박·삭제 빨강·이름 바꿈 파랑). */
 .pr-file-status {
   flex: none;
-  width: 1.2em;
+  width: 1.5em;
+  margin-right: var(--gap-1);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+/* 바뀐 파일의 폴더 트리(PrDetailPanel FileTree). 안쪽 목록은 폴더 이름 아래로 들여쓴다. 상태 글자(A/M/D/R)는 잎에만 있다. */
+.pr-tree .pr-tree {
+  padding-left: var(--gap-3);
+  border-left: 1px solid var(--line);
+  margin-left: calc(var(--gap-1) + 0.3em);
+}
+
+.pr-dir > details > summary.pr-dir-name {
+  padding: var(--gap-1) var(--gap-1);
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.pr-dir > details > summary.pr-dir-name::-webkit-details-marker {
+  display: none;
+}
+
+/* 접기 표시: 열리면 ▾, 닫히면 ▸. 글자라 폭이 상태 칸(1.2em)과 맞는다. */
+.pr-dir > details > summary.pr-dir-name::before {
+  content: '▸';
+  display: inline-block;
+  width: 1.5em;
+  margin-right: calc(var(--gap-2) + var(--gap-1));
+  text-align: center;
   color: var(--text-3);
   font-family: var(--mono);
 }
 
+.pr-dir > details[open] > summary.pr-dir-name::before {
+  content: '▾';
+}
+
+.pr-file-from {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
 .pr-file-status-A {
   color: var(--tone-green-fg);
+  background: var(--tone-green-bg);
+}
+
+.pr-file-status-M {
+  color: var(--tone-amber-fg);
+  background: var(--tone-amber-bg);
 }
 
 .pr-file-status-D {
   color: var(--tone-red-fg);
+  background: var(--tone-red-bg);
+}
+
+.pr-file-status-R {
+  color: var(--tone-blue-fg);
+  background: var(--tone-blue-bg);
 }
 
 .pr-file-deleted {
@@ -383,7 +461,8 @@ select.pr-repo {
   color: var(--text-2);
 }
 
-.mermaid-theme-select {
+.mermaid-theme-select,
+.archify-zoom-select {
   min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/pdf2md-ingest/scripts/s2-convert.py
 # /// script
 # dependencies = ["pymupdf4llm"]
 # ///

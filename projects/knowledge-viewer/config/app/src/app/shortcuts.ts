@@ -3,7 +3,7 @@
 //
 // 조합 문법: 수식어를 '+' 로 잇고 끝에 키 하나. 수식어는 mod(맥 ⌘ / 그 밖 Ctrl)·ctrl·alt·shift·meta.
 // 키는 글자(소문자)·기호('/', '?', '[', ']', ',')·이름(escape·enter·space·arrowup·arrowdown·arrowleft·arrowright).
-// 그래프 그룹의 shift(누르고 있기)·hover(마우스 올림)는 설명용 토큰이다.
+// 그래프 그룹의 shift(누르고 있기)·hover(마우스 올림), 문서 그룹의 rightdrag(우클릭 끌기)는 설명용 토큰이다.
 
 export type Platform = 'mac' | 'win';
 
@@ -49,8 +49,9 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'tree.collapse', keys: ['arrowleft'], desc: '트리 폴더 접기 · 상위 폴더로', group: 'nav', scope: 'app', repeat: true },
   { id: 'tree.open', keys: ['enter'], desc: '트리에서 고른 항목 열기', group: 'nav', scope: 'native' },
 
-  { id: 'search.focus', keys: ['/', 'mod+k'], desc: '검색창으로(제목 즉시 검색·트리 필터)', group: 'search', scope: 'app' },
+  { id: 'search.focus', keys: ['/', 'mod+k'], desc: '검색창 열고 입력(제목 즉시 검색·트리 필터)', group: 'search', scope: 'app' },
   { id: 'search.all', keys: ['mod+shift+f'], desc: '전체 검색 — raw·archive 포함을 켜고 검색창으로', group: 'search', scope: 'app' },
+  { id: 'search.pr', keys: ['p'], desc: 'PR 번호로 바로 보기 — 검색창에 # 을 넣고 포커스', group: 'search', scope: 'app' },
   { id: 'search.pick', keys: ['arrowdown', 'arrowup'], desc: '검색 결과 고르기(검색창 안)', group: 'search', scope: 'native' },
   { id: 'search.go', keys: ['enter'], desc: '고른 결과 열기(없으면 첫 결과)', group: 'search', scope: 'native' },
 
@@ -62,6 +63,14 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'doc.top', keys: ['t'], desc: '문서 맨 위로', group: 'doc', scope: 'app' },
   { id: 'history.back', keys: ['alt+arrowleft'], macKeys: ['mod+['], desc: '뒤로', group: 'doc', scope: 'native' },
   { id: 'history.forward', keys: ['alt+arrowright'], macKeys: ['mod+]'], desc: '앞으로', group: 'doc', scope: 'native' },
+  {
+    id: 'history.rightdrag',
+    keys: ['rightdrag'],
+    desc: '오른쪽 단추를 누른 채 왼쪽으로 끌면 뒤로, 오른쪽이면 앞으로(맥에서 메뉴는 ⌥+우클릭 또는 두 번 우클릭)',
+    group: 'doc',
+    scope: 'app',
+    desktopOnly: true,
+  },
 
   { id: 'graph.pan', keys: ['shift'], desc: '누른 채 끌기·휠 — 노드 선택 없이 이동·줌', group: 'graph', scope: 'graph', desktopOnly: true },
   { id: 'graph.reset', keys: ['space'], desc: '초기 보기로(관성 전환)', group: 'graph', scope: 'graph', desktopOnly: true },
@@ -135,6 +144,7 @@ const KEY_LABEL: Record<string, { mac: string; win: string }> = {
   arrowright: { mac: '→', win: '→' },
   shift: { mac: '⇧', win: 'Shift' },
   hover: { mac: '마우스 올림', win: '마우스 올림' },
+  rightdrag: { mac: '우클릭 끌기 ←/→', win: '우클릭 끌기 ←/→' },
 };
 
 /** 키캡 하나하나의 글. 맥은 ⌃⌥⇧⌘ 순, 그 밖은 Ctrl·Alt·Shift·Win 순. 수식어 없는 글자는 소문자, 있으면 대문자. */
@@ -238,6 +248,22 @@ export function allowedWhileTyping(combo: string): boolean {
 }
 
 /** 이 이벤트가 맞는 app 단축키 id 와 조합. 없으면 null. */
+/** 확장 화면 단축키 행의 id. */
+export const extViewShortcutId = (viewId: string): string => `view.ext.${viewId}`;
+
+/**
+ * 코어 표에 확장 화면 단축키 행을 더한 표. 행은 지도(view.graph) 바로 뒤에 등록 순서로 들어간다(도움말 순서).
+ * 키 겹침 검사는 등록부(src/ext/registry.ts)가 이미 했다.
+ */
+export function shortcutTable(views: readonly { id: string; shortcut?: { key: string; desc: string } }[], core: Shortcut[] = SHORTCUTS): Shortcut[] {
+  const rows: Shortcut[] = views.flatMap((v) =>
+    v.shortcut === undefined ? [] : [{ id: extViewShortcutId(v.id), keys: [v.shortcut.key], desc: v.shortcut.desc, group: 'nav' as const, scope: 'app' as const }],
+  );
+  if (rows.length === 0) return core;
+  const at = core.findIndex((s) => s.id === 'view.graph') + 1;
+  return [...core.slice(0, at), ...rows, ...core.slice(at)];
+}
+
 export function findShortcut(e: KeyEventLike, platform: Platform, typing: boolean, table: Shortcut[] = SHORTCUTS): { id: string; combo: string } | null {
   for (const s of table) {
     if (s.scope !== 'app') continue;

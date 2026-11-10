@@ -4,7 +4,7 @@ description: >
   vault의 projects/@<org>/<repo> 추적 노트들을 외부 GitHub repo의 현재 상태와
   대조해 변화를 감지하고 변경안을 제안한다. status/goal/next_action의 최종 반영은
   사용자 승인 후에만 수행한다. "상태 동기화해줘" 요청 시 사용한다.
-origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/github-project-sync.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/github-project-sync.md
 ---
 
 # GitHub Project Sync (동기화)
@@ -66,7 +66,7 @@ origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/git
    갱신한다. `status: done`이면 폴더를 `archive/projects/@<org>/<repo>/`로 이동하고
    org 인덱스와 메인 인덱스의 repo 수(N)를 갱신한다.
 7. 변경 파일을 커밋한다. 공용 vault이므로 push + PR
-   (base `master`, 리뷰어는 `team-settings.yaml`의 `github.default_reviewer`)까지 진행하고, 머지는 사용자 승인을 기다린다.
+   (base `master`, 리뷰어는 `team-settings.yaml`의 `github.default_reviewer`, 값이 비었으면 `--reviewer`를 뺀다)까지 진행하고, 머지는 사용자 승인을 기다린다.
 
 ## 금지 사항
 

@@ -1,0 +1,21 @@
+schema_version: 1
+statuses:
+  passed: {label: 검증 완료, tone: green, done: true}
+  in_progress: {label: 진행 중, tone: blue}
+  not_run: {label: 미실행, tone: muted}
+default: not_run
+stages:
+  S1:
+    status: passed
+    note: 받기 경로를 문서로 확인했다.
+    evidence:
+      - {path: projects/demo/docs/flow.md, at: "받기"}
+items:
+  S1.C1:
+    status: passed
+    evidence:
+      - {path: projects/demo/docs/flow.md, at: "받기"}
+  S1.C2:
+    status: passed
+    evidence:
+      - {path: projects/demo/docs/overview.md, at: "구성 단위"}

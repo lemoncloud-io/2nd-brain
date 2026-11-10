@@ -39,7 +39,7 @@ describe('kindOf', () => {
     assert.equal(kindOf('projects/x/docs/d.md', { type: 'design' }), 'doc');
   });
   it('wiki/ 가 아닌 곳의 위키 type 이름이나 모르는 type 은 other 다', () => {
-    assert.equal(kindOf('projects/x/wiki/w.md', { type: 'dou-wiki' }), 'other');
+    assert.equal(kindOf('projects/x/wiki/w.md', { type: 'team-wiki' }), 'other');
     assert.equal(kindOf('projects/x/notes.md', { type: 'tool' }), 'other');
   });
   it('문자열이 아닌 type 은 무시한다', () => {

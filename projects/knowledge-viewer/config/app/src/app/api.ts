@@ -18,6 +18,9 @@ import type {
   VaultInfo,
 } from './types.ts';
 import type { FileResponse } from '../reader/file-lines.ts';
+import type { ResolvePathsResponse } from '../../shared/code-path.ts';
+import type { ViewerSpecResponse } from '../../shared/viewer-spec.ts';
+import type { ProjectViewerResponse } from '../../shared/project-viewer.ts';
 
 /** API 오류. 상태 코드를 함께 싣는다(404 로 폴백·지도의 없는 중심을 가르는 데 쓴다). */
 export class ApiError extends Error {
@@ -54,8 +57,20 @@ export const getTree = (dir: string, src?: Source): Promise<TreeResponse> => get
 export const getDoc = (path: string, src?: Source): Promise<DocResponse> => getJson(`/api/doc?${q({ path, ...srcQ(src) })}`);
 // 텍스트 파일 보기(md·html 밖). 본문은 JSON 문자열이다.
 export const getFile = (path: string, src?: Source): Promise<FileResponse> => getJson(`/api/file?${q({ path, ...srcQ(src) })}`);
+// viewer.yml 보기: 빌드 산출물이 이 소스에 있는지·스펙보다 오래됐는지.
+export const getViewerSpec = (path: string, src?: Source): Promise<ViewerSpecResponse> =>
+  getJson(`/api/viewer-spec?${q({ path, ...srcQ(src) })}`);
+// viewer.yml 통합 보기: 셸 collect 로 묶은 데이터(Bundle) 또는 검사 오류 목록.
+export const getProjectViewer = (path: string, src?: Source): Promise<ProjectViewerResponse> =>
+  getJson(`/api/project-viewer?${q({ path, ...srcQ(src) })}`);
 export const resolveLink = (link: string, kind: LinkKind, from: string, src?: Source): Promise<ResolveResponse> =>
   getJson(`/api/resolve?${q({ link, kind, from, ...srcQ(src) })}`);
+// 본문 인라인 코드 경로 후보를 한 번에 푼다. 후보는 `p` 를 되풀이한다(개수·길이는 code-paths.ts 가 묶는다). src 는 문서 응답의 소스 키 그대로다.
+export const resolveCodePaths = (from: string, candidates: string[], srcKey: string): Promise<ResolvePathsResponse> => {
+  const params = new URLSearchParams({ from, src: srcKey });
+  for (const c of candidates) params.append('p', c);
+  return getJson(`/api/resolve-paths?${params.toString()}`);
+};
 export const getPreview = (path: string, anchor: string, src?: Source): Promise<PreviewResponse> =>
   getJson(`/api/preview?${q({ path, anchor, ...srcQ(src) })}`);
 export const search = (query: string, scope: SearchScope): Promise<SearchResponse> =>

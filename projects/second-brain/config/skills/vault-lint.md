@@ -2,9 +2,9 @@
 name: vault-lint
 description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
-  주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함 점검).
+  주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함, SKILL.md 계약 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -62,6 +62,8 @@ Read first:
 - wiki/INDEX.md
 - wiki/TOPIC_MAP.md, if present
 - templates/lint-report.md, if present
+- wiki/vault-lint-judgment-rules.md — judgment calls and standing false positives from past passes.
+  Apply them; do not copy them into this skill (owner decision 2026-10-27: link, one copy)
 
 Task:
 - Scan wiki markdown files and topic pages. Scan frontmatter in all other Markdown files except
@@ -80,8 +82,14 @@ Task:
   is not exempt). Follow the `vault-reach` skill (`projects/second-brain/config/skills/vault-reach/SKILL.md`):
   run `python3 projects/second-brain/config/scripts/vault_orphans.py`, then `--plan`, then `--apply` on
   the lint branch. Mention fixes link an existing inline-code path; readme fixes add the document to
-  the nearest reachable README's `## Document Map`; a `hub` result means a folder hub is cut off from
-  INDEX and is fixed by hand (`wiki/INDEX.md` § Vault Hubs). `vault_verify.py` fails on any orphan
+  the nearest reachable README's `## Document Map`; a folder index (`<!-- docmap: folder -->` in the
+  Document Map of `outputs/README.md` or a `projects/<name>/outputs/README.md`) reaches its whole folder
+  tree by itself and `--apply` rebuilds its list in path order — this lane is where that list is
+  refreshed, never a PR that adds an output (PRs that add lines at the same spot conflict); a `hub` result means a folder hub is cut off from
+  INDEX and is fixed by hand (`wiki/INDEX.md` § Vault Hubs). A file whose top carries an origin
+  stamp (`origin:`) is a copy managed elsewhere: `--apply` skips it and lists the skip under
+  `skipped_managed`; do not edit it by hand either — ask the side that manages the copy for the
+  change. `vault_verify.py` fails on any orphan
   (check 11) and on any broken link the change set adds (check 12) — a link already broken on the
   base is this lane's item instead: `vault_orphans.py --broken` lists them (for example 246 in 86
   documents when the check was introduced, mostly paths into a project wiki tree that never existed); fix with the
@@ -89,6 +97,19 @@ Task:
   `.claude` worktrees, `private`, `raw`, `archive` and build directories, and never edits dated records,
   the frozen ingest ledger, the raw index, VAULT_MEMORY, `config/` or `templates/`. Report the
   before/after reachable counts and the fix counts.
+- Open questions (added 2026-10-27, plan `projects/second-brain/outputs/2026-10-27-vault-cockpit-adoption-plan.md`):
+  follow the `vault-questions` skill (`projects/second-brain/config/skills/vault-questions/SKILL.md`). Run
+  `python3 projects/second-brain/config/scripts/vault_open_questions.py summary` and copy its `label: N` lines into
+  the report's `## Open Questions` section. Then measure the flow since the previous lint pass:
+  `vault_open_questions.py diff --base "$(git log -1 --format=%H master -- 'outputs/*-vault-lint*.md')"` — report
+  its first line (closed · new · net). Report, never fix: closing a question is a cleanup round or an owner answer
+  (the skill's §2–§3), not a lint edit. If `stale` lists candidates, name the count and the oldest three ids.
+- Skill contract (added 2026-11-05, `docs/agent-skills-registration.md` § 7): run
+  `python3 projects/second-brain/config/scripts/skill_lint.py --all` and copy its last line (skills · errors ·
+  warnings) into the report's `## Skill Lint` section. List every error (E1–E3) by file and code, and the warning
+  counts by code (W1·W2) with the files. Report, never fix: a skill over a limit is fixed when someone works on
+  that skill (§ 7 "언제 돌리는가"), not on the lint branch. Review items R1·R2 are PR review items — do not
+  judge them in lint. Exit code 2 means the tool could not run — write that and the reason.
 - Lane-folder audits: a project that keeps lane folders may ship its own audit script
   (`projects/<name>/config/scripts/<name>_lane_audit.py`, rules in that project's lane README —
   upper/lower membership, parent pointer ↔ table, required files, `next_action` hygiene,
@@ -130,7 +151,8 @@ Task:
      A user decision already on record wins over a record's suggestion. Counts, file lists and
      anything already codified stay out.
   2. Run `outputs_compact.py write`, then write or refresh `## Answer` in each touched
-     `outputs/monthly/YYYY-MM.md`: 3–6 bullets read off its Evidence.
+     `outputs/monthly/YYYY-MM.md`: 3–6 bullets read off its Evidence. Other hand text goes in
+     `## Notes`; a hand line left in `## Evidence` is moved there (the script says so on stderr).
   3. Run `outputs_compact.py apply`. It is the only deletion a lint pass may make. It refuses while an
      Answer is still the placeholder or while `git rm` would fail, and it writes nothing in that case.
   4. Repoint the living documents it lists (wikilinks, current-tense statements) to the monthly
@@ -147,14 +169,44 @@ Task:
   binary under raw/pdf|hwp|doc that no converted note claims with a source_<lane> key),
   or orphan Slack extracts (a raw/slack/ file whose path no note mentions),
   include them in the lint report. Read docs/raw-index.yml when you need per-file
-  provenance; the .md carries counts only.
+  provenance; the .md carries counts only. The .yml is schema 2 (nodes and edges — format:
+  docs/superpowers/specs/2026-10-24-vault-graph-index-design.md): `nodes` maps a key (first 12 hex
+  of sha1 of the path) to `{file, kind, added?, source?}`; `edges` lists one
+  `- ["from","to","kind"]` per line, from the referring note to the raw file, with kind `ref`
+  (path mentioned as text), `wiki`, `md`, `embed` or `source` (a converted note's source_<lane>
+  key → its preserved original). To find the notes that use a raw file, take its key from `nodes`
+  and read the `from` of every edge whose `to` is that key.
 - The lint lane is the ONLY lane that commits docs/raw-index.yml and docs/raw-index.md
   (docs/raw-layout.md § 색인, 2026-09-29); ingest, promote and every other PR leave them as on
   their base. Regenerate only on a lint branch cut from up-to-date master (fetch, then branch
   from the current master): if HEAD does not contain the current master, do not regenerate —
   report it. When the pass is committed, the two index files go in their own commit, apart
   from the lint report and any fixes.
+- Link cache, check (a): run `node projects/knowledge-viewer/config/app/link-cache.ts verify` from
+  the vault root (first `[ -d projects/knowledge-viewer/config/app/node_modules ] || (cd
+  projects/knowledge-viewer/config/app && npm ci)`; needs node ≥ 24). It compares
+  docs/link-graph.yml — the viewer's cached link graph (contract:
+  docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md; schema 3 `nodes`·`edges`·`broken`
+  between md documents, edges by node row number) — against the disk and
+  prints per-class counts (`missing`·`gone`·`stale`·`drift`, `parser`) plus the broken-link count.
+  Write those lines into the lint report; its exit code (1 = out of date) does not stop the pass.
+  Broken links are reported there for information only — the judgment stays with
+  `vault_orphans.py --broken`. If node ≥ 24 is not available, skip (a) and (b) and say so in the
+  report; the cache then lags by at most one lint cycle and the viewer parses that much more.
+  If the vault has no `projects/knowledge-viewer/config/app/` folder, skip (a) and (b) as well
+  and say so in the report; without the viewer there is no link cache to check or refresh.
 - Save the report to outputs/YYYY-MM-DD-vault-lint.md using templates/lint-report.md when available.
+- Link cache, refresh (b): after the report and every fix are written, run
+  `node projects/knowledge-viewer/config/app/link-cache.ts update` from the vault root. It parses
+  only the documents whose hash changed (all of them when the parser fingerprint changed) and
+  rewrites docs/link-graph.yml, or prints `변경 없음` and leaves the file alone. The lint lane is
+  the ONLY lane that commits docs/link-graph.yml, under the same rules as the raw index: a lint
+  branch cut from up-to-date master, and the file goes into the index commit together with
+  docs/raw-index.yml and docs/raw-index.md — the branch's last commit, apart from the report and
+  the fixes. The viewer never writes it. `update` lists every untracked md it included (`미추적 md N`):
+  those must be the pass's own new files (the report); a stray local draft is not committed into the
+  cache — move it out of lint scope or run on a clean checkout. `git check-ignore` also honours
+  `.git/info/exclude`, so a file excluded only on one machine shows up as `missing`/`gone` on another.
 - Do not stamp wiki/VAULT_MEMORY.md: since 2026-09-03 it holds no `Last Lint Pass:`, `Last Ingest:`,
   `Volume to date` or verification-queue count (they conflicted on every concurrent branch). The
   outputs/ report is the record; vault_verify --lane lint requires it in the diff. Edit memory only to
@@ -171,7 +223,8 @@ Rules:
 
 Final response:
 Report current working directory, ABSOLUTE_VAULT_DIR, lint report path, critical issues, stub count,
-broken link count, and any unresolved issues. Report wiki/VAULT_MEMORY.md only if a contract drift
+broken link count, the open-question summary and flow line, the link-cache verify classes and whether update rewrote docs/link-graph.yml,
+and any unresolved issues. Report wiki/VAULT_MEMORY.md only if a contract drift
 forced an edit to it (see above) — a lint pass normally leaves it untouched.
 ```
 
@@ -203,7 +256,9 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
      아이디어·프로젝트·위키로 승격한 문서는 예외가 아니다). `vault-reach` 스킬 절차를 따른다: `vault_orphans.py` → `--plan` → lint
      브랜치에서 `--apply`. `hub`로 나온 것은 폴더 허브가 INDEX에서 끊긴 것이라 손으로 잇는다
      (`wiki/INDEX.md` § Vault Hubs). 스캐너는 `node_modules`·`.claude` 워크트리 등을 건너뛰고, 날짜 기록·동결
-     원장·raw 색인·VAULT_MEMORY·`config/`·`templates/`는 고치지 않는다. 전후 도달 수와 수정 건수를 리포트에 남긴다
+     원장·raw 색인·VAULT_MEMORY·`config/`·`templates/`는 고치지 않는다. 출처 스탬프(`origin:`)가 있는 파일은
+     다른 곳에서 관리되는 사본이라 도구가 건너뛴다(`skipped_managed`). 손으로도 고치지 않고, 사본을 관리하는 쪽에
+     변경을 요청한다. 전후 도달 수와 수정 건수를 리포트에 남긴다
    - 깨진 wikilink
    - `[[note\|Alias]]`처럼 pipe 문자가 escape된 Obsidian alias.
      단 **마크다운 표 셀 안에서는 escape가 필수**라 위반이 아니다 (`VAULT_RULES.md` § Core Rules) —
@@ -226,6 +281,13 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
      끝 점/공백·예약어(CON, PRN, AUX, NUL, COM1-9, LPT1-9 — 대소문자 무시)·
      대소문자 경로 충돌.
      리포트에만 올린다 — raw/ rename은 사용자 승인 사안 (docs/raw-layout.md § Append-only)
+   - 열린 질문 — `vault-questions` 스킬 § 1. `vault_open_questions.py summary`의 `라벨: N` 줄과,
+     직전 lint 보고서 커밋 기준 `diff`의 첫 줄(닫힘 · 새로 생김 · 순변화)을 리포트 `## Open Questions`에 옮긴다.
+     보고만 한다 — 질문을 닫는 것은 정리 회차·소유자 답이다(2026-10-27)
+   - 스킬 계약(2026-11-05, `docs/agent-skills-registration.md` § 7) — `python3 projects/second-brain/config/scripts/skill_lint.py --all`을
+     돌려 마지막 줄(스킬 수 · 오류 · 경고)을 리포트 `## Skill Lint`에 옮긴다. 오류(E1~E3)는 파일·코드별로, 경고(W1·W2)는
+     코드별 수와 파일을 적는다. 보고만 한다 — 상한을 넘은 스킬은 그 스킬을 작업할 때 고친다(§ 7 "언제 돌리는가").
+     리뷰 항목 R1·R2는 PR 리뷰 몫이라 lint에서 판정하지 않는다. 종료 코드 2는 도구가 돌지 못한 것이다 — 사유를 적는다
    - 링크 해석은 `wiki/`만 대상으로 한다. `VAULT_RULES.md`·`CLAUDE.md`·`templates/`·
      `projects/*/config/skills/`의 `[[note-slug|Alias]]`·`[[target]]`과 의도된 escaped-pipe
      반례는 문법 예시이므로 깨진 링크로 보고하지 않는다
@@ -240,7 +302,8 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
       링크하고, 원문과 대조한 뒤 쓴다. 이미 내린 사용자 결정이 기록의 제안보다 우선한다. 건수,
       파일 목록, 이미 성문화된 것은 옮기지 않는다. 대상이 많으면 서브에이전트에 나눠 읽힌다(읽기 전용).
    2. `outputs_compact.py write` → 손대는 `outputs/monthly/YYYY-MM.md`의 `## Answer`를 Evidence를
-      읽고 3~6줄로 쓴다(이미 있으면 새 항목만큼 다듬는다).
+      읽고 3~6줄로 쓴다(이미 있으면 새 항목만큼 다듬는다). 그 밖의 손 문장은 `## Notes`에 둔다.
+      `## Evidence`에 남은 손 문장은 스크립트가 `## Notes`로 옮기고 stderr에 알린다.
    3. `outputs_compact.py apply` — **정비가 할 수 있는 유일한 삭제다.** Answer가 자리표시자이거나
       `git rm`이 실패할 상황이면 아무것도 쓰지 않고 거부한다.
    4. 출력된 살아 있는 문서의 참조(wikilink, 현재형 서술)를 월별 요약으로 바꾼다. 날짜가 박힌
@@ -253,17 +316,39 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
    (raw/ 파일명과 frontmatter만 읽는다 — raw/ 내용 수정 없음). 오펀 raw 파일, source URL 중복,
    짝 없는 변환 원본(`raw/pdf|hwp|doc|xlsx`의 보존 파일 중 어느 변환 노트도 `source_<lane>` 키로
    가리키지 않는 것), slack 레인 오펀(`raw/slack/`의 파일 중 어느 노트도 경로를 언급하지 않는 것)이
-   표시되면 lint 리포트에 포함한다. 파일별 출처가 필요하면 `.yml`을 읽는다.
+   표시되면 lint 리포트에 포함한다. 파일별 출처가 필요하면 `.yml`을 읽는다. `.yml`은 스키마 2(노드·엣지,
+   형식: `docs/superpowers/specs/2026-10-24-vault-graph-index-design.md`)다 — `nodes`는 키(경로 sha1 앞 12자)
+   → `{file, kind, added?, source?}`, `edges`는 한 줄에 하나 `- ["from","to","kind"]`(참조하는 노트 → raw 파일,
+   kind는 `ref` 글자 언급·`wiki`·`md`·`embed`·`source` 변환 원본 짝)다. raw 파일을 쓰는 노트는 `nodes`에서 그
+   파일의 키를 찾고, `to`가 그 키인 엣지의 `from`을 읽는다.
    **색인 두 파일(`docs/raw-index.yml`·`.md`)을 커밋하는 레인은 lint 하나다**(`docs/raw-layout.md`
    § 색인, 2026-09-29) — ingest·promote 등 다른 PR은 base 그대로 둔다. 재생성은 최신 master에서
    딴 lint 브랜치에서만 한다(fetch 후 현재 master에서 분기). HEAD가 현재 master를 포함하지 않으면
    재생성하지 않고 보고한다. 커밋할 때 색인 두 파일은 lint 리포트·수정분과 분리된 별도 커밋 하나로 남긴다.
+6b. **링크 캐시 점검 (a).** vault 루트에서 `node projects/knowledge-viewer/config/app/link-cache.ts verify`
+   (먼저 `[ -d projects/knowledge-viewer/config/app/node_modules ] || (cd projects/knowledge-viewer/config/app && npm ci)`,
+   node ≥ 24 필요). 뷰어의 링크 그래프 캐시 `docs/link-graph.yml`(계약:
+   `docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md`, 스키마 3 — md 문서끼리의
+   `nodes`·`edges`·`broken`, 엣지는 노드 행 번호)을 디스크와 대조해
+   분류별 건수(`missing`·`gone`·`stale`·`drift`, `parser`)와 깨진 링크 수를 찍는다. 그 줄들을 lint 리포트에
+   적는다. 종료 코드(1 = 낡음)로 정비를 멈추지 않는다. 깨진 링크는 참고용 보고다 — 판정은
+   `vault_orphans.py --broken`이 한다. node ≥ 24가 없으면 6b·7b를 건너뛰고 리포트에 사유를 적는다
+   (캐시는 최대 lint 한 주기만큼 늦고, 뷰어는 그만큼 더 파싱한다).
 7. lint 결과를 `outputs/YYYY-MM-DD-vault-lint.md`에 저장한다.
+7b. **링크 캐시 갱신 (b).** 리포트와 수정을 다 쓴 뒤 vault 루트에서
+   `node projects/knowledge-viewer/config/app/link-cache.ts update`. 해시가 바뀐 문서만 파싱해(추출기 지문이
+   바뀌었으면 전부) `docs/link-graph.yml`을 다시 쓰거나, 바뀐 것이 없으면 `변경 없음`을 찍고 손대지 않는다.
+   **`docs/link-graph.yml`을 커밋하는 레인도 lint 하나다** — raw 색인과 같은 규칙(최신 master에서 딴 lint
+   브랜치)으로, 6의 색인 커밋에 함께 담는다(브랜치의 마지막 커밋, 리포트·수정분과 분리). 뷰어는 이 파일을
+   읽기만 한다. `update`는 포함한 미추적 md를 `미추적 md N`으로 나열한다 — 이번 정비가 새로 쓴 파일(리포트)이어야
+   하고, 로컬 초안이 섞였으면 캐시에 넣어 커밋하지 않는다(범위 밖으로 옮기거나 깨끗한 체크아웃에서 돌린다).
+   `git check-ignore`는 `.git/info/exclude`도 보므로 한 머신에서만 제외한 파일은 다른 머신의 verify에
+   `missing`/`gone`으로 나온다.
 8. `wiki/VAULT_MEMORY.md`에는 실행 카운터를 쓰지 않는다(2026-09-03부터 `Last Lint Pass`·`Volume to date`·
    `Verification queue` 수치 없음 — 리포트가 기록이고, 수치는 `ls outputs/*-vault-lint*.md`·`vault_volume.py`로 유추).
    계약 드리프트를 발견해 고칠 때만 memory를 편집하고 8 KB(`wc -c`)를 지킨다.
    끝나면 `python3 projects/second-brain/config/scripts/vault_verify.py --lane lint --base "$(git merge-base HEAD master)"`가 exit 0인지 확인한다.
-9. 결과 요약(신규 stub 수, 분할 후보 topic, 발견된 모순 수)을 사용자에게 보고한다.
+9. 결과 요약(신규 stub 수, 분할 후보 topic, 발견된 모순 수, 링크 캐시 verify 분류·갱신 여부)을 사용자에게 보고한다.
    심각한 모순이 발견되면 즉시 보고하고, 사소한 것(빈 stub 등)은 주간 요약에만
    포함한다.
 

@@ -1,18 +1,25 @@
 // PR 이 바꾼 것: 변경 파일 목록과 문서별 hunk(줄 범위).
 // 디프 기준은 `git merge-base refs/kv/base/<base> refs/kv/pr/<n>` 이다 — 스택 PR 은 제 커밋만 보인다.
+// 머지된 PR 은 `<머지 커밋>^1..<머지 커밋>` 이다 — 머리가 base 안에 들어가 merge-base 가 머리 자신이 되기 때문이다.
 // 줄 번호는 파일 전체 기준(frontmatter 포함)이다. 정본 형은 여기, 화면 쪽 거울은 src/app/types.ts 다.
 import { git } from './git.ts';
-import { FETCH_TTL_MS, baseRef, prRef, redactReason, type PrMeta, type SourceManager } from './source.ts';
+import { FETCH_TTL_MS, baseRef, mergedCommitOf, prRef, redactReason, type PrMeta, type SourceManager } from './source.ts';
 
 export type ChangedFile = { path: string; status: 'A' | 'M' | 'D' | 'R'; from?: string };
 
 export type PrChanges = PrMeta & {
   /** base 브랜치 ref(refs/kv/base/<base>)의 커밋 oid. */
   baseOid: string;
+  /** 디프의 앞 커밋. 열린 PR 은 merge-base, 머지된 PR 은 머지 커밋의 첫 부모다. */
   mergeBase: string;
-  /** 디프를 뜬 PR 머리 커밋 oid(fetch 한 refs/kv/pr/<n>). gh 의 headOid 와 다를 수 있다(fetch 실패로 옛 ref). */
+  /**
+   * 디프를 뜬 끝 커밋 = 리더가 읽는 커밋. 열린 PR 은 fetch 한 refs/kv/pr/<n>(gh 의 headOid 와 다를 수 있다 — fetch 실패로 옛 ref),
+   * 머지된 PR 은 머지 커밋이다.
+   */
   headCommit: string;
   files: ChangedFile[];
+  /** 머지된 PR 인데 머지 커밋을 아직 못 받아 PR 머리 기준으로 뜬 경우 등의 짧은 안내. */
+  note?: string;
 };
 
 export type DocChange = {
@@ -94,7 +101,7 @@ function revParse(root: string, ref: string, run: GitFn): string | null {
 
 /**
  * PR 이 바꾼 파일 목록. 리더를 열어(fetch, 60초 ttl) refs/kv/pr/<n>·refs/kv/base/<base> 를 받은 뒤
- * merge-base 와 `diff --name-status` 를 돌린다. 머리(gh 의 headOid 와 받은 커밋)가 같고 60초 안이면 다시 돌리지 않는다.
+ * merge-base 와 `diff --name-status` 를 돌린다. 머지된 PR 이고 리더가 머지 커밋을 읽으면 `머지 커밋^1..머지 커밋` 이다. 머리(gh 의 headOid 와 받은 커밋)가 같고 60초 안이면 다시 돌리지 않는다.
  */
 export async function prChanges(mgr: SourceManager, root: string, n: number, deps: ChangesDeps = {}): Promise<PrChanges | { error: string }> {
   const run = deps.git ?? git;
@@ -105,23 +112,38 @@ export async function prChanges(mgr: SourceManager, root: string, n: number, dep
   if ('error' in reader) return { error: reader.error };
   const headRef = prRef(n);
   const bRef = baseRef(meta.base);
-  const headCommit = revParse(root, headRef, run);
+  const merged = mergedCommitOf(meta);
+  // 리더가 머지 커밋을 읽으면 디프도 머지 커밋으로 뜬다 — 문서 내용과 변경 막대가 같은 커밋을 본다.
+  const onMerge = merged !== null && reader.commit === merged;
+  const headCommit = onMerge ? merged : revParse(root, headRef, run);
   if (headCommit === null) return { error: `ref 가 없다: ${headRef}` };
   const baseOid = revParse(root, bRef, run);
   if (baseOid === null) return { error: `ref 가 없다: ${bRef}` };
 
   const cache = cacheOf(mgr);
-  const key = `${meta.headOid}\0${headCommit}\0${baseOid}`;
+  // 상태·머지 커밋을 키에 넣는다 — 캐시된 동안 머지된 PR 도 다시 뜬다.
+  const key = `${meta.headOid}\0${headCommit}\0${baseOid}\0${meta.state}\0${meta.mergeCommit ?? ''}`;
   const hit = cache.get(n);
   if (hit !== undefined && hit.key === key && now() - hit.at <= FETCH_TTL_MS) return { ...hit.value, ...meta, files: hit.value.files.slice() };
 
-  const mb = run(root, ['merge-base', baseOid, headCommit]);
-  const mergeBase = mb.stdout.trim();
-  // stderr 는 사람에게 보인다 — 절대경로·file:// 를 가린다(redactReason 은 첫 줄만 남긴다).
-  if (!mb.ok || mergeBase === '') return { error: `merge-base 실패: ${redactReason(mb.stderr) || '공통 조상이 없다'}` };
+  let mergeBase: string;
+  let note: string | undefined;
+  if (onMerge) {
+    // 첫 부모 = 머지 직전의 base. 참 머지·스쿼시 머지 모두 PR 이 base 에 더한 것만 남는다.
+    const parent = revParse(root, `${merged}^1`, run);
+    if (parent === null) return { error: `머지 커밋의 첫 부모가 없다: ${merged.slice(0, 8)}` };
+    mergeBase = parent;
+  } else {
+    const mb = run(root, ['merge-base', baseOid, headCommit]);
+    mergeBase = mb.stdout.trim();
+    // stderr 는 사람에게 보인다 — 절대경로·file:// 를 가린다(redactReason 은 첫 줄만 남긴다).
+    if (!mb.ok || mergeBase === '') return { error: `merge-base 실패: ${redactReason(mb.stderr) || '공통 조상이 없다'}` };
+    if (merged !== null) note = '머지 커밋을 아직 받지 못해 PR 머리 기준으로 보인다';
+  }
   const diff = run(root, ['diff', '--no-ext-diff', '--no-color', '--name-status', '-z', '-M', `${mergeBase}..${headCommit}`]);
   if (!diff.ok) return { error: `diff 실패: ${redactReason(diff.stderr) || 'git 오류'}` };
   const value: PrChanges = { ...meta, baseOid, mergeBase, headCommit, files: parseNameStatus(diff.stdout) };
+  if (note !== undefined) value.note = note;
   if (!cache.has(n) && cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
   cache.set(n, { at: now(), key, value });
   return { ...value, files: value.files.slice() };

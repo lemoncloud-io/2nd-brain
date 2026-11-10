@@ -17,6 +17,11 @@
   --accent-strong: #0550ae;
   --accent-soft: #ddf4ff;
   --focus: #0969da;
+
+  /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+  --code-fg: #a40e26;
+  --code-bg: #eae2e7;
+  --code-line: #c46d7d;
   --tone-muted-bg: #eff2f5;
   --tone-muted-fg: #59636e;
   --tone-muted-line: #d1d9e0;
@@ -64,6 +69,11 @@
     --accent-strong: #79c0ff;
     --accent-soft: #121d2f;
     --focus: #1f6feb;
+
+    /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+    --code-fg: #ff7b72;
+    --code-bg: #212830;
+    --code-line: #9b5654;
     --tone-muted-bg: #212830;
     --tone-muted-fg: #9198a1;
     --tone-muted-line: #3d444d;
@@ -111,6 +121,11 @@
   --accent-strong: #79c0ff;
   --accent-soft: #121d2f;
   --focus: #1f6feb;
+
+  /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+  --code-fg: #ff7b72;
+  --code-bg: #212830;
+  --code-line: #9b5654;
   --tone-muted-bg: #212830;
   --tone-muted-fg: #9198a1;
   --tone-muted-line: #3d444d;

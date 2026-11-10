@@ -8,6 +8,8 @@ import { isPlainClick } from './links.ts';
 import { hrefFor } from './route.ts';
 import { setSearchFilter } from './search-filter.ts';
 import { rankPrepared, type TitleHit } from './title-match.ts';
+import { parsePrJump } from './pr-jump.ts';
+import { onShortcutEvent } from './shortcut-events.ts';
 import { useTitles } from './titles.ts';
 import type { Source } from '../../shared/source.ts';
 import type { SearchHit, SearchScope } from './types.ts';
@@ -17,11 +19,14 @@ const DEBOUNCE_MS = 300;
 const TITLE_LIMIT = 20;
 
 type Props = {
+  expanded?: boolean;
   agent: boolean;
   src: Source;
   current: string;
   onNavigate: (path: string) => void;
   /** raw·archive 까지 본다(⚙ 설정). */ scopeAll?: boolean;
+  /** PR 번호를 치면 그 PR 로 바로 간다(없으면 번호 행을 안 보인다). */
+  onEnterPr?: (number: number) => void;
 };
 
 /**
@@ -29,7 +34,7 @@ type Props = {
  * 본문 절은 300 ms 뒤 /api/search 로, 제목 절에 이미 있는 경로는 뺀다. 질의는 트리 필터(search-filter)에도 건넨다.
  * 결과 링크는 지금 소스를 싣고, 그 소스에 없으면 App 이 폴더 목록으로 떨어뜨린다.
  */
-export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }: Props) {
+export function SearchBox({ expanded = true, agent, src, current, onNavigate, scopeAll = false, onEnterPr }: Props) {
   const [query, setQuery] = useState('');
   const outside = scopeAll;
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -37,8 +42,9 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [active, setActive] = useState(-1);
   const root = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // 상단바는 overflow: hidden 이라(#940, 좁은 폭에서 겹침 방지) 목록을 body 에 포털로 띄우고 입력 상자 아래에 고정한다.
+  // 상단바는 overflow: hidden 이라(좁은 폭에서 겹침 방지) 목록을 body 에 포털로 띄우고 입력 상자 아래에 고정한다.
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const trimmed = query.trim();
   const hasQuery = trimmed !== '';
@@ -53,13 +59,44 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
     const seen = new Set(titleHits.map((h) => h.path));
     return hits.filter((h) => !seen.has(h.path));
   }, [hits, titleHits]);
-  const flat = useMemo(() => [...titleHits.map((h) => h.path), ...bodyHits.map((h) => h.path)], [titleHits, bodyHits]);
+  // PR 번호 입력이면 맨 위에 "PR #n 으로 보기" 한 행. flat 안에서는 `pr:<n>` 표식이라 Enter·화살표가 같은 길을 탄다.
+  const prJump = onEnterPr !== undefined && hasQuery ? parsePrJump(trimmed) : null;
+  const flat = useMemo(
+    () => [...(prJump !== null ? [`pr:${prJump}`] : []), ...titleHits.map((h) => h.path), ...bodyHits.map((h) => h.path)],
+    [prJump, titleHits, bodyHits],
+  );
 
   // 질의를 트리에 건넨다. 상자가 사라져도(에이전트 모드 전환 등) 필터를 남기지 않는다.
   useEffect(() => {
     setSearchFilter(trimmed);
   }, [trimmed]);
   useEffect(() => () => setSearchFilter(''), []);
+
+  // 접힌 입력은 포커스할 수 없다. 단축키로 부모가 펼친 뒤 포커스·선택을 적용한다.
+  const [focusRequest, setFocusRequest] = useState({ tick: 0, pr: false });
+  useEffect(() => {
+    const offSearch = onShortcutEvent('search', () => {
+      setOpen(true);
+      setFocusRequest(value => ({ tick: value.tick + 1, pr: false }));
+    });
+    const offPr = onShortcutEvent('pr-search', () => {
+        setQuery('#');
+        setOpen(true);
+        setFocusRequest(value => ({ tick: value.tick + 1, pr: true }));
+    });
+    return () => { offSearch(); offPr(); };
+  }, []);
+  useEffect(() => {
+    if (!expanded || focusRequest.tick === 0) return;
+    const el = inputRef.current;
+    if (el === null) return;
+    el.focus();
+    if (focusRequest.pr) el.setSelectionRange(el.value.length, el.value.length);
+    else el.select();
+  }, [expanded, focusRequest]);
+  useEffect(() => {
+    if (!expanded) { setQuery(''); setOpen(false); }
+  }, [expanded]);
 
   // 입력이 바뀌면 키보드 선택을 처음으로 되돌린다.
   useEffect(() => setActive(-1), [trimmed]);
@@ -116,11 +153,13 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
   }, [active]);
 
   const pick = (path: string) => {
-    onNavigate(path);
+    if (path.startsWith('pr:') && onEnterPr !== undefined) onEnterPr(Number(path.slice(3)));
+    else onNavigate(path);
+    setQuery('');
     setOpen(false);
   };
 
-  const showList = open && hasQuery;
+  const showList = expanded && open && hasQuery;
 
   // 목록 자리: 입력 상자의 아래·오른쪽 끝. 열릴 때와 창 크기가 바뀔 때 다시 잰다.
   useLayoutEffect(() => {
@@ -167,9 +206,10 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
   return (
     <div className="searchbox" ref={root}>
       <input
+        ref={inputRef}
         className="search-input"
         type="search"
-        placeholder={outside ? '검색 (raw·archive 포함)' : '검색'}
+        placeholder={outside ? '검색 (raw·archive 포함) · PR 번호' : '검색 · PR 번호'}
         aria-label="볼트 검색"
         value={query}
         onChange={(e) => {
@@ -202,6 +242,25 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
       {showList && anchor !== null
         ? createPortal(
             <div className="search-results" role="listbox" aria-label="검색 결과" ref={listRef} style={{ top: anchor.top, right: anchor.right }}>
+              {prJump !== null ? (
+                <ul className="search-list search-pr-jump">
+                  <li>
+                    <a
+                      className={active <= 0 ? 'search-hit search-active' : 'search-hit'}
+                      data-idx={0}
+                      href={hrefFor(current, undefined, agent, { kind: 'pr', number: prJump })}
+                      onClick={(ev) => {
+                        if (!isPlainClick(ev)) return;
+                        ev.preventDefault();
+                        pick(`pr:${prJump}`);
+                      }}
+                    >
+                      <span className="search-title">PR #{prJump} 으로 보기</span>
+                      <span className="search-path">바뀐 문서로 옮기거나, 지금 문서가 그 PR 에 있으면 머문다</span>
+                    </a>
+                  </li>
+                </ul>
+              ) : null}
               <p className="search-section">제목</p>
               {titleNote !== null ? (
                 <p className="search-note">{titleNote}</p>
@@ -209,7 +268,7 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
                 <ul className="search-list">
                   {titleHits.map((h, i) =>
                     row(
-                      i,
+                      (prJump !== null ? 1 : 0) + i,
                       h.path,
                       <>
                         <span className="search-title">
@@ -230,7 +289,7 @@ export function SearchBox({ agent, src, current, onNavigate, scopeAll = false }:
                 <ul className="search-list">
                   {bodyHits.map((h, i) =>
                     row(
-                      titleHits.length + i,
+                      (prJump !== null ? 1 : 0) + titleHits.length + i,
                       h.path,
                       <>
                         <span className="search-title">{h.title}</span>

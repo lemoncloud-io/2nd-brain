@@ -104,14 +104,6 @@
   outline-offset: -2px;
 }
 
-/* PR 변경 표시: 왼쪽 띠는 callout 색을 지키고 바깥 테두리로 알린다. */
-.doc .callout.changed {
-  border-left: 3px solid var(--callout-fg);
-  background: var(--surface);
-  padding-left: 0;
-  box-shadow: 0 0 0 2px var(--tone-green-line);
-}
-
 /* 노트 임베드 */
 .doc .embed {
   margin: 0 0 var(--gap-4);

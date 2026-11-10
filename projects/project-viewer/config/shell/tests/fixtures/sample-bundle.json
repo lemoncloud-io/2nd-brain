@@ -1,0 +1,1260 @@
+{
+  "viewer": {
+    "schema_version": 1,
+    "meta": {
+      "title": "주문 처리 리뷰",
+      "kind": "project",
+      "audience": "주문 흐름과 검증 단계를 확인하려는 사람",
+      "summary": "이 뷰어는 주문 처리의 **구조·흐름·검증 단계**를 한 곳에서 보여 준다. 모든 해설에는 원문으로 가는 근거가 달려 있다."
+    },
+    "sources": [
+      {
+        "id": "spec",
+        "path": "docs/orders/design.md",
+        "title": "주문 처리 설계",
+        "group": "설계",
+        "role": "primary",
+        "kind": "doc"
+      },
+      {
+        "id": "flow",
+        "path": "docs/orders/flow.md",
+        "title": "흐름과 실패 처리",
+        "group": "설계",
+        "role": "primary",
+        "kind": "doc"
+      },
+      {
+        "id": "ops",
+        "path": "docs/orders/operations.md",
+        "title": "운영 절차",
+        "group": "운영",
+        "role": "reference",
+        "kind": "doc"
+      },
+      {
+        "id": "api",
+        "path": "docs/orders/api.md",
+        "title": "외부 인터페이스",
+        "group": "인터페이스",
+        "role": "reference",
+        "kind": "doc"
+      },
+      {
+        "id": "intake-src",
+        "path": "src/intake/handler.ts",
+        "title": "접수기 소스",
+        "group": "코드",
+        "role": "reference",
+        "kind": "code",
+        "repo": "example-org/order-service",
+        "commit": "0f1e2d3c4b5a",
+        "url_base": "https://example.invalid/example-org/order-service/blob/0f1e2d3c4b5a"
+      }
+    ],
+    "glossary": [
+      {
+        "id": "g.intake",
+        "term": "접수",
+        "easy": "바깥에서 들어온 주문을 받아 큐에 넣는 단계",
+        "tech": "`orders.inbound` 큐에 넣고 202를 돌려준다",
+        "evidence": [
+          {
+            "source": "spec",
+            "at": "구성 요소",
+            "resolved": {
+              "source": "spec",
+              "slug": "구성-요소",
+              "line": 5,
+              "verified": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "g.idempotent",
+        "term": "멱등",
+        "easy": "같은 요청을 여러 번 보내도 결과가 한 번 보낸 것과 같은 성질",
+        "evidence": [
+          {
+            "source": "spec",
+            "at": "규칙",
+            "resolved": {
+              "source": "spec",
+              "slug": "규칙",
+              "line": 14,
+              "verified": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "g.ledger",
+        "term": "주문 원장",
+        "easy": "확정된 주문이 한 줄씩 쌓이는 기록",
+        "tech": "적재기만 쓴다. 되돌리기는 반대 전표로 한다",
+        "evidence": [
+          {
+            "source": "spec",
+            "at": "되돌리기",
+            "resolved": {
+              "source": "spec",
+              "slug": "되돌리기",
+              "line": 31,
+              "verified": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "g.holdbox",
+        "term": "보류함",
+        "easy": "접수에 세 번 실패한 주문이 사람 손을 기다리는 자리",
+        "evidence": [
+          {
+            "source": "flow",
+            "at": "실패 처리",
+            "resolved": {
+              "source": "flow",
+              "slug": "실패-처리",
+              "line": 10,
+              "verified": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "g.window",
+        "term": "배포 창",
+        "easy": "배포해도 되는 정해진 시간대",
+        "fields": [
+          {
+            "label": "주의",
+            "text": "창 밖 배포는 승인 기록이 필요하다"
+          }
+        ],
+        "evidence": [
+          {
+            "source": "ops",
+            "at": "배포",
+            "resolved": {
+              "source": "ops",
+              "slug": "배포",
+              "line": 3,
+              "verified": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "g.capture",
+        "term": "매입",
+        "easy": "승인받아 둔 결제를 실제로 확정하는 일",
+        "tech": "적재가 끝난 뒤에만 한다",
+        "evidence": [
+          {
+            "source": "spec",
+            "at": "구성 요소",
+            "resolved": {
+              "source": "spec",
+              "slug": "구성-요소",
+              "line": 5,
+              "verified": true
+            }
+          }
+        ]
+      }
+    ],
+    "pages": [
+      {
+        "id": "overview",
+        "title": "한눈에",
+        "blocks": [
+          {
+            "type": "prose",
+            "title": "읽는 법",
+            "text": "왼쪽부터 순서대로 보면 된다. 상자를 누르면 오른쪽에 **근거 패널**이 열리고, 거기서 원문으로 갈 수 있다.\n\n단계 띠는 어느 화면에서나 위에 붙어 있다.",
+            "evidence": [
+              {
+                "source": "spec",
+                "resolved": {
+                  "source": "spec",
+                  "verified": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "graph",
+            "id": "b.arch",
+            "title": "구조",
+            "intro": "주문이 지나가는 자리와 그 사이의 연결.",
+            "evidence": [
+              {
+                "source": "spec",
+                "at": "구성 요소",
+                "resolved": {
+                  "source": "spec",
+                  "slug": "구성-요소",
+                  "line": 5,
+                  "verified": true
+                }
+              }
+            ],
+            "groups": [
+              {
+                "id": "grp.edge",
+                "label": "바깥"
+              },
+              {
+                "id": "grp.core",
+                "label": "처리"
+              },
+              {
+                "id": "grp.store",
+                "label": "저장"
+              }
+            ],
+            "nodes": [
+              {
+                "id": "n.client",
+                "label": "주문 클라이언트",
+                "group": "grp.edge",
+                "easy": "주문을 보내는 쪽"
+              },
+              {
+                "id": "n.intake",
+                "label": "접수기",
+                "group": "grp.core",
+                "tag": "멱등",
+                "easy": "주문을 받아 큐에 넣는다",
+                "tech": "재시도 3회, 타임아웃 2초",
+                "evidence": [
+                  {
+                    "source": "spec",
+                    "at": "설정 예시",
+                    "resolved": {
+                      "source": "spec",
+                      "slug": "설정-예시",
+                      "line": 22,
+                      "verified": true
+                    }
+                  },
+                  {
+                    "source": "intake-src",
+                    "lines": "40-52",
+                    "label": "접수 핸들러",
+                    "resolved": {
+                      "source": "intake-src",
+                      "verified": false
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "n.validate",
+                "label": "검증기",
+                "group": "grp.core",
+                "easy": "재고와 필수 항목을 본다"
+              },
+              {
+                "id": "n.pay",
+                "label": "결제기",
+                "group": "grp.core",
+                "easy": "승인만 먼저 받는다"
+              },
+              {
+                "id": "n.load",
+                "label": "적재기",
+                "group": "grp.core"
+              },
+              {
+                "id": "n.ledger",
+                "label": "주문 원장",
+                "group": "grp.store",
+                "easy": "확정된 주문이 쌓이는 곳"
+              },
+              {
+                "id": "n.hold",
+                "label": "보류함",
+                "group": "grp.store"
+              },
+              {
+                "id": "n.metrics",
+                "label": "지표 수집",
+                "easy": "어느 그룹에도 속하지 않는 곁다리"
+              }
+            ],
+            "edges": [
+              {
+                "from": "n.client",
+                "to": "n.intake",
+                "label": "주문"
+              },
+              {
+                "from": "n.intake",
+                "to": "n.validate"
+              },
+              {
+                "from": "n.validate",
+                "to": "n.pay",
+                "label": "통과"
+              },
+              {
+                "from": "n.pay",
+                "to": "n.load"
+              },
+              {
+                "from": "n.load",
+                "to": "n.ledger"
+              },
+              {
+                "from": "n.intake",
+                "to": "n.hold",
+                "label": "3회 실패",
+                "style": "dashed"
+              },
+              {
+                "from": "n.metrics",
+                "to": "n.intake",
+                "style": "dashed",
+                "both": true
+              }
+            ]
+          },
+          {
+            "type": "mermaid",
+            "id": "b.mermaid",
+            "title": "보조 그림",
+            "evidence": [
+              {
+                "source": "flow",
+                "at": "정상 흐름",
+                "resolved": {
+                  "source": "flow",
+                  "slug": "정상-흐름",
+                  "line": 3,
+                  "verified": true
+                }
+              }
+            ],
+            "code": "flowchart LR\n  A[접수] --> B[검증]\n  B --> C[결제]\n  C --> D[적재]\n  B -->|거절| E[거절함]"
+          }
+        ]
+      },
+      {
+        "id": "flow",
+        "title": "흐름",
+        "blocks": [
+          {
+            "type": "sequence",
+            "id": "b.flow",
+            "title": "정상 흐름",
+            "intro": "네 걸음이면 끝난다.",
+            "evidence": [
+              {
+                "source": "flow",
+                "at": "정상 흐름",
+                "resolved": {
+                  "source": "flow",
+                  "slug": "정상-흐름",
+                  "line": 3,
+                  "verified": true
+                }
+              }
+            ],
+            "fields": [
+              {
+                "label": "전제",
+                "text": "큐가 살아 있고 재고 조회가 응답한다"
+              }
+            ],
+            "steps": [
+              {
+                "id": "q.recv",
+                "label": "주문을 받는다",
+                "lane": "접수기",
+                "easy": "요청을 큐에 넣고 202를 돌려준다",
+                "why": "바깥을 기다리게 하지 않기 위해서다",
+                "evidence": [
+                  {
+                    "source": "api",
+                    "at": "주문 접수",
+                    "resolved": {
+                      "source": "api",
+                      "slug": "주문-접수",
+                      "line": 3,
+                      "verified": true
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "q.check",
+                "label": "재고와 필수 항목을 본다",
+                "lane": "검증기",
+                "easy": "모자라면 즉시 거절한다"
+              },
+              {
+                "id": "q.auth",
+                "label": "결제 승인을 받는다",
+                "lane": "결제기",
+                "tech": "매입은 적재 뒤에 한다"
+              },
+              {
+                "id": "q.write",
+                "label": "원장에 한 줄을 쓴다",
+                "lane": "적재기",
+                "easy": "여기까지 오면 주문이 확정된다"
+              }
+            ]
+          },
+          {
+            "type": "tree",
+            "id": "b.tree",
+            "title": "구성 요소의 포함 관계",
+            "evidence": [
+              {
+                "source": "spec",
+                "at": "구성 요소",
+                "resolved": {
+                  "source": "spec",
+                  "slug": "구성-요소",
+                  "line": 5,
+                  "verified": true
+                }
+              }
+            ],
+            "nodes": [
+              {
+                "id": "t.svc",
+                "label": "주문 서비스",
+                "easy": "이 뷰어가 다루는 전부"
+              },
+              {
+                "id": "t.front",
+                "label": "입구",
+                "parent": "t.svc",
+                "tag": "HTTP"
+              },
+              {
+                "id": "t.intake",
+                "label": "접수기",
+                "parent": "t.front",
+                "easy": "큐에 넣는다"
+              },
+              {
+                "id": "t.core",
+                "label": "처리부",
+                "parent": "t.svc"
+              },
+              {
+                "id": "t.validate",
+                "label": "검증기",
+                "parent": "t.core"
+              },
+              {
+                "id": "t.pay",
+                "label": "결제기",
+                "parent": "t.core",
+                "tag": "외부 호출"
+              },
+              {
+                "id": "t.store",
+                "label": "저장부",
+                "parent": "t.svc"
+              },
+              {
+                "id": "t.ledger",
+                "label": "주문 원장",
+                "parent": "t.store",
+                "easy": "적재기만 쓴다"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stages",
+        "title": "검증 단계",
+        "blocks": [
+          {
+            "type": "stages",
+            "id": "b.stages",
+            "title": "검증 단계",
+            "intro": "단계는 앞에서부터 통과시킨다. 상태는 상태 원장에서만 읽는다.",
+            "evidence": [
+              {
+                "source": "ops",
+                "at": "점검 항목",
+                "resolved": {
+                  "source": "ops",
+                  "slug": "점검-항목",
+                  "line": 9,
+                  "verified": true
+                }
+              }
+            ],
+            "stages": [
+              {
+                "id": "S1",
+                "title": "설계 합의",
+                "short": "S1 설계",
+                "question": "흐름과 실패 처리에 합의했는가",
+                "owner": "설계 담당",
+                "output": "설계 노트",
+                "stop": "되돌리기 방법이 정해지지 않으면 멈춘다",
+                "detail": {
+                  "source": "spec",
+                  "at": "규칙",
+                  "resolved": {
+                    "source": "spec",
+                    "slug": "규칙",
+                    "line": 14,
+                    "verified": true
+                  }
+                },
+                "items": [
+                  {
+                    "id": "S1.C1",
+                    "label": "멱등 규칙을 적었다",
+                    "criteria": "같은 주문 번호의 처리 방식이 문서에 있다"
+                  },
+                  {
+                    "id": "S1.C2",
+                    "label": "되돌리기 방법을 정했다",
+                    "criteria": "취소가 아니라 반대 전표"
+                  }
+                ]
+              },
+              {
+                "id": "S2",
+                "title": "흐름 실측",
+                "short": "S2 실측",
+                "question": "네 걸음이 실제로 그 순서로 도는가",
+                "owner": "구현 담당",
+                "output": "실측 기록",
+                "detail": {
+                  "source": "flow",
+                  "at": "정상 흐름",
+                  "resolved": {
+                    "source": "flow",
+                    "slug": "정상-흐름",
+                    "line": 3,
+                    "verified": true
+                  }
+                },
+                "items": [
+                  {
+                    "id": "S2.C1",
+                    "label": "정상 흐름 1건을 끝까지 돌렸다"
+                  },
+                  {
+                    "id": "S2.C2",
+                    "label": "재고 부족 거절을 확인했다"
+                  },
+                  {
+                    "id": "S2.C3",
+                    "label": "큐 장애 재시도를 확인했다",
+                    "required": false
+                  }
+                ]
+              },
+              {
+                "id": "S3",
+                "title": "결제 연동",
+                "short": "S3 결제",
+                "question": "승인과 매입이 분리되어 있는가",
+                "owner": "구현 담당",
+                "detail": {
+                  "source": "spec",
+                  "at": "구성 요소",
+                  "resolved": {
+                    "source": "spec",
+                    "slug": "구성-요소",
+                    "line": 5,
+                    "verified": true
+                  }
+                },
+                "items": [
+                  {
+                    "id": "S3.C1",
+                    "label": "승인 실패가 재시도되지 않는다"
+                  }
+                ]
+              },
+              {
+                "id": "S4",
+                "title": "운영 점검",
+                "short": "S4 운영",
+                "question": "당번이 볼 지표가 정해졌는가",
+                "owner": "운영 담당",
+                "detail": {
+                  "source": "ops",
+                  "at": "점검 항목",
+                  "resolved": {
+                    "source": "ops",
+                    "slug": "점검-항목",
+                    "line": 9,
+                    "verified": true
+                  }
+                },
+                "items": [
+                  {
+                    "id": "S4.C1",
+                    "label": "큐 적체 지표가 있다"
+                  },
+                  {
+                    "id": "S4.C2",
+                    "label": "원장 정합성 점검 주기가 있다"
+                  }
+                ]
+              },
+              {
+                "id": "S5",
+                "title": "외부 공개",
+                "short": "S5 공개",
+                "question": "응답 코드가 바깥과 합의됐는가",
+                "owner": "인터페이스 담당",
+                "detail": {
+                  "source": "api",
+                  "at": "응답 코드",
+                  "resolved": {
+                    "source": "api",
+                    "slug": "응답-코드",
+                    "line": 12,
+                    "verified": true
+                  }
+                },
+                "items": [
+                  {
+                    "id": "S5.C1",
+                    "label": "409의 뜻을 합의했다"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "findings",
+        "title": "발견",
+        "layout": "tabs",
+        "blocks": [
+          {
+            "type": "items",
+            "id": "b.findings",
+            "title": "발견 항목",
+            "intro": "실측에서 나온 것만 적는다.",
+            "evidence": [
+              {
+                "source": "flow",
+                "at": "실패 처리",
+                "resolved": {
+                  "source": "flow",
+                  "slug": "실패-처리",
+                  "line": 10,
+                  "verified": true
+                }
+              }
+            ],
+            "expect_count": 5,
+            "items": [
+              {
+                "id": "F1",
+                "label": "중복 주문이 조용히 사라진다",
+                "body": "같은 주문 번호를 두 번 보내면 두 번째가 기록 없이 버려진다.",
+                "tags": [
+                  "정합성"
+                ],
+                "refs": [
+                  "F3"
+                ],
+                "evidence": [
+                  {
+                    "source": "spec",
+                    "at": "규칙",
+                    "resolved": {
+                      "source": "spec",
+                      "slug": "규칙",
+                      "line": 14,
+                      "verified": true
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "F2",
+                "label": "큐 적체 알림이 없다",
+                "body": "적체가 쌓여도 당번이 모른다.",
+                "tags": [
+                  "운영"
+                ]
+              },
+              {
+                "id": "F3",
+                "label": "결제 승인 뒤 적재 실패가 방치된다",
+                "body": "승인은 났는데 원장에 못 쓰면 매입이 뜬다.",
+                "tags": [
+                  "정합성",
+                  "결제"
+                ],
+                "refs": [
+                  "F1",
+                  "R2"
+                ]
+              },
+              {
+                "id": "F4",
+                "label": "422 응답에 사유가 없다",
+                "tags": [
+                  "인터페이스"
+                ]
+              },
+              {
+                "id": "F5",
+                "label": "롤백 절차가 문서에만 있다",
+                "body": "실제로 돌려 본 기록이 없다.",
+                "tags": [
+                  "운영"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "table",
+            "id": "b.matrix",
+            "title": "발견과 대응",
+            "intro": "왼쪽 두 열은 원문에서 그대로 옮긴 것이고, 마지막 열은 해설이다.",
+            "evidence": [
+              {
+                "source": "ops",
+                "resolved": {
+                  "source": "ops",
+                  "verified": true
+                }
+              }
+            ],
+            "expect_count": 3,
+            "columns": [
+              {
+                "id": "c.where",
+                "label": "자리"
+              },
+              {
+                "id": "c.what",
+                "label": "실제로 본 것"
+              },
+              {
+                "id": "c.take",
+                "label": "이렇게 읽었다",
+                "derived": true
+              }
+            ],
+            "rows": [
+              {
+                "id": "R1",
+                "cells": {
+                  "c.where": "접수",
+                  "c.what": {
+                    "text": "재시도 3회 뒤 보류함",
+                    "evidence": [
+                      {
+                        "source": "flow",
+                        "at": "실패 처리",
+                        "resolved": {
+                          "source": "flow",
+                          "slug": "실패-처리",
+                          "line": 10,
+                          "verified": true
+                        }
+                      }
+                    ]
+                  },
+                  "c.take": "바깥을 기다리게 하지 않으려는 선택이다"
+                },
+                "evidence": [
+                  {
+                    "source": "spec",
+                    "at": "설정 예시",
+                    "resolved": {
+                      "source": "spec",
+                      "slug": "설정-예시",
+                      "line": 22,
+                      "verified": true
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "R2",
+                "cells": {
+                  "c.where": "결제",
+                  "c.what": "승인 거절은 재시도하지 않는다",
+                  "c.take": "자동 재시도가 중복 승인을 만들 수 있어서다"
+                }
+              },
+              {
+                "id": "R3",
+                "cells": {
+                  "c.where": "운영",
+                  "c.what": "원장 정합성은 하루 한 번 본다",
+                  "c.take": "실시간 검출은 아직 없다"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "docs": {
+    "spec": {
+      "id": "spec",
+      "path": "docs/orders/design.md",
+      "title": "주문 처리 설계",
+      "group": "설계",
+      "role": "primary",
+      "kind": "doc",
+      "frontmatter": {
+        "type": "spec",
+        "status": "approved"
+      },
+      "body": "# 주문 처리 설계\n\n주문은 접수 → 검증 → 결제 → 적재 순으로 한 방향으로만 흐른다.\n\n## 구성 요소\n\n| 요소 | 하는 일 | 비고 |\n| --- | --- | --- |\n| 접수기 | 외부 주문을 받아 큐에 넣는다 | 재시도 3회 |\n| 검증기 | 필수 항목과 재고를 본다 | 실패는 사유를 남긴다 |\n| 결제기 | 승인만 받고 매입은 적재 뒤에 한다 | |\n| 적재기 | 주문 원장에 한 줄을 쓴다 | 멱등 |\n\n## 규칙\n\n- 접수는 멱등하다.\n  - 같은 주문 번호는 한 번만 적재한다.\n  - 중복 요청은 조용히 버리지 않고 기록으로 남긴다.\n- 결제 실패는 자동으로 재시도하지 않는다.\n  - 사람이 사유를 보고 다시 건다.\n\n## 설정 예시\n\n```yaml\nintake:\n  retry: 3\n  timeout_ms: 2000\n  queue: orders.inbound\n```\n\n## 되돌리기\n\n적재까지 끝난 주문은 취소가 아니라 반대 전표로 되돌린다.\n",
+      "digest": "dspec0000000",
+      "headings": [
+        {
+          "depth": 1,
+          "text": "주문 처리 설계",
+          "slug": "주문-처리-설계",
+          "line": 1
+        },
+        {
+          "depth": 2,
+          "text": "구성 요소",
+          "slug": "구성-요소",
+          "line": 5
+        },
+        {
+          "depth": 2,
+          "text": "규칙",
+          "slug": "규칙",
+          "line": 14
+        },
+        {
+          "depth": 2,
+          "text": "설정 예시",
+          "slug": "설정-예시",
+          "line": 22
+        },
+        {
+          "depth": 2,
+          "text": "되돌리기",
+          "slug": "되돌리기",
+          "line": 31
+        }
+      ],
+      "missing": false,
+      "embedded": true
+    },
+    "flow": {
+      "id": "flow",
+      "path": "docs/orders/flow.md",
+      "title": "흐름과 실패 처리",
+      "group": "설계",
+      "role": "primary",
+      "kind": "doc",
+      "frontmatter": {
+        "type": "spec",
+        "status": "draft"
+      },
+      "body": "# 흐름과 실패 처리\n\n## 정상 흐름\n\n1. 접수기가 주문을 받는다.\n2. 검증기가 재고와 필수 항목을 본다.\n3. 결제기가 승인을 받는다.\n4. 적재기가 원장에 쓴다.\n\n## 실패 처리\n\n| 단계 | 실패 | 대응 |\n| --- | --- | --- |\n| 접수 | 큐 장애 | 3회 재시도 후 보류함 |\n| 검증 | 재고 부족 | 즉시 거절, 사유 기록 |\n| 결제 | 승인 거절 | 사람이 다시 건다 |\n\n```text\n접수 → 검증 → 결제 → 적재\n        ↘ 거절함\n```\n",
+      "digest": "dflow0000000",
+      "headings": [
+        {
+          "depth": 1,
+          "text": "흐름과 실패 처리",
+          "slug": "흐름과-실패-처리",
+          "line": 1
+        },
+        {
+          "depth": 2,
+          "text": "정상 흐름",
+          "slug": "정상-흐름",
+          "line": 3
+        },
+        {
+          "depth": 2,
+          "text": "실패 처리",
+          "slug": "실패-처리",
+          "line": 10
+        }
+      ],
+      "missing": false,
+      "embedded": true
+    },
+    "ops": {
+      "id": "ops",
+      "path": "docs/orders/operations.md",
+      "title": "운영 절차",
+      "group": "운영",
+      "role": "reference",
+      "kind": "doc",
+      "frontmatter": {
+        "type": "spec",
+        "status": "draft"
+      },
+      "body": "# 운영 절차\n\n## 배포\n\n- 배포는 하루 한 번 창을 잡아서 한다.\n  - 창 밖 배포는 승인 기록을 남긴다.\n- 롤백은 이전 이미지 태그로만 한다.\n\n## 점검 항목\n\n| 항목 | 주기 | 담당 |\n| --- | --- | --- |\n| 큐 적체 | 5분 | 당번 |\n| 결제 승인률 | 1시간 | 당번 |\n| 원장 정합성 | 1일 | 운영 |\n",
+      "digest": "dops00000000",
+      "headings": [
+        {
+          "depth": 1,
+          "text": "운영 절차",
+          "slug": "운영-절차",
+          "line": 1
+        },
+        {
+          "depth": 2,
+          "text": "배포",
+          "slug": "배포",
+          "line": 3
+        },
+        {
+          "depth": 2,
+          "text": "점검 항목",
+          "slug": "점검-항목",
+          "line": 9
+        }
+      ],
+      "missing": false,
+      "embedded": true
+    },
+    "api": {
+      "id": "api",
+      "path": "docs/orders/api.md",
+      "title": "외부 인터페이스",
+      "group": "인터페이스",
+      "role": "reference",
+      "kind": "doc",
+      "frontmatter": {
+        "type": "spec",
+        "status": "draft"
+      },
+      "body": "# 외부 인터페이스\n\n## 주문 접수\n\n```json\n{\n  \"order_id\": \"A-1001\",\n  \"items\": [{ \"sku\": \"X-1\", \"qty\": 2 }]\n}\n```\n\n## 응답 코드\n\n| 코드 | 뜻 |\n| --- | --- |\n| 202 | 접수함 |\n| 409 | 같은 주문 번호가 이미 있다 |\n| 422 | 필수 항목 누락 |\n",
+      "digest": "dapi00000000",
+      "headings": [
+        {
+          "depth": 1,
+          "text": "외부 인터페이스",
+          "slug": "외부-인터페이스",
+          "line": 1
+        },
+        {
+          "depth": 2,
+          "text": "주문 접수",
+          "slug": "주문-접수",
+          "line": 3
+        },
+        {
+          "depth": 2,
+          "text": "응답 코드",
+          "slug": "응답-코드",
+          "line": 12
+        }
+      ],
+      "missing": false,
+      "embedded": true
+    },
+    "intake-src": {
+      "id": "intake-src",
+      "path": "src/intake/handler.ts",
+      "title": "접수기 소스",
+      "group": "코드",
+      "role": "reference",
+      "kind": "code",
+      "repo": "example-org/order-service",
+      "commit": "0f1e2d3c4b5a",
+      "url_base": "https://example.invalid/example-org/order-service/blob/0f1e2d3c4b5a",
+      "frontmatter": {},
+      "body": "",
+      "digest": "",
+      "headings": [],
+      "missing": false,
+      "embedded": false
+    }
+  },
+  "status": {
+    "S1": {
+      "status": "passed",
+      "label": "검증 완료",
+      "tone": "green",
+      "done": true,
+      "note": "설계 노트로 확인함",
+      "origin": "ledger",
+      "evidence": [
+        {
+          "path": "docs/orders/design.md",
+          "at": "규칙",
+          "resolved": {
+            "path": "docs/orders/design.md",
+            "source": "spec",
+            "slug": "규칙"
+          }
+        }
+      ]
+    },
+    "S1.C1": {
+      "status": "passed",
+      "label": "검증 완료",
+      "tone": "green",
+      "done": true,
+      "origin": "ledger",
+      "evidence": [
+        {
+          "path": "docs/orders/design.md",
+          "at": "규칙",
+          "resolved": {
+            "path": "docs/orders/design.md",
+            "source": "spec",
+            "slug": "규칙"
+          }
+        }
+      ]
+    },
+    "S1.C2": {
+      "status": "passed",
+      "label": "검증 완료",
+      "tone": "green",
+      "done": true,
+      "origin": "ledger",
+      "evidence": [
+        {
+          "path": "docs/orders/design.md",
+          "at": "되돌리기",
+          "resolved": {
+            "path": "docs/orders/design.md",
+            "source": "spec",
+            "slug": "되돌리기"
+          }
+        }
+      ]
+    },
+    "S2": {
+      "status": "in_progress",
+      "label": "진행 중",
+      "tone": "blue",
+      "done": false,
+      "note": "2/3 확인",
+      "origin": "ledger",
+      "evidence": []
+    },
+    "S2.C1": {
+      "status": "passed",
+      "label": "검증 완료",
+      "tone": "green",
+      "done": true,
+      "origin": "ledger",
+      "evidence": [
+        {
+          "path": "docs/orders/flow.md",
+          "at": "정상 흐름",
+          "resolved": {
+            "path": "docs/orders/flow.md",
+            "source": "flow",
+            "slug": "정상-흐름"
+          }
+        }
+      ]
+    },
+    "S2.C2": {
+      "status": "passed",
+      "label": "검증 완료",
+      "tone": "green",
+      "done": true,
+      "origin": "ledger",
+      "evidence": [
+        {
+          "path": "docs/orders/flow.md",
+          "at": "실패 처리",
+          "resolved": {
+            "path": "docs/orders/flow.md",
+            "source": "flow",
+            "slug": "실패-처리"
+          }
+        }
+      ]
+    },
+    "S2.C3": {
+      "status": "not_run",
+      "label": "미실행",
+      "tone": "muted",
+      "done": false,
+      "origin": "ledger-default",
+      "evidence": []
+    },
+    "S3": {
+      "status": "not_run",
+      "label": "미실행",
+      "tone": "muted",
+      "done": false,
+      "origin": "ledger-default",
+      "evidence": []
+    },
+    "S3.C1": {
+      "status": "not_run",
+      "label": "미실행",
+      "tone": "muted",
+      "done": false,
+      "origin": "ledger-default",
+      "evidence": []
+    },
+    "S4": {
+      "status": "not_run",
+      "label": "미실행",
+      "tone": "muted",
+      "done": false,
+      "note": "당번 배정 뒤에 본다",
+      "origin": "ledger",
+      "evidence": []
+    },
+    "S4.C1": {
+      "status": "blocked",
+      "label": "막힘",
+      "tone": "red",
+      "done": false,
+      "note": "지표 수집이 없다",
+      "origin": "ledger",
+      "evidence": []
+    },
+    "S4.C2": {
+      "status": "not_run",
+      "label": "미실행",
+      "tone": "muted",
+      "done": false,
+      "origin": "ledger-default",
+      "evidence": []
+    },
+    "S5": {
+      "status": null,
+      "label": "상태 근거 미등록",
+      "tone": "muted",
+      "done": false,
+      "origin": "none",
+      "evidence": []
+    },
+    "S5.C1": {
+      "status": null,
+      "label": "상태 근거 미등록",
+      "tone": "muted",
+      "done": false,
+      "origin": "none",
+      "evidence": []
+    }
+  },
+  "backlinks": {
+    "spec": [
+      {
+        "kind": "node",
+        "id": "n.intake",
+        "page": "overview",
+        "label": "접수기"
+      },
+      {
+        "kind": "glossary",
+        "id": "g.idempotent",
+        "label": "멱등"
+      },
+      {
+        "kind": "stage",
+        "id": "S1",
+        "page": "stages",
+        "label": "설계 합의"
+      }
+    ],
+    "flow": [
+      {
+        "kind": "step",
+        "id": "q.recv",
+        "page": "flow",
+        "label": "주문을 받는다"
+      },
+      {
+        "kind": "block",
+        "id": "b.findings",
+        "page": "findings",
+        "label": "발견 항목"
+      }
+    ],
+    "ops": [
+      {
+        "kind": "block",
+        "id": "b.stages",
+        "page": "stages",
+        "label": "검증 단계"
+      }
+    ],
+    "api": [
+      {
+        "kind": "stage",
+        "id": "S5",
+        "page": "stages",
+        "label": "외부 공개"
+      }
+    ],
+    "intake-src": [
+      {
+        "kind": "node",
+        "id": "n.intake",
+        "page": "overview",
+        "label": "접수기"
+      }
+    ]
+  },
+  "stamp": {
+    "builtAt": "2026-09-19T09:24:00.000Z",
+    "commit": "9a3f71c2e5b80d4416aa",
+    "dirty": true,
+    "docCount": 5,
+    "ymlDigest": "3f9c1a7b22de",
+    "ledgerDigest": "b41e77c0a9d3",
+    "counts": {
+      "unresolvedLinks": 1,
+      "missingReferences": 0,
+      "unverifiedCode": 1,
+      "inheritedEvidence": 3
+    }
+  },
+  "issues": [
+    {
+      "level": "warning",
+      "code": "W_CODE_UNVERIFIED",
+      "message": "저장소 체크아웃이 없어 줄 범위를 확인하지 못했다",
+      "where": "pages[0].blocks[1].nodes[1].evidence[1]"
+    },
+    {
+      "level": "warning",
+      "code": "W_INHERITED",
+      "message": "블록 근거를 물려받았다",
+      "where": "pages[0].blocks[1].nodes[0]"
+    },
+    {
+      "level": "warning",
+      "code": "W_INHERITED",
+      "message": "블록 근거를 물려받았다",
+      "where": "pages[1].blocks[0].steps[1]"
+    },
+    {
+      "level": "warning",
+      "code": "W_INHERITED",
+      "message": "블록 근거를 물려받았다",
+      "where": "pages[3].blocks[0].items[1]"
+    },
+    {
+      "level": "warning",
+      "code": "W_LINK_UNRESOLVED",
+      "message": "sources 범위 밖 링크라 링크를 만들지 않았다",
+      "where": "docs.ops"
+    }
+  ]
+}

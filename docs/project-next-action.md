@@ -1,5 +1,5 @@
 # 프로젝트 `next_action` 계약
-<!-- origin: lemoncloud-io/knowledge@6f4088ca:docs/project-next-action.md -->
+<!-- origin: lemoncloud-io/knowledge@f68f1d38:docs/project-next-action.md -->
 
 `projects/<name>/README.md`와 `projects/@<org>/<folder>/README.md` frontmatter의 `next_action`
 한 필드가 가질 수 있는 모양·문법·전환 기준. 진입점 요약은 `VAULT_RULES.md` § Note Contracts
@@ -7,13 +7,13 @@
 
 2026-09-15 제정. 계기는 한 프로젝트 README의 값이 2,091바이트까지 자란 것이다 —
 대상 열 곳의 다음 할 일이 `;`로 이어 붙은 한 줄이라, 한 곳만 고치려 해도 줄 전체를 다시 쓰게 되고
-`projects.base` 표에서는 앞부분만 보였다. 2026-08-28에 master를 깨뜨린 merge 충돌(`next_action:`
+`projects.base` 표에서는 앞부분만 보였다. master를 깨뜨린 merge 충돌(`next_action:`
 스칼라 아래에 양쪽 시퀀스 항목이 남은 모양)도 바로 이 줄에서 났다. 한 줄에 여러 건을 눌러 담는 것이
 원인이고, 목록은 그 원인을 없앤다.
 
-그 원인은 이 문서가 심사되는 동안 한 번 더 작동했다. 초안을 쓸 때 1,934바이트였던 값이 하루 만에
-2,091바이트가 됐다 — 다른 작성자가 대상 한 곳의 절 **하나**를 고치려고 줄 전체를 다시 썼고,
-그 PR과 이 PR이 정확히 그 줄에서 충돌했다. 한 줄을 공유하는 한 편집은 서로를 밟는다.
+그 원인은 이 문서가 심사되는 동안 한 번 더 작동했다. 다른 작성자가 대상 한 곳의 절 **하나**를
+고치려고 줄 전체를 다시 썼고, 그 PR과 이 문서의 PR이 정확히 그 줄에서 충돌했다. 한 줄을 공유하는
+한 편집은 서로를 밟는다.
 
 ## 두 가지 모양
 
@@ -118,7 +118,7 @@ next_action:
 
 ## 근거 — 2026-09-15 실측
 
-master `edebf80` 기준, `next_action`을 가진 프로젝트 노트 116건의 값 크기 분포:
+제정 시점 master 기준, `next_action`을 가진 프로젝트 노트 116건의 값 크기 분포:
 
 | 값 크기 | 건수 |
 | --- | --- |
@@ -133,10 +133,6 @@ master `edebf80` 기준, `next_action`을 가진 프로젝트 노트 116건의 �
 이 선 위에서는 예외 없이 손볼 것이 있었다. 200바이트로 낮추면 멀쩡한 한 건짜리 13건이 함께
 걸린다.
 
-제정과 같은 회차에 6건을 전부 정비했다 — 행위가 둘 이상이던 5건은 각각 28·17·5·5·2항목의 목록이
-됐고, 종료 상태 기록이던 1건은 그 기록을 본문 § Log에 두고 스칼라 한 줄로 줄였다. 이후로 볼트
-전건이 이 계약을 지킨다.
-
 ## 함정
 
 - `projects.base`의 `next_action` 열은 스칼라와 목록을 모두 읽는다(속성 참조라 모양을 가리지
@@ -144,8 +140,8 @@ master `edebf80` 기준, `next_action`을 가진 프로젝트 노트 116건의 �
   볼트의 base 중 목록 값을 열로 쓰는 선례가 아직 없다. 확인 절차는 `docs/obsidian-bases.md`
   § 업데이트 절차 4.
 - 시퀀스 항목의 들여쓰기는 두 칸이다. 스칼라 값이 남은 채 그 아래에 항목이 붙으면
-  (`next_action: "x"` 다음 줄에 `  - "y"`) frontmatter 전체가 파싱되지 않는다 — 2026-08-28의
-  실제 사고이고, `vault_verify.py`가 잡는 첫 번째 결함이다. merge 충돌을 "양쪽 다 살리기"로
+  (`next_action: "x"` 다음 줄에 `  - "y"`) frontmatter 전체가 파싱되지 않는다 — 실제로 일어난
+  사고이고, `vault_verify.py`가 잡는 첫 번째 결함이다. merge 충돌을 "양쪽 다 살리기"로
   풀 때 나온다.
 - 항목을 늘리는 것으로 `milestones`를 대신하지 않는다. `milestones`는 프로젝트가 끝날 때까지
   남는 축이고, `next_action`은 다음 회차에 지워질 줄이다. 그 필드에도 같은 판정이 성문화돼

@@ -112,3 +112,8 @@ mark.hl {
   font-size: var(--fs-sm);
   overflow-wrap: anywhere;
 }
+
+/* PR 번호 입력 행(맨 위). 다른 행과 같은 모양이고 제목 절 앞이라 절 제목이 없다. */
+.search-pr-jump .search-hit {
+  border-bottom: 1px solid var(--line);
+}

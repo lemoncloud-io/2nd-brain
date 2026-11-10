@@ -7,7 +7,7 @@ description: >
   결과는 areas/weekly/YYYY-MM-DD.md (templates/weekly-report.md 계약)와 같은 이름의
   .html 뷰(templates/weekly-report.html 계약)를 함께 저장하고, 트리거 문구 명령은
   팀 메일 **초안 생성**까지 포함한다 — 발송 버튼은 항상 사용자가 Gmail에서 직접 누른다.
-origin: lemoncloud-io/knowledge@c872ab87:projects/second-brain/config/skills/vault-weekly-report.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-weekly-report.md
 ---
 
 # Vault Weekly Report
@@ -54,10 +54,8 @@ vault 리포지토리의 지난 1주일 활동을 집계해 `areas/weekly/`에 �
 
 **왜 날짜가 아니라 커밋인가** — 보고서가 항상 정확히 7일 간격으로 써지지는 않는다.
 `--since="<보고일-7일> 00:00"`을 고정으로 쓰면 간격이 6일일 때 하루가 두 번 집계되고
-8일일 때 하루가 통째로 빠진다. 실제로 2026-08-12 보고서는 `2026-08-05 00:00` 이후를
-그날 14:54에 집계했고 다음 보고서는 08-18에 써졌으므로, 날짜 공식이었다면 08-11 전체와
-08-12 대부분이 다시 집계됐을 것이다. 커밋 경계에서는 이 문제가 구조적으로 생기지 않는다.
-(2026-08-18 보고서에서 처음 적용, 같은 날 기본값으로 확정.)
+8일일 때 하루가 통째로 빠진다. 실제로 보고서 간격이 7일이 아니었던 주에 날짜 공식을 썼다면
+하루 넘는 구간이 다시 집계됐을 것이다. 커밋 경계에서는 이 문제가 구조적으로 생기지 않는다.
 
 ## 집계 절차 (전수 통계)
 
@@ -77,8 +75,8 @@ BASE=$(git log -1 --diff-filter=A --pretty=%H -- "areas/weekly/$PREV.md")
 `ancestors(master) \ ancestors(이번 보고서 커밋)`이라 집합 정의상 서로소다. 대신 조심할 것은
 **이월**이다: 보고서 브랜치를 stale한 master에서 따면 그 사이 머지된 PR이 이번 보고서에서 빠져
 다음 보고서로 밀린다. 누락되지는 않지만 주차 귀속이 어긋나므로, 보고서 브랜치는 `git fetch` 후
-최신 master에서 딴다. (실제로 2026-08-18 보고서가 stale base에서 만들어져 08-14에 머지된
-PR #126이 다음 주로 이월됐다.)
+최신 master에서 딴다. (실제로 stale base에서 만든 보고서가 그 사이 머지된 PR을 다음 주로
+이월시킨 일이 있었다.)
 
 | 항목 | 명령 |
 | --- | --- |

@@ -489,6 +489,21 @@ class ScanReviewTest(unittest.TestCase):
     def test_unterminated_frontmatter_is_left_to_scan_frontmatter(self):
         self.assertEqual(scan_review("---\nreview: draft\n", "projects/p/README.md"), [])
 
+    def test_owner_scoped_project_readme_is_judged(self):
+        defects = scan_review(self._fm("review: draft\n"), "projects/@org/repo/README.md")
+        self.assertEqual(len(defects), 1)
+
+    def test_review_outside_a_project_readme_is_not_read(self):
+        # a marketing post keeps its per-post check record under `review`; that is not the gate
+        text = self._fm('review: {date: "2026-10-29", lint: pass, checklist: "12/12"}\n')
+        for rel in (
+            "projects/p/outputs/posts/2026-10-29-post-10.md",
+            "projects/p/config/templates/post-master.md",
+            "projects/p/config/README.md",
+            "wiki/note.md",
+        ):
+            self.assertEqual(scan_review(text, rel), [], rel)
+
 
 INDEX_FILES = ("docs/raw-index.yml", "docs/raw-index.md")
 
@@ -580,7 +595,7 @@ class RawIndexScopeGitTest(unittest.TestCase):
 
     def _git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args],
-                              check=True, capture_output=True, text=True).stdout
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
 
     def _write(self, rel, text):
         (self.root / rel).write_text(text, encoding="utf-8")
@@ -666,7 +681,7 @@ class SnapshotLanePlacementTest(unittest.TestCase):
 
     def _git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args],
-                              check=True, capture_output=True, text=True).stdout
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
 
     def _write(self, rel, text):
         path = self.root / rel
@@ -797,6 +812,84 @@ class ReachabilityTest(unittest.TestCase):
         self.assertIn("wiki/INDEX.md is missing", defects[0])
 
 
+class TallyRatchetGitTest(unittest.TestCase):
+    """Check 13 — a hub may not gain a live tally; counts already on the base are a lint item."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self._write("projects/p/README.md", "# P\n\n기능 42건의 색인은 [f](features/README.md).\n\n## Log\n")
+        self._write("projects/p/features/README.md", "# F\n\n| a |\n| --- |\n| 1 |\n")
+        self._write("outputs/README.md", "# outputs\n")
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@example.com")
+        self._git("config", "user.name", "t")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "base")
+        self.base = self._git("rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _check(self):
+        defects: list[str] = []
+        vault_verify.check_tally_ratchet(self.root, self.base, defects)
+        return defects
+
+    def test_unchanged_tree_passes_despite_old_tally(self):
+        self.assertEqual(self._check(), [])
+
+    def test_added_tally_in_project_readme_is_a_defect_with_its_line(self):
+        self._write("projects/p/README.md", "# P\n\n기능 42건의 색인은 [f](features/README.md).\n\n## Log\n\n- 화면 폴더 35개를 더했다.\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("projects/p/README.md:7: new live tally `35개`", defects[0])
+
+    def test_dated_count_and_inline_code_are_accepted(self):
+        self._write("projects/p/README.md", "# P\n\n- 2026-10-15 실측 67개.\n- 수는 `vault_tally.py docs` → `12건`으로 본다.\n")
+        self.assertEqual(self._check(), [])
+
+    def test_untracked_new_project_readme_is_scanned_whole(self):
+        self._write("projects/@o/r/README.md", "# r\n\n문서 3편.\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("projects/@o/r/README.md:3", defects[0])
+
+    def test_frontmatter_labels_are_out_of_scope(self):
+        # a milestone or next_action label names a checkpoint, not a collection (narrowed 2026-10-22)
+        self._write("projects/p/README.md", "---\ntype: project\nmilestones:\n  - name: \"결정 31개 확정\"\n"
+                                           "next_action: \"외부 앱 1개로 게이트\"\n---\n# P\n\n본문.\n")
+        self.assertEqual(self._check(), [])
+        self._write("projects/p/README.md", "---\ntype: project\n---\n# P\n\n앱은 12개이고.\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("projects/p/README.md:6", defects[0])
+
+    def test_non_hub_documents_are_not_checked(self):
+        self._write("projects/p/features/README.md", "# F\n\n기능 47건.\n")
+        self._write("projects/p/docs/plan.md", "# plan\n\n문서 9편.\n")
+        self.assertEqual(self._check(), [])
+
+    def test_top_hub_is_checked(self):
+        self._write("outputs/README.md", "# outputs\n\n보고서 40건.\n")
+        self.assertEqual(len(self._check()), 1)
+
+    def test_bad_base_ref_is_reported_not_raised(self):
+        defects: list[str] = []
+        vault_verify.check_tally_ratchet(self.root, "no-such-ref", defects)
+        self.assertEqual(len(defects), 1)
+        self.assertIn("could not run", defects[0])
+
+
 class LinkRatchetGitTest(unittest.TestCase):
     """Check 12 — end to end against a throwaway repo: the set of broken links may not grow.
     The base carries one broken link on purpose; it must stay exempt in every case."""
@@ -822,7 +915,7 @@ class LinkRatchetGitTest(unittest.TestCase):
 
     def _git(self, *args):
         return subprocess.run(["git", "-C", str(self.root), *args],
-                              check=True, capture_output=True, text=True).stdout
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
 
     def _write(self, rel, text):
         path = self.root / rel
@@ -883,3 +976,180 @@ class LinkRatchetGitTest(unittest.TestCase):
         self.assertEqual(len(defects), 1, defects)
         self.assertIn("link check could not run", defects[0])
 
+
+
+class FrozenFilesGitTest(unittest.TestCase):
+    """Check 14 — a file frozen on the base (frontmatter `frozen:`) is never modified, deleted or renamed."""
+
+    FROZEN = "---\ntype: project-doc\nfrozen: 2026-10-29\n---\n\n# Log\n\n- **2026-10-01 — 회차.**\n"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self._write("projects/p/sync-log.md", self.FROZEN)
+        self._write("projects/p/notes.md", "---\ntype: project-doc\n---\n\n# Notes\n")
+        self._write("raw/source.md", "---\nfrozen: 2026-01-01\n---\nraw\n")
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@example.com")
+        self._git("config", "user.name", "t")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "base")
+        self.base = self._git("rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _check(self):
+        defects: list[str] = []
+        vault_verify.check_frozen_files(self.root, self.base, defects)
+        return defects
+
+    def test_unchanged_tree_passes(self):
+        self.assertEqual(self._check(), [])
+
+    def test_appending_to_a_frozen_file_is_a_defect(self):
+        # the habit the freeze guards against: one more round appended at the end
+        self._write("projects/p/sync-log.md", self.FROZEN + "- **2026-10-30 — 회차.**\n")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("projects/p/sync-log.md: frozen file modified (frozen: 2026-10-29)", defects[0])
+
+    def test_committed_edit_is_compared_against_base(self):
+        self._write("projects/p/sync-log.md", self.FROZEN + "- more\n")
+        self._git("commit", "-qam", "edit")
+        self.assertEqual(len(self._check()), 1)
+
+    def test_deleting_a_frozen_file_is_a_defect(self):
+        (self.root / "projects/p/sync-log.md").unlink()
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("frozen file deleted", defects[0])
+
+    def test_renaming_a_frozen_file_is_a_defect(self):
+        self._git("mv", "projects/p/sync-log.md", "projects/p/sync-log-old.md")
+        defects = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("frozen file renamed to projects/p/sync-log-old.md", defects[0])
+
+    def test_removing_the_key_is_still_an_edit_of_a_frozen_file(self):
+        self._write("projects/p/sync-log.md", self.FROZEN.replace("frozen: 2026-10-29\n", ""))
+        self.assertEqual(len(self._check()), 1)
+
+    def test_adding_frozen_to_a_file_passes(self):
+        # the freezing change set itself: the base has no key yet
+        self._write("projects/p/notes.md", "---\ntype: project-doc\nfrozen: 2026-10-30\n---\n\n# Notes\n")
+        self.assertEqual(self._check(), [])
+
+    def test_editing_a_file_that_is_not_frozen_passes(self):
+        self._write("projects/p/notes.md", "---\ntype: project-doc\n---\n\n# Notes\n\n- 한 줄 더.\n")
+        self._write("projects/p/new.md", "---\nfrozen: 2026-10-30\n---\n# New\n")
+        self.assertEqual(self._check(), [])
+
+    def test_indented_or_body_frozen_is_not_a_freeze(self):
+        self._write("projects/p/notes.md", "---\nmeta:\n  frozen: 2026-10-30\n---\n\nfrozen: 2026-10-30\n")
+        self._git("commit", "-qam", "nested key")
+        self.base = self._git("rev-parse", "HEAD").strip()
+        self._write("projects/p/notes.md", "---\ntype: project-doc\n---\n\n# changed\n")
+        self.assertEqual(self._check(), [])
+
+    def test_raw_is_left_to_the_append_only_check(self):
+        self._write("raw/source.md", "---\nfrozen: 2026-01-01\n---\nraw edited\n")
+        self.assertEqual(self._check(), [])
+
+    def test_bad_base_ref_is_reported_not_raised(self):
+        defects: list[str] = []
+        vault_verify.check_frozen_files(self.root, "no-such-ref", defects)
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("frozen file check could not run", defects[0])
+
+    def test_frozen_since_reads_top_level_key_only(self):
+        self.assertEqual(vault_verify.frozen_since(self.FROZEN), "2026-10-29")
+        self.assertEqual(vault_verify.frozen_since('---\nfrozen: "2026-10-29"\n---\n'), "2026-10-29")
+        self.assertIsNone(vault_verify.frozen_since("# no frontmatter\n\nfrozen: 2026-10-29\n"))
+        self.assertIsNone(vault_verify.frozen_since("---\nmeta:\n  frozen: x\n---\n"))
+
+
+class SkillLintGitTest(unittest.TestCase):
+    """Check 15 — a SKILL.md the change set touches passes skill_lint; warnings never fail."""
+
+    GOOD = "---\nname: {name}\ndescription: 무엇을 하고 언제 쓴다.\n---\n\n# {name}\n"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self._write("projects/p/config/skills/alpha/SKILL.md", self.GOOD.format(name="alpha"))
+        self._write("projects/p/config/skills/alpha/references/r.md", "# r\n")
+        self._write("projects/p/config/skills/beta/SKILL.md", self.GOOD.format(name="old-name"))  # 기존 결함
+        self._write("projects/p/README.md", "# p\n")
+        self._git("init", "-q")
+        self._git("config", "user.email", "t@example.com")
+        self._git("config", "user.name", "t")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "base")
+        self.base = self._git("rev-parse", "HEAD").strip()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args],
+                              check=True, capture_output=True, text=True, encoding="utf-8").stdout
+
+    def _write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    def _check(self):
+        defects: list[str] = []
+        notes: list[str] = []
+        vault_verify.check_skill_lint(self.root, self.base, defects, notes)
+        return defects, notes
+
+    def test_unchanged_tree_passes_despite_old_defect(self):
+        self.assertEqual(self._check(), ([], []))
+
+    def test_non_skill_change_passes(self):
+        self._write("projects/p/README.md", "# p\n\n고침\n")
+        self.assertEqual(self._check(), ([], []))
+
+    def test_changed_skill_with_broken_link_is_a_defect(self):
+        self._write("projects/p/config/skills/alpha/SKILL.md",
+                    self.GOOD.format(name="alpha") + "\n[참조](references/missing.md)\n")
+        defects, _ = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("projects/p/config/skills/alpha/SKILL.md: E3", defects[0])
+
+    def test_changed_reference_lints_its_skill(self):
+        self._write("projects/p/config/skills/beta/references/r.md", "# new\n")
+        defects, _ = self._check()
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("폴더명 `beta`", defects[0])
+
+    def test_committed_change_is_compared_against_base(self):
+        self._write("projects/p/config/skills/alpha/SKILL.md", "# frontmatter 없음\n")
+        self._git("commit", "-qam", "break")
+        defects, _ = self._check()
+        self.assertTrue(defects and "E1" in defects[0], defects)
+
+    def test_warnings_are_notes_not_defects(self):
+        body = self.GOOD.format(name="alpha") + "".join(f"- 줄 {i}\n" for i in range(120))
+        self._write("projects/p/config/skills/alpha/SKILL.md", body)
+        defects, notes = self._check()
+        self.assertEqual(defects, [])
+        self.assertEqual([n.split(": ", 1)[1][:2] for n in notes], ["W1", "W1"])
+
+    def test_bad_base_ref_is_reported_not_raised(self):
+        defects: list[str] = []
+        vault_verify.check_skill_lint(self.root, "no-such-ref", defects, [])
+        self.assertEqual(len(defects), 1, defects)
+        self.assertIn("skill lint check could not run", defects[0])

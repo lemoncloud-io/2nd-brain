@@ -1,0 +1,789 @@
+/* 앱 골격 — 상단 메뉴, 단계 띠, 본문, 근거 패널, 하단 스탬프. */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ── 상단 메뉴 ───────────────────────────────────────────── */
+
+/* 상단 메뉴와 단계 띠를 한 덩이로 고정한다. 메뉴가 줄바꿈해 높이가 변해도 겹치지 않는다. */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--surface);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  min-height: var(--topbar-h);
+  padding: var(--gap-2) var(--gap-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+.topbar__title {
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  color: var(--text);
+  white-space: nowrap;
+}
+.topbar__title:hover {
+  text-decoration: none;
+}
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.topbar__link {
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.topbar__link:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.topbar__link[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+.topbar__sep {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+}
+
+.topbar__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+}
+.topbar__search {
+  width: 190px;
+  max-width: 40vw;
+}
+
+/* ── 단계 띠 ─────────────────────────────────────────────── */
+
+.stagestrip {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  padding: var(--gap-2) var(--gap-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.stagestrip__label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.stagestrip__list {
+  display: flex;
+  gap: var(--gap-2);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.stagestrip__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+/* 상태 색으로 칩 전체를 칠한다 — 점만으로는 완료·진행·폐기가 한눈에 갈리지 않는다.
+   tone 색은 --chip-* 변수로도 두어 진행 중 칩의 도는 테두리가 같은 색을 쓴다. */
+.stagestrip__item--muted { --chip-bg: var(--tone-muted-bg); --chip-line: var(--tone-muted-line); --chip-fg: var(--tone-muted-fg); background: var(--chip-bg); border-color: var(--chip-line); color: var(--chip-fg); }
+.stagestrip__item--blue { --chip-bg: var(--tone-blue-bg); --chip-line: var(--tone-blue-line); --chip-fg: var(--tone-blue-fg); background: var(--chip-bg); border-color: var(--chip-line); color: var(--chip-fg); }
+.stagestrip__item--amber { --chip-bg: var(--tone-amber-bg); --chip-line: var(--tone-amber-line); --chip-fg: var(--tone-amber-fg); background: var(--chip-bg); border-color: var(--chip-line); color: var(--chip-fg); }
+.stagestrip__item--green { --chip-bg: var(--tone-green-bg); --chip-line: var(--tone-green-line); --chip-fg: var(--tone-green-fg); background: var(--chip-bg); border-color: var(--chip-line); color: var(--chip-fg); }
+.stagestrip__item--red { --chip-bg: var(--tone-red-bg); --chip-line: var(--tone-red-line); --chip-fg: var(--tone-red-fg); background: var(--chip-bg); border-color: var(--chip-line); color: var(--chip-fg); }
+.stagestrip__item .muted {
+  color: inherit;
+  opacity: 0.85;
+}
+.stagestrip__item:hover {
+  border-color: var(--line-strong);
+  text-decoration: none;
+}
+.stagestrip__item[aria-current='true'] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.stagestrip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  flex: none;
+}
+/* 진행 중 칩 — 밝은 빛줄기(호)가 칩 테두리를 따라 2.4초에 한 바퀴 돈다. 점은 가만히 둔다(움직임은 하나만).
+   각도는 등록한 사용자 속성이라 키프레임으로 매끄럽게 돈다. 미지원 브라우저는 0deg 정적 그라데이션 테로 남는다 */
+@property --stagestrip-spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+/* 바탕은 padding-box에 tone 바탕색, 테두리 자리(border-box)에 도는 원뿔 그라데이션 — 테를 2px로 두껍게 하고 안쪽 여백을 1px 줄여 칩 크기는 그대로.
+   선택자를 두 겹으로 둬 hover·aria-current의 테 색이 그라데이션을 덮지 않게 한다(aria-current의 inset 테는 그대로 보인다) */
+.stagestrip__item.stagestrip__item--pulse {
+  --stagestrip-spin: 0deg;
+  padding: 2px 8px;
+  border-width: 2px;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--chip-bg), var(--chip-bg)) padding-box,
+    conic-gradient(from var(--stagestrip-spin), var(--chip-line) 0 65%, var(--chip-fg) 80%, var(--chip-line) 95%) border-box;
+  animation: stagestrip-spin 2.4s linear infinite;
+}
+/* 묶음 틀 안 작은 칩도 같은 테 두께 보정(1px 6px → 0 5px) */
+.stagestrip__item--sub.stagestrip__item--pulse {
+  padding: 0 5px;
+}
+/* 한 바퀴 — 각도만 돌린다 */
+@keyframes stagestrip-spin {
+  to {
+    --stagestrip-spin: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 움직임 줄이기 — 회전을 끄고 tone 글자색 실선 테로 진행 중임만 남긴다 */
+  .stagestrip__item.stagestrip__item--pulse {
+    animation: none;
+    background: var(--chip-bg);
+    border-color: var(--chip-fg);
+  }
+}
+/* 폐기 칩 — 짙은 회색(비활성) 점선 칩 + 글자 전체 취소선. 투명도 대신 바탕 농도로 미착수와 가른다 */
+.stagestrip__item--struck,
+.stagestrip__item--struck:hover {
+  border-style: dashed;
+  border-color: var(--tone-muted-fg);
+  background: color-mix(in srgb, var(--tone-muted-line) 50%, var(--surface-3));
+  color: var(--tone-muted-fg);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--tone-muted-fg);
+}
+/* 묶음(parent) — 하위 단계는 부모 칩 바로 뒤의 틀 안에 작은 칩으로 둔다. 형제처럼 보이면 안 되고,
+   틀과 이름표는 밝은·어두운 테마 모두에서 또렷해야 한다(실선 테두리, 부모 tone으로 옅게 물든 바탕). */
+.stagestrip__tally {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding-left: 6px;
+  border-left: 1px solid currentColor;
+}
+/* 묶음이 있는 띠: 첫 줄은 최상위 단계, 묶음 틀은 그 아래 줄. 묶음 칩은 폭에 맞춰 줄을 바꿔 가로 스크롤을 줄인다. */
+.stagestrip__list--nested {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-1);
+  min-width: 0;
+  overflow-x: visible;
+}
+.stagestrip__row {
+  display: flex;
+  gap: var(--gap-2);
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.stagestrip__list--nested .stagestrip__group {
+  flex-wrap: wrap;
+  max-width: 100%;
+  row-gap: 3px;
+}
+.stagestrip__group {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-1);
+  flex: none;
+  padding: 2px 6px 2px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.stagestrip__group--muted { background: color-mix(in srgb, var(--tone-muted-bg) 50%, var(--surface-2)); }
+.stagestrip__group--blue { background: color-mix(in srgb, var(--tone-blue-bg) 50%, var(--surface-2)); }
+.stagestrip__group--amber { background: color-mix(in srgb, var(--tone-amber-bg) 50%, var(--surface-2)); }
+.stagestrip__group--green { background: color-mix(in srgb, var(--tone-green-bg) 50%, var(--surface-2)); }
+.stagestrip__group--red { background: color-mix(in srgb, var(--tone-red-bg) 50%, var(--surface-2)); }
+.stagestrip__arrow {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.stagestrip__groupLabel {
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.stagestrip__item--sub {
+  gap: 4px;
+  padding: 1px 6px;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+}
+.stagestrip__item--sub .stagestrip__dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* ── 본문 ───────────────────────────────────────────────── */
+
+.main {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--gap-5);
+  align-items: start;
+  padding: var(--gap-5) var(--gap-4);
+  max-width: 1320px;
+  width: 100%;
+  margin: 0 auto;
+}
+.main--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.page {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-5);
+}
+
+.page__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-1);
+}
+.page__intro {
+  color: var(--text-2);
+  max-width: var(--measure);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--gap-1);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.tabs__btn {
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tabs__btn[aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── 근거 패널 ───────────────────────────────────────────── */
+
+/* 넓은 화면에서 패널은 본문과 나란한 자기 칸이고 그 칸만 따로 구른다(아래 § 두 칸 스크롤).
+   예전에는 문서 전체가 구르는 위에 패널이 sticky로 붙어 자기 스크롤을 또 가져서, 패널 옆에 스크롤 막대가
+   두 개 나란히 섰다. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-3);
+  padding: var(--gap-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-y: auto;
+}
+.panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gap-2);
+}
+/* 제목 쪽이 남은 폭을 다 쓰고 줄을 바꾼다 — 닫기 버튼을 밀어 줄바꿈시키지 않게 */
+.panel__head > div {
+  flex: 1 1 auto;
+}
+.panel__title {
+  font-size: var(--fs-lg);
+}
+.panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2);
+  padding-top: var(--gap-3);
+  border-top: 1px solid var(--line);
+}
+.panel__section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.panel__sectionTitle {
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+.panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* 필드 이름(왜·게이트 …)은 단계 상세 칸과 같은 작은 제목이고, 필드 사이에는 흐린 구분선을 둔다 */
+.panel__fieldLabel {
+  margin-bottom: 2px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-2);
+}
+.panel__field + .panel__field {
+  padding-top: var(--gap-2);
+  border-top: 1px solid var(--line);
+}
+.panel__empty {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.panel__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+}
+.panel__coord {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  word-break: break-all;
+}
+/* 패널은 가로로 넘치지 않는다(좁은 패널 320~400px 포함). 긴 상태 메모·경로·제목은 줄을 바꾼다.
+   상태 배지는 원래 한 줄짜리라 메모가 길면 패널 전체에 가로 스크롤이 생겼다. */
+.panel {
+  overflow-x: hidden;
+}
+.panel > *,
+.panel__head > div {
+  min-width: 0;
+}
+.panel__title,
+.panel__field {
+  overflow-wrap: anywhere;
+}
+.panel .btn {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+/* 닫기는 작게, 한 줄로, 머리 오른쪽 위에. 위의 .panel .btn(줄바꿈 허용)보다 뒤에 둔다 */
+.panel .panel__close {
+  flex: none;
+  gap: 3px;
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.panel .badge,
+.stages__detail .badge {
+  flex-wrap: wrap;
+  max-width: 100%;
+  white-space: normal;
+  word-break: keep-all; /* 상태 이름(「미착수」)은 글자 사이에서 끊지 않는다 */
+}
+.panel .badge__note,
+.stages__detail .badge__note {
+  flex: 1 1 12em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 빌드 스탬프 ─────────────────────────────────────────── */
+/* 기본(좁은 화면)은 하단 띠다. 넓은 화면은 아래 § 두 칸 스크롤에서 본문 왼쪽의 아이콘 레일로 바뀐다. */
+
+.stampbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 18;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+}
+.stampbar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  min-height: var(--stampbar-h);
+  padding: 4px var(--gap-4);
+  flex-wrap: wrap;
+  color: var(--text-3);
+}
+/* 띠에서는 두 묶음(스탬프 값·경고 칩)이 한 줄로 이어진다 */
+.stampbar__group {
+  display: contents;
+}
+.stampbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+  white-space: nowrap;
+}
+.stampbar__value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+}
+/* 아이콘은 글자와 같은 색, 줄지 않는다 */
+.stampbar__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.stampbar__warn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-3);
+  padding: 1px 8px;
+  font-size: var(--fs-xs);
+  cursor: default;
+}
+button.stampbar__warn {
+  cursor: pointer;
+}
+.stampbar__warn--hot {
+  border-color: var(--tone-amber-line);
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+}
+.stampbar__warn[aria-expanded='true'] {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.stampbar__issues {
+  max-height: 210px;
+  overflow-y: auto;
+  padding: var(--gap-2) var(--gap-4) var(--gap-3);
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+/* 말풍선은 레일 전용이다 — 띠에서는 이름·값 글자가 이미 보인다 */
+.stampbar__tip {
+  display: none;
+}
+/* 목록 머리 — 무엇을 펼쳤는지와 닫기 */
+.stampbar__issuesHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-2);
+  padding-bottom: var(--gap-1);
+  color: var(--text-2);
+}
+.stampbar .stampbar__close {
+  padding: 1px 8px;
+  font-size: var(--fs-xs);
+}
+.stampbar__issue {
+  display: flex;
+  gap: var(--gap-2);
+  padding: 2px 0;
+  color: var(--text-2);
+}
+.stampbar__issue code {
+  color: var(--text-3);
+}
+
+/* ── 검색 · 용어 ─────────────────────────────────────────── */
+
+.hits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2);
+}
+.hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--gap-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.hit:hover {
+  border-color: var(--line-strong);
+  text-decoration: none;
+}
+.hit__top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  flex-wrap: wrap;
+}
+.hit__title {
+  font-weight: 600;
+}
+.hit__snippet {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
+}
+
+.glossary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--gap-3);
+}
+.term {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-2);
+  padding: var(--gap-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+.term[aria-current='true'] {
+  border-color: var(--accent);
+}
+.term__name {
+  font-size: var(--fs-lg);
+  font-weight: 650;
+}
+.term__easy {
+  color: var(--text-2);
+}
+.term__tech {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+/* ── 두 칸 스크롤(넓은 화면) ───────────────────────────────── */
+/* 앱은 화면(또는 iframe) 높이에 맞춰 고정하고, 본문 칸(.page)과 근거 패널이 각자 한 번씩만 구른다.
+   빌드 스탬프는 하단 띠 대신 본문 왼쪽의 아이콘 레일이라 본문이 세로 전체를 쓴다.
+   문서 전체는 구르지 않으므로 패널 옆에 스크롤 막대가 둘 서지 않는다. 본문 칸의 막대는 패널 왼쪽 끝,
+   패널의 막대는 패널 오른쪽 끝이다. 좁은 화면(900px 이하)은 문서가 구르고 패널은 아래 시트다. */
+@media (min-width: 901px) {
+  /* 앱은 격자 — 위는 상단 띠, 아래는 왼쪽 스탬프 레일과 본문(.main). 본문이 세로 전체를 쓴다 */
+  .app {
+    display: grid;
+    grid-template-columns: var(--stamprail-w) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'bar bar'
+      'rail main';
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .appbar {
+    grid-area: bar;
+  }
+  .main {
+    grid-area: main;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  /* 본문 칸(.main 바로 아래 .page — 페이지 안쪽의 .page는 아니다)이 스크롤 칸이다. 가운데 정렬
+     (예전 최대 폭 1320px)은 칸 안쪽 여백으로 낸다 — 칸 자체를 가운데 두면 막대가 화면 가운데에 선다.
+     container-type은 안쪽 sticky(리더 목차)가 칸 높이(cqh)를 재게 하려는 것이다. */
+  .main > .page {
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--gap-5) max(var(--gap-4), calc((100% - 1288px) / 2));
+    container-type: size;
+  }
+  /* 높이가 고정된 세로 flex 칸에서는 스크롤 칸인 자식(표 상자 등)이 0까지 줄어든다 — 줄지 않게 */
+  .main > .page > * {
+    flex-shrink: 0;
+  }
+  .panel {
+    align-self: start;
+    max-height: calc(100% - var(--gap-5) - var(--gap-4));
+    margin: var(--gap-5) var(--gap-4) var(--gap-4) 0;
+  }
+  /* 스탬프 레일 — 본문 왼쪽의 좁은 세로 칸(아이콘만). 위는 스탬프 값, 아래는 경고 칩. 넘치면 레일만 구른다 */
+  .stampbar {
+    grid-area: rail;
+    position: static;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-top: none;
+    border-right: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .stampbar__row {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: var(--gap-3);
+    min-height: 100%;
+    padding: var(--gap-3) 4px;
+    text-align: center;
+  }
+  .stampbar__group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gap-3);
+  }
+  .stampbar__group--warn {
+    gap: var(--gap-1);
+  }
+  /* 칸 하나 = 아이콘(가운데), 개수 칸은 그 아래 숫자. 글자는 줄을 바꾸지 않는다 — 이름·전체 값은 말풍선에 */
+  .stampbar__item,
+  .stampbar__warn {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 6px 0;
+    border-radius: var(--radius);
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1.2;
+    cursor: default;
+  }
+  /* 가리키거나 포커스한 칸은 바탕을 밝혀 말풍선과 짝을 보인다 */
+  .stampbar__item:hover,
+  .stampbar__item:focus-visible,
+  .stampbar__warn:not(.stampbar__warn--hot):hover,
+  .stampbar__warn:not(.stampbar__warn--hot):focus-visible {
+    background: var(--surface);
+    color: var(--text-2);
+  }
+  /* 해시·커밋·시각 값은 레일에서 숨긴다(말풍선이 보여 준다). 개수 값만 남는다 */
+  .stampbar__value--text {
+    display: none;
+  }
+  /* 커밋 안 된 변경(dirty)은 글자 대신 커밋 아이콘을 amber로 칠한다 */
+  .stampbar__item--dirty .stampbar__icon {
+    color: var(--tone-amber-fg);
+  }
+  /* 0건이고 누를 것 없는 경고 칩은 흐리게 */
+  .stampbar__warn--zero {
+    border-color: transparent;
+    background: transparent;
+    opacity: 0.55;
+  }
+  /* 말풍선 — 레일 오른쪽, 가리킨 칸 높이(top은 StampBar가 .app 기준으로 넣는다). 레일 스크롤에 잘리지 않게 .app 기준이다 */
+  .stampbar__tip {
+    display: block;
+    position: absolute;
+    left: calc(var(--stamprail-w) + 6px);
+    z-index: 27;
+    transform: translateY(-50%);
+    max-width: min(420px, calc(100% - var(--stamprail-w) - var(--gap-5)));
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    background: var(--text);
+    color: var(--surface);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.2);
+    pointer-events: none;
+  }
+  /* 이름은 화면에서만 숨긴다 — 읽는 이에게는 남는다(.sr-only와 같은 방식) */
+  .stampbar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* 펼친 경고 목록은 레일 오른쪽 아래에 뜨는 창이다 — 좁은 레일 안에 두면 읽을 수 없다.
+     레일(.stampbar)은 위치 기준이 아니라서 레일의 스크롤에 잘리지 않고 .app 기준으로 놓인다 */
+  .stampbar__issues {
+    position: absolute;
+    left: calc(var(--stamprail-w) + var(--gap-2));
+    bottom: var(--gap-3);
+    z-index: 26;
+    width: min(560px, calc(100% - var(--stamprail-w) - var(--gap-5)));
+    max-height: min(420px, 60%);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+}
+
+/* ── 반응형 ─────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--gap-4) var(--gap-3);
+  }
+  /* 좁은 화면에서 패널은 옆이 아니라 아래 시트로 내려온다 */
+  .panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    max-height: 62vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    z-index: 30;
+  }
+  .app--panel-open .main {
+    padding-bottom: 64vh;
+  }
+  .topbar {
+    gap: var(--gap-2);
+    padding: var(--gap-2) var(--gap-3);
+  }
+  .topbar__search {
+    width: 140px;
+  }
+}

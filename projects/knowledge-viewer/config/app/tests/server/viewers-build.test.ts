@@ -1,4 +1,4 @@
-// 뷰어 모음 등록부 빌더: 등록 레이어 훑기·viewer 블록 검사·순서·결정성·CLI(--check)·이 볼트의 등록부 최신 여부.
+// 뷰어 모음 등록부 빌더: 등록 레이어 훑기·viewer 블록 검사·순서·결정성·CLI(--check). 실제 볼트의 등록부 최신 여부는 볼트 확장(ext/tests)이 본다.
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,7 +8,6 @@ import path from 'node:path';
 import { collectViewers, renderRegistry, SKILLS_DIR } from '../../server/panels/viewers-build.ts';
 import { parseRegistry, REGISTRY_PATH } from '../../server/panels/viewers.ts';
 import { runViewersBuild } from '../../viewers-build.ts';
-import { findVaultRoot } from '../../shared/vault.ts';
 
 function write(root: string, rel: string, body: string): void {
   const abs = path.join(root, rel);
@@ -104,14 +103,5 @@ describe('collectViewers', () => {
     skill(root, 'b', 'b-view', staticBlock('beta'));
     assert.equal(runViewersBuild(['--check', '--root', root], out, out), 1);
     assert.equal(runViewersBuild(['--bogus'], out, out), 2);
-  });
-});
-
-describe('이 볼트의 등록부', () => {
-  it('스킬의 viewer 블록에서 만든 결과와 같다(viewers-build --check)', () => {
-    const root = findVaultRoot(import.meta.dirname);
-    const file = path.join(root, REGISTRY_PATH);
-    assert.ok(fs.existsSync(file), `${REGISTRY_PATH} 가 없다 — npm run viewers-build`);
-    assert.equal(fs.readFileSync(file, 'utf8'), renderRegistry(collectViewers(root).entries), '스킬과 등록부가 다르다 — npm run viewers-build');
   });
 });

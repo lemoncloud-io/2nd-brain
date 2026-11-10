@@ -32,14 +32,15 @@ test('nextChangedIndex: 빈 목록은 -1', () => {
 });
 
 const changes = (title: string): PrChanges => ({
-  number: 927,
+  number: 123,
   title,
   author: 'steve',
   head: 'feat/x',
   base: 'master',
   headOid: '0123456789abcdef0123',
+  state: 'OPEN',
   updatedAt: '2026-10-23T00:00:00Z',
-  url: 'https://github.com/o/r/pull/927',
+  url: 'https://github.com/o/r/pull/123',
   baseOid: 'b',
   mergeBase: 'm',
   headCommit: '0123456789abcdef0123',
@@ -47,12 +48,12 @@ const changes = (title: string): PrChanges => ({
 });
 
 test('prBadgeText: PR 번호와 제목, 제목은 40 코드포인트에서 자른다', () => {
-  assert.equal(prBadgeText(changes('짧은 제목')), 'PR #927 · 짧은 제목');
+  assert.equal(prBadgeText(changes('짧은 제목')), 'PR #123 · 짧은 제목');
   const long = '한'.repeat(45);
-  assert.equal(prBadgeText(changes(long)), `PR #927 · ${'한'.repeat(40)}…`);
-  assert.equal(prBadgeText(changes('가'.repeat(40))), `PR #927 · ${'가'.repeat(40)}`);
+  assert.equal(prBadgeText(changes(long)), `PR #123 · ${'한'.repeat(40)}…`);
+  assert.equal(prBadgeText(changes('가'.repeat(40))), `PR #123 · ${'가'.repeat(40)}`);
   // 서로게이트 짝(이모지)도 한 글자로 센다.
-  assert.equal(prBadgeText(changes('😀'.repeat(41))), `PR #927 · ${'😀'.repeat(40)}…`);
+  assert.equal(prBadgeText(changes('😀'.repeat(41))), `PR #123 · ${'😀'.repeat(40)}…`);
 });
 
 test('prBadgeHead: 읽은 커밋(headCommit) 앞 7자', () => {

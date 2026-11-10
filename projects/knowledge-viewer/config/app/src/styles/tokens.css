@@ -20,6 +20,11 @@
   --accent-soft: #e2efee;
   --focus: #1b8f8f;
 
+  /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+  --code-fg: #b3261e;
+  --code-bg: #eae3e6;
+  --code-line: #cc7b78;
+
   /* tone 5색 — 의미색이라 강조색과 별개다 */
   --tone-muted-bg: #e8ecf1;
   --tone-muted-fg: #4f5b68;
@@ -79,6 +84,16 @@
   --graph-doc: #5b9cf0;
   --graph-output: #7d8995;
   --graph-other: #b8c1ca;
+
+  /* 코드 구문 강조(highlight.css) — GitHub 라이트 팔레트 근사(예약어·함수는 대비를 위해 조금 짙게). 코드 바탕(--surface-2) 위 AA. 화면 테마는 덮지 않는다(vault 값을 쓴다) */
+  --hl-keyword: #b31d28;
+  --hl-string: #0a3069;
+  --hl-comment: #57606a;
+  --hl-number: #0550ae;
+  --hl-function: #6f42c1;
+  --hl-type: #953800;
+  --hl-attr: #116329;
+  --hl-punct: #424a53;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,6 +112,11 @@
     --accent-strong: #7fd3cb;
     --accent-soft: #1b2f30;
     --focus: #63cfc6;
+
+    /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+    --code-fg: #f28b82;
+    --code-bg: #2a3540;
+    --code-line: #986464;
 
     --tone-muted-bg: #242e38;
     --tone-muted-fg: #a9b5c1;
@@ -131,6 +151,16 @@
     --graph-doc: #5b9cf0;
     --graph-output: #7d8995;
     --graph-other: #b8c1ca;
+
+    /* 코드 구문 강조(highlight.css) — GitHub 다크 팔레트 근사(주석은 대비를 위해 조금 밝게) */
+    --hl-keyword: #ff7b72;
+    --hl-string: #a5d6ff;
+    --hl-comment: #9aa4ae;
+    --hl-number: #79c0ff;
+    --hl-function: #d2a8ff;
+    --hl-type: #ffa657;
+    --hl-attr: #7ee787;
+    --hl-punct: #c9d1d9;
   }
 }
 
@@ -149,6 +179,11 @@
   --accent-strong: #7fd3cb;
   --accent-soft: #1b2f30;
   --focus: #63cfc6;
+
+  /* 인라인 코드 — 글자·채움·점선 테두리(점선 = 글자색 55% 를 채움에 섞은 색) */
+  --code-fg: #f28b82;
+  --code-bg: #2a3540;
+  --code-line: #986464;
 
   --tone-muted-bg: #242e38;
   --tone-muted-fg: #a9b5c1;
@@ -183,6 +218,16 @@
   --graph-doc: #5b9cf0;
   --graph-output: #7d8995;
   --graph-other: #b8c1ca;
+
+  /* 코드 구문 강조(highlight.css) — GitHub 다크 팔레트 근사(주석은 대비를 위해 조금 밝게) */
+  --hl-keyword: #ff7b72;
+  --hl-string: #a5d6ff;
+  --hl-comment: #9aa4ae;
+  --hl-number: #79c0ff;
+  --hl-function: #d2a8ff;
+  --hl-type: #ffa657;
+  --hl-attr: #7ee787;
+  --hl-punct: #c9d1d9;
 }
 
 /* 밝기를 강제하면 폼 컨트롤·스크롤바도 따라가게 한다(자동이면 index.html 의 color-scheme: light dark). */

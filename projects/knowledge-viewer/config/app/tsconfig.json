@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["shared", "server", "src", "tests", "start.ts", "link-cache.ts", "vite.config.ts"]
+  "include": ["shared", "server", "src", "tests", "start.ts", "link-cache.ts", "same-vault.ts", "vite.config.ts", "app-embed-plugin.ts", "ext-locate.ts", "ext-build.ts"]
 }

@@ -37,6 +37,13 @@
   color: inherit;
 }
 
+/* 프로젝트 뷰어 산출물 → viewer.yml 통합 보기. 막대의 다른 링크보다 눈에 띄게 강조색이다. */
+.html-frame-integrated {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .html-frame {
   flex: 1;
   width: 100%;

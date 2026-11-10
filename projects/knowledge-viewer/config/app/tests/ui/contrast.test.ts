@@ -21,7 +21,7 @@ test('대비: 검정/흰색 21, 같은 색 1, 순서 무관, 알려진 경계값
   assert.equal(contrastRatio('#000', '#fff'), 21);
   assert.equal(contrastRatio('#777777', '#777777'), 1);
   assert.equal(contrastRatio('#fff', '#000'), contrastRatio('#000', '#fff'));
-  // #777 on white 는 AA 에 아슬아슬하게 못 미치는 것으로 알려진 값(4.48).
+  // `#777` on white 는 AA 에 아슬아슬하게 못 미치는 것으로 알려진 값(4.48).
   assert.equal(contrastRatio('#777777', '#ffffff').toFixed(2), '4.48');
   assert.equal(contrastRatio('#767676', '#ffffff').toFixed(2), '4.54');
 });

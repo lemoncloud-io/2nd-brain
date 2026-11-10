@@ -143,6 +143,41 @@ class CompactTest(unittest.TestCase):
             self.assertEqual(r.returncode, 3)
             self.assertTrue(v.exists("outputs/runs/2026-08-14-ingest-a.md"))
 
+    def test_refresh_keeps_hand_lines_outside_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            v = Vault(tmp)
+            seed(v)
+            v.run("write", "2026-09-30")
+            v.answer("2026-08", "- 8월 흐름.")
+            p = v.root / "outputs/monthly/2026-08.md"
+            text = p.read_text(encoding="utf-8")
+            # hand lines in each place a person or a split PR puts them
+            text = text.replace("## Answer", "머리 손 문장.\n\n## Answer", 1)
+            text = text.replace("## Notes", "Evidence 손 문장.\n\n## Notes", 1)
+            text = text.replace("\n## Follow-ups", "\n- Notes 손 항목.\n\n## Follow-ups", 1)
+            text += "\n- Follow-ups 손 항목.\n\n## 손 절\n\n손 절 본문.\n"
+            p.write_text(text, encoding="utf-8")
+            r = v.run("write", "2026-09-30")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("moved 1 hand line(s)", r.stderr)
+            aug = v.note("2026-08")
+            for line in ("머리 손 문장.", "Evidence 손 문장.", "- Notes 손 항목.", "- Follow-ups 손 항목.",
+                         "## 손 절", "손 절 본문.", "- 8월 흐름."):
+                self.assertIn(line, aug)
+            notes = aug.split("## Notes", 1)[1].split("## Follow-ups", 1)[0]
+            self.assertIn("Evidence 손 문장.", notes)                  # moved out of Evidence
+            self.assertLess(notes.index("- Notes 손 항목."), notes.index("Evidence 손 문장."))
+            self.assertEqual(aug.count("Evidence 손 문장."), 1)
+            # a second write and an apply keep the same hand text in the same place
+            v.run("write", "2026-09-30")
+            self.assertEqual(v.note("2026-08"), aug)
+            v.answer("2026-09", "- 9월 흐름.")
+            self.assertEqual(v.run("apply", "2026-09-30").returncode, 0)
+            after = v.note("2026-08")
+            for line in ("머리 손 문장.", "Evidence 손 문장.", "- Notes 손 항목.", "- Follow-ups 손 항목.",
+                         "## 손 절", "손 절 본문."):
+                self.assertEqual(after.count(line), 1, line)
+
     def test_plan_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             v = Vault(tmp)
