@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault에 대해 Claude Code 우선, Hermes-native fallback으로
   주기적 lint pass를 실행한다 (모순 탐지, 고아 페이지, 누락 아티클, frontmatter 결함, SKILL.md 계약 점검).
   예약 실행 전용 — 사용자가 직접 요청하는 경우는 드물다.
-origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-lint.md
+origin: lemoncloud-io/knowledge@d035feac:projects/second-brain/config/skills/vault-lint.md
 ---
 
 # Vault Lint (Claude-first with Hermes fallback)
@@ -186,7 +186,7 @@ Task:
   the vault root (first `[ -d projects/knowledge-viewer/config/app/node_modules ] || (cd
   projects/knowledge-viewer/config/app && npm ci)`; needs node ≥ 24). It compares
   docs/link-graph.yml — the viewer's cached link graph (contract:
-  docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md; schema 3 `nodes`·`edges`·`broken`
+  docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md, only in vaults that have that document; schema 3 `nodes`·`edges`·`broken`
   between md documents, edges by node row number) — against the disk and
   prints per-class counts (`missing`·`gone`·`stale`·`drift`, `parser`) plus the broken-link count.
   Write those lines into the lint report; its exit code (1 = out of date) does not stop the pass.
@@ -328,12 +328,14 @@ cd "$ABSOLUTE_VAULT_DIR" && claude -p "<CLAUDE_LINT_JOB_SPEC with ABSOLUTE_VAULT
 6b. **링크 캐시 점검 (a).** vault 루트에서 `node projects/knowledge-viewer/config/app/link-cache.ts verify`
    (먼저 `[ -d projects/knowledge-viewer/config/app/node_modules ] || (cd projects/knowledge-viewer/config/app && npm ci)`,
    node ≥ 24 필요). 뷰어의 링크 그래프 캐시 `docs/link-graph.yml`(계약:
-   `docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md`, 스키마 3 — md 문서끼리의
+   `docs/superpowers/specs/2026-10-23-knowledge-viewer-link-cache-design.md`(해당 문서가 있는 볼트에서만), 스키마 3 — md 문서끼리의
    `nodes`·`edges`·`broken`, 엣지는 노드 행 번호)을 디스크와 대조해
    분류별 건수(`missing`·`gone`·`stale`·`drift`, `parser`)와 깨진 링크 수를 찍는다. 그 줄들을 lint 리포트에
    적는다. 종료 코드(1 = 낡음)로 정비를 멈추지 않는다. 깨진 링크는 참고용 보고다 — 판정은
    `vault_orphans.py --broken`이 한다. node ≥ 24가 없으면 6b·7b를 건너뛰고 리포트에 사유를 적는다
-   (캐시는 최대 lint 한 주기만큼 늦고, 뷰어는 그만큼 더 파싱한다).
+   (캐시는 최대 lint 한 주기만큼 늦고, 뷰어는 그만큼 더 파싱한다). 볼트에
+   `projects/knowledge-viewer/config/app/` 폴더가 없어도 6b·7b를 건너뛰고 리포트에 사유를 적는다
+   (뷰어가 없으면 점검·갱신할 링크 캐시가 없다).
 7. lint 결과를 `outputs/YYYY-MM-DD-vault-lint.md`에 저장한다.
 7b. **링크 캐시 갱신 (b).** 리포트와 수정을 다 쓴 뒤 vault 루트에서
    `node projects/knowledge-viewer/config/app/link-cache.ts update`. 해시가 바뀐 문서만 파싱해(추출기 지문이

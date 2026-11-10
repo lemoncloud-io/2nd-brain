@@ -86,7 +86,8 @@ Checks (all lanes):
      reference without a table of contents) are printed and never fail. Added 2026-11-05 with
      the authoring rules of wiki/skill-authoring-practices.md; a skill already over a limit
      is fixed when someone works on it, never in a sweep. Contract in
-     `docs/agent-skills-registration.md` § 7.
+     `docs/agent-skills-registration.md` § 7; a vault without that document reads the rule
+     summary at the top of skill_lint.py.
 
 Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
 diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
@@ -1095,7 +1096,8 @@ def check_skill_lint(vault: Path, base: str, defects: list[str], notes: list[str
     # 스킬마다 판정해 오류는 결함, 경고는 출력 메모로 나눈다
     for result in skill_lint.lint_many(skills, vault):
         for error in result["errors"]:
-            defects.append(f"{result['path']}: {error} (skill_lint.py; docs/agent-skills-registration.md § 7)")
+            defects.append(f"{result['path']}: {error} (skill_lint.py; docs/agent-skills-registration.md § 7"
+                           " — 이 문서가 없는 볼트에서는 skill_lint.py 머리의 규칙 설명을 본다)")
         for warning in result["warnings"]:
             notes.append(f"{result['path']}: {warning}")
 

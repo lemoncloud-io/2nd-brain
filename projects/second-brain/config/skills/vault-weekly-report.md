@@ -7,7 +7,7 @@ description: >
   결과는 areas/weekly/YYYY-MM-DD.md (templates/weekly-report.md 계약)와 같은 이름의
   .html 뷰(templates/weekly-report.html 계약)를 함께 저장하고, 트리거 문구 명령은
   팀 메일 **초안 생성**까지 포함한다 — 발송 버튼은 항상 사용자가 Gmail에서 직접 누른다.
-origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-weekly-report.md
+origin: lemoncloud-io/knowledge@d035feac:projects/second-brain/config/skills/vault-weekly-report.md
 ---
 
 # Vault Weekly Report
@@ -87,7 +87,7 @@ BASE=$(git log -1 --diff-filter=A --pretty=%H -- "areas/weekly/$PREV.md")
 | 영역별 변경 | `git diff --name-only $BASE..master \| cut -d/ -f1 \| sort \| uniq -c` |
 | 신규 wiki 문서 | `git diff --diff-filter=A --name-only $BASE..master -- wiki/ \| grep -v topics` |
 | 신규 팀 스킬 | 동일 명령, 경로 `projects/second-brain/config/skills/` |
-| 신규 프로젝트 레인 | 동일 명령, 경로 `'projects/*/README.md'` (glob은 따옴표) |
+| 신규 프로젝트 레인 | 동일 명령, 경로 `':(glob)projects/*/README.md'` (따옴표 필수 — 이 매직 없이 쓰면 `*`가 `/`도 넘어 하위 폴더 README까지 잡힌다) |
 | 일별 커밋 | `git log --pretty="%ad" --date=format:"%m-%d" $BASE..master \| sort \| uniq -c` |
 
 `$BASE..master` 구간에는 **직전 보고서 자신의 PR이 머지로 잡힌다** — 보고서 커밋은 브랜치에서
@@ -102,9 +102,11 @@ BASE=$(git log -1 --diff-filter=A --pretty=%H -- "areas/weekly/$PREV.md")
 1. `templates/weekly-report.md`를 읽고 frontmatter·섹션 계약을 그대로 따른다.
 2. `areas/weekly/YYYY-MM-DD.md`로 저장한다 — 파일명은 **보고일**, 주 1개.
 3. 섹션 채우기:
-   - `Summary`: 주간을 관통하는 축 2~3개를 한 문단으로.
+   - `Summary`: 주간을 관통하는 축 2~3개를 한 문단으로. 이어서 선택으로 「**핵심 발견**」
+     목록 3~5개(`- **한 줄 발견** — 근거 한 줄`). HTML 핵심 발견 카드는 이 목록에서만 그린다.
    - `Metrics`: 집계표 + 일별 커밋. 수치는 위 명령 산출값만 사용.
-   - `Workstreams`: PR 번호·날짜·기여자를 명기한 주제별 소절.
+   - `Workstreams`: 주제별 소절. 소절 제목 괄호에 PR 수·머지일 구간·PR 작성자를 적고
+     (HTML 카드 메타 줄의 출처), 항목 본문에 PR 번호·머지일을 적는다.
    - `New Assets`: 신규 wiki / 스킬 / 프로젝트 레인 목록.
    - `Notes`: **집계 기준 명령과 비교 경계를 반드시 명기** (전수 통계임을 밝힌다).
      경계 커밋 해시와 그것이 직전 보고서(날짜)를 만든 커밋이라는 사실, 그래서 두 보고서
