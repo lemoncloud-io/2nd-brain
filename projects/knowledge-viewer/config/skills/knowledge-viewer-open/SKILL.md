@@ -19,7 +19,7 @@ viewer:
     port: 8778
     launch: knowledge-viewer
     ask: 볼트 뷰어 열어줘
-origin: lemoncloud-io/knowledge@f68f1d38:projects/knowledge-viewer/config/skills/knowledge-viewer-open/SKILL.md
+origin: lemoncloud-io/knowledge@121d6640:projects/knowledge-viewer/config/skills/knowledge-viewer-open/SKILL.md
 ---
 
 # knowledge-viewer-open (볼트 뷰어 열기)
@@ -52,30 +52,38 @@ origin: lemoncloud-io/knowledge@f68f1d38:projects/knowledge-viewer/config/skills
   - 화면 상태는 앱 해시다. 뷰어는 해시를 앵커로 읽지 않는다. `ready: false` 면 `reason` 을 그대로 전한다.
   - 볼트가 앱별 여는 말·단독 실행 안내를 자기 스킬로 두었으면(볼트 확장 층 `projects/knowledge-viewer/ext/`) 그 스킬이 이 절차를 쓴다.
 
+## 하지 않는 것
+
+- 원본 md를 수정하지 않는다. 뷰어는 읽기 전용이다.
+- `private/`를 임의로 숨기지 않는다. 로컬 기본값은 표시이고(사용자 결정 2026-10-23), 숨김(`--hide-private`)은 사용자가 시킬 때만이다.
+- Artifact로 게시하지 않는다. 볼트 문서는 내부 자료이고 이 뷰어는 로컬 전용이다.
+- 기존 서버 프로세스를 죽이지 않는다. 포트 충돌은 § 폴백 A로 푼다.
+
 ## 절차
 
 1. **볼트 루트 확인.** `VAULT_DIR` 또는 현재 작업 디렉터리(`VAULT_RULES.md`·`wiki/`·`projects/`가
    있는 곳). 열 파일이 볼트 안에 있는지 확인한다. 볼트 밖 파일은 열지 않는다.
-2. **개인 주소(설정한 사람만).** 볼트에 `projects/local-name-proxy/config/local-name-proxy/render.mjs`가
+2. **개인 주소(설정한 사람만).** 볼트에 `projects/local-nginx-proxy/config/local-nginx-proxy/render.mjs`가
    없으면 3으로 간다. 있으면 볼트 루트에서 부른다. `--path`에는 5의 `/v/…` 경로를 질의·`#앵커`째 넣는다.
    ```bash
-   node projects/local-name-proxy/config/local-name-proxy/render.mjs url --app knowledge-viewer \
+   node projects/local-nginx-proxy/config/local-nginx-proxy/render.mjs url --app knowledge-viewer \
      --path '<5의 /v/… 경로 — 질의·#앵커 포함>' --fallback http://127.0.0.1:8778
    ```
-   JSON 한 줄 `{"url":"…","via":"name"|"fallback","reason":"…"}`이 나온다. 이 도구는 그 사람의 기계 로컬
-   파일만 읽는다. 이름은 사람마다 다르다. 스킬과 커밋하는 문서에는 이름을 적지 않는다.
+   JSON 한 줄 `{"url":"…","via":"name"|"fallback","reason":"…"}`이 나온다(이름이 여럿이면 `"candidates":[…]`도).
+   이 도구는 그 사람의 기계 로컬 파일만 읽는다. 이름은 사람마다 다르다. 스킬과 커밋하는 문서에는 이름을 적지 않는다.
    - `via`가 `fallback`이면 3으로 간다. 지금 절차 그대로다.
-   - `via`가 `name`이면 같은 볼트인지 견준다. 상시 서버는 볼트 루트 하나(그 사람의 메인 체크아웃)만 낸다.
+   - `via`가 `name`이면 후보마다 같은 볼트인지 견준다. 후보는 `candidates`(있으면 그 순서)이고, 없으면 `url` 하나다.
+     `--path`는 주소마다 그대로 붙어 있다. 상시 서버는 볼트마다 하나이고 볼트 루트 하나(그 볼트의 주 체크아웃)만 낸다.
      워크트리 세션은 자기 작업 트리를 봐야 한다(`src=local`은 에이전트가 고친 것이다).
      ```bash
-     node projects/knowledge-viewer/config/app/same-vault.ts '<url>'
+     node projects/knowledge-viewer/config/app/same-vault.ts '<후보 주소>'
      ```
      그 서버 `/api/info`의 `rootId`와 이 세션 볼트 루트(`VAULT_DIR`, 정식 경로)의 `rootId`를 견준다.
      `rootId`는 볼트 루트 폴더의 지문이다(경로가 아니다). JSON 한 줄 `{"same":…,"port":…,"reason":"…"}`이 나온다.
-     - `same`이 `true`면 `url`로 `navigate`한다. 3·4는 건너뛴다. 그 사람의 상시 서버가 답한다. 5의 `tabs_select`와
-       6의 확인은 같다. PR (b)처럼 경로를 API 로 고르면 먼저 `--path /v/`로 출처를 정하고, API 도 그 출처에 묻는다.
-     - `same`이 `false`면(다른 폴더, `rootId` 없음, 못 읽음) 이름을 쓰지 않는다. 3부터 그대로 한다.
-       `port`가 3의 포트(기본 8778)와 같으면 그 포트는 상시 서버 것이다. 그때는 § 폴백 A처럼 다른 포트 항목으로
+     - `same`이 `true`인 첫 후보로 `navigate`한다. 남은 후보는 견주지 않는다. 3·4는 건너뛴다.
+       그 사람의 상시 서버가 답한다. 5의 `tabs_select`와 6의 확인은 같다. PR (b)처럼 경로를 API 로 고르면 먼저 `--path /v/`로 출처를 정하고, API 도 그 출처에 묻는다.
+     - 모든 후보가 `same: false`면(다른 폴더, `rootId` 없음, 못 읽음) 이름을 쓰지 않는다. 3부터 그대로 한다.
+       어느 후보의 `port`가 3의 포트(기본 8778)와 같으면 그 포트는 상시 서버 것이다. 그때는 § 폴백 A처럼 다른 포트 항목으로
        띄운다. 같은 포트로 `preview_start`하면 작업 트리가 아니라 상시 서버의 폴더가 보인다.
 3. **launch.json 항목.** `.claude/launch.json`은 기계 로컬(gitignored)이다. `knowledge-viewer`
    항목이 없으면 추가한다.
@@ -137,10 +145,3 @@ origin: lemoncloud-io/knowledge@f68f1d38:projects/knowledge-viewer/config/skills
   알려 주고 끝낸다.
 - **D. 문서가 안 열린다(404)** — 서버가 `--hide-private`(또는 `KNOWLEDGE_VIEWER_HIDE_PRIVATE=1`)로
   떠 있으면 `private/` 아래가 숨겨진다. 사용자가 원하면 그 플래그 없는 항목으로 다시 띄운다. 시키지 않았으면 이유만 알린다.
-
-## 하지 않는 것
-
-- 원본 md를 수정하지 않는다. 뷰어는 읽기 전용이다.
-- `private/`를 임의로 숨기지 않는다. 로컬 기본값은 표시이고(사용자 결정 2026-10-23), 숨김(`--hide-private`)은 사용자가 시킬 때만이다.
-- Artifact로 게시하지 않는다. 볼트 문서는 내부 자료이고 이 뷰어는 로컬 전용이다.
-- 기존 서버 프로세스를 죽이지 않는다. 포트 충돌은 § 폴백 A로 푼다.

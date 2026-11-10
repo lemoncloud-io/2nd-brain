@@ -5,7 +5,7 @@ description: >
   viewer.yml을 작성·검사·빌드한다. 사용자가 "이 프로젝트 뷰어 만들어줘", "리뷰용 화면
   빌드해줘", "뷰어에 페이지 추가해줘"라고 할 때 사용한다. 화면에서 입력을 받는 도구,
   시뮬레이션, 일회성 보고서에는 쓰지 않는다.
-origin: lemoncloud-io/knowledge@f68f1d38:projects/project-viewer/config/skills/project-viewer-build/SKILL.md
+origin: lemoncloud-io/knowledge@121d6640:projects/project-viewer/config/skills/project-viewer-build/SKILL.md
 ---
 
 # project-viewer-build (뷰어 만들기)
@@ -23,6 +23,15 @@ origin: lemoncloud-io/knowledge@f68f1d38:projects/project-viewer/config/skills/p
 쓰지 않는 경우: 화면에서 판정·입력을 받아 저장하는 도구, 파라미터를 움직이는 시뮬레이션
 화면, 일회성 보고서. 입력을 받거나 실행을 시키는 도구 화면은 React + Vite 로 짓고 볼트 뷰어의
 앱 플러그인으로 등록한다 — `knowledge-viewer-app-build`(2026-11-05 기본값). 뷰어는 원본이 바뀌면 다시 빌드해 항상 최신을 반영하는 것이 전제다.
+
+## 금지 사항
+
+- `viewer.yml`에 상태 값을 쓰지 않는다(스키마가 거부한다 — 상태는 원본에서만 읽는다).
+- 원본에 없는 해설을 지어내지 않는다.
+- 페이지·블록 단위 근거를 항목마다 복제해 정밀도를 부풀리지 않는다(물려받게 둔다).
+- 근거를 원본에 없는 외부 주소로 추측해 만들지 않는다.
+- 셸 코드(`config/shell/`)를 프로젝트마다 복사해 고치지 않는다 — 필요한 블록은 셸에
+  추가를 요청한다.
 
 ## 전제 조건
 
@@ -146,15 +155,6 @@ node projects/project-viewer/config/shell/cli.ts build projects/<name>
 `viewer.yml` 작성은 경량 모델로 충분하다. 코디네이터는 `check`·`check --fidelity`·`build`·
 브라우저 실측을 **직접 재실행**한다 — 에이전트의 완료 보고를 재실행 없이 그대로 옮기지
 않는다. git·gh는 코디네이터만 실행한다. 상세 절차는 `projects/project-viewer/docs/supervision.md`.
-
-## 금지 사항
-
-- `viewer.yml`에 상태 값을 쓰지 않는다(스키마가 거부한다 — 상태는 원본에서만 읽는다).
-- 원본에 없는 해설을 지어내지 않는다.
-- 페이지·블록 단위 근거를 항목마다 복제해 정밀도를 부풀리지 않는다(물려받게 둔다).
-- 근거를 원본에 없는 외부 주소로 추측해 만들지 않는다.
-- 셸 코드(`config/shell/`)를 프로젝트마다 복사해 고치지 않는다 — 필요한 블록은 셸에
-  추가를 요청한다.
 
 ## 트리거 예시
 

@@ -1,0 +1,7 @@
+{
+ "suffix": "local",
+ "services": [
+  {"name": "3d", "port": 4318, "app": "agent-task-viewer", "title": "에이전트 작업 모니터", "open": "/viewer"},
+  {"name": "vault", "port": 8778, "app": "knowledge-viewer", "title": "볼트 뷰어", "open": "/"}
+ ]
+}
