@@ -40,6 +40,8 @@ node projects/knowledge-viewer/config/app/start.ts                     # 볼트 
 이 볼트를 받은 사람이 뷰어를 한 번 띄워 보고, 로그인 때 늘 뜨는 서비스로 올리고, `http://<이름>.local` 로 여는 순서다(macOS).
 명령의 정본은 [로컬 이름 프록시의 셋업 절차 문서](../local-nginx-proxy/config/skills/local-nginx-proxy/references/vault-viewer.md)다. 여기에는 이 볼트의 값과 읽는 순서만 둔다. 아래 `§ ①` 같은 표기는 그 문서의 절이다.
 
+**상시 서비스와 이름 등록은 요청이 있을 때만, 수동으로 한다.** 에이전트는 이 볼트의 뷰어를 상시 서비스(LaunchAgent)나 nginx 이름으로 스스로 등록하지 않는다. 볼트 사용자가 요청했을 때만 아래 순서를 안내한다. 등록 — plist 설치, `services.json` 수정, `apply.sh` — 은 사람이 직접 한다. 설치와 한 번 띄워 보기는 요청 없이 해도 된다.
+
 ### 이 볼트의 값
 
 | 변수 | 값 | 비고 |
