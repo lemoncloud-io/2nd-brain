@@ -45,7 +45,7 @@ node projects/knowledge-viewer/config/app/start.ts                     # 볼트 
 | 변수 | 값 | 비고 |
 | --- | --- | --- |
 | `PORT` | `8778` | 위 § 실행의 기본 포트. git 소스 포트는 그다음 `8779` 다 |
-| `NAME` | `vault.local` | 예시다. 이름은 각자 고른다(소문자 한 단어 + `.local`) |
+| `NAME` | `doki.local` | 기본 이름이다. 다른 이름으로 바꿔도 된다(소문자 한 단어 + `.local`) |
 | `LABEL` | `local.knowledge-viewer.serve` | 상시 서비스(LaunchAgent) 라벨 |
 | `LOG` | `~/.local/state/knowledge-viewer/serve.log` | 상시 서비스 로그 |
 
@@ -58,7 +58,7 @@ node projects/knowledge-viewer/config/app/start.ts                     # 볼트 
 3. **상시 서비스.** § ② 상시 서비스의 sh 블록에서 첫 네 줄을 위 표의 값으로 두고, 이 볼트의 주 체크아웃 루트에서 돌린다. 서비스는 로그인 때 뜨고, 뜰 때 볼트 전체를 색인한다(수십 초).
 4. **이름.** `~/.config/local-nginx-proxy/services.json` 의 `services` 에 아래 한 줄을 넣고 생성기를 돌린다(§ ③ 이름 추가와 적용). 이어서 § ④ 점검.
    ```json
-   {"name":"vault","port":8778,"app":"knowledge-viewer","title":"볼트 뷰어","open":"/"}
+   {"name":"doki","port":8778,"app":"knowledge-viewer","title":"doki 볼트 뷰어","open":"/"}
    ```
    `name` 은 `NAME` 의 첫 단어, `port` 는 `PORT` 다. `app` 이 `knowledge-viewer` 여야 `knowledge-viewer-open` 스킬이 이 이름을 찾는다.
    적용 단계(`sudo sh ~/.local/state/local-nginx-proxy/apply.sh`)는 sudo 가 든다. **사람이 직접 읽고 돌린다.** 에이전트는 sudo 를 돌리지 않는다.
