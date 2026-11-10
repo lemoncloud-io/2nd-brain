@@ -9,6 +9,7 @@ import path from 'node:path';
 import { handlePanels } from '../../server/panels/routes.ts';
 import { PrSource } from '../../server/panels/prs.ts';
 import { REGISTRY_PATH, ViewersSource, parseRegistry, tcpPing, type Pinger } from '../../server/panels/viewers.ts';
+import { collectViewers, renderRegistry, SKILLS_DIR } from '../../server/panels/viewers-build.ts';
 
 const SKILL = 'projects/demo/config/skills/demo-view/SKILL.md';
 
@@ -87,12 +88,31 @@ describe('parseRegistry', () => {
     assert.equal(parseRegistry('schema_version: 1').error, 'viewers.yml 에 viewers 목록이 없다');
   });
 
-  it('볼트의 등록부(생성 파일)는 오류 없이 읽히고 경로는 도구 폴더(config/) 밖이다', () => {
+  it('등록부 경로는 도구 폴더(config/) 밖, 볼트 소유 생성물 자리다', () => {
+    // 실제 볼트의 등록부 내용 검사는 볼트 확장(ext/tests)이 맡는다 — 유닛은 빈 볼트에서도 돈다.
     assert.equal(REGISTRY_PATH, 'projects/knowledge-viewer/viewers.yml');
-    const real = fs.readFileSync(path.join(import.meta.dirname, '../../../../viewers.yml'), 'utf8');
-    const r = parseRegistry(real);
-    assert.equal(r.error, null);
-    assert.ok(r.entries.length > 0);
+    assert.ok(!REGISTRY_PATH.includes('/config/'));
+  });
+
+  it('픽스처 볼트: 빌더가 만든 등록부를 서버 소스가 그대로 읽는다(collect → render → parse)', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'kv-viewers-roundtrip-')));
+    try {
+      // 등록 레이어에 viewer 블록 스킬 하나를 심링크로 건다.
+      write(root, 'VAULT_RULES.md', '---\ntype: rules\n---\n');
+      const rel = 'projects/demo/config/skills/demo-view';
+      const block = 'viewer:\n  id: demo\n  title: 데모 보기\n  description: 데모 사이트\n  open:\n    kind: static\n    path: projects/demo/outputs/site/index.html\n';
+      write(root, `${rel}/SKILL.md`, `---\nname: demo-view\ndescription: 합성 스킬\n${block}---\n\n본문\n`);
+      fs.mkdirSync(path.join(root, SKILLS_DIR), { recursive: true });
+      fs.symlinkSync(`../../${rel}`, path.join(root, SKILLS_DIR, 'demo-view'));
+      write(root, 'projects/demo/outputs/site/index.html', '<!doctype html>');
+      // 빌더 출력 → 등록부 파일 → 서버 소스 목록.
+      write(root, REGISTRY_PATH, renderRegistry(collectViewers(root).entries));
+      const r = await new ViewersSource({ root, includePrivate: false }).list();
+      assert.equal(r.error, null);
+      assert.deepEqual(r.viewers.map((v) => [v.id, v.open.kind, v.status, v.skill]), [['demo', 'static', 'ok', `${rel}/SKILL.md`]]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -178,10 +198,11 @@ describe('ViewersSource', () => {
     }
   });
 
-  it('project-viewers: 산출물이 있는 프로젝트마다 static 항목으로 펼친다', async () => {
+  it('project-viewers: 산출물 또는 viewer.yml 이 있는 프로젝트마다 static 항목으로 펼치고, viewer.yml 이 있으면 spec 을 싣는다', async () => {
     write(root, 'projects/beta/outputs/viewer/index.html', '<p>');
     write(root, 'projects/beta/config/viewer.yml', 'schema_version: 1\nmeta:\n  title: 베타 뷰어\n  summary: 베타 요약\n');
     write(root, 'projects/alpha/outputs/viewer/index.html', '<p>');
+    write(root, 'projects/delta/config/viewer.yml', 'schema_version: 1\nmeta:\n  title: 델타 뷰어\n');
     write(root, 'projects/gamma/README.md', '# 뷰어 없음');
     write(root, REGISTRY_PATH, yml([entry({ id: 'pv', title: '프로젝트 뷰어', open: { kind: 'project-viewers' } })]));
     const r = await make().list();
@@ -190,10 +211,44 @@ describe('ViewersSource', () => {
       r.viewers.map((v) => ({ id: v.id, title: v.title, description: v.description, status: v.status, group: v.group, open: v.open })),
       [
         { id: 'pv:alpha', title: 'alpha 뷰어', description: '데모 사이트', status: 'ok', group: '프로젝트 뷰어', open: { kind: 'static', path: 'projects/alpha/outputs/viewer/index.html', ask: 'alpha 뷰어 보여줘' } },
-        { id: 'pv:beta', title: '베타 뷰어', description: '베타 요약', status: 'ok', group: '프로젝트 뷰어', open: { kind: 'static', path: 'projects/beta/outputs/viewer/index.html', ask: 'beta 뷰어 보여줘' } },
+        {
+          id: 'pv:beta',
+          title: '베타 뷰어',
+          description: '베타 요약',
+          status: 'ok',
+          group: '프로젝트 뷰어',
+          open: { kind: 'static', path: 'projects/beta/outputs/viewer/index.html', ask: 'beta 뷰어 보여줘', spec: 'projects/beta/config/viewer.yml' },
+        },
+        // 스펙만 있어도(빌드 전) 통합 보기로 열 수 있다.
+        {
+          id: 'pv:delta',
+          title: '델타 뷰어',
+          description: '데모 사이트',
+          status: 'ok',
+          group: '프로젝트 뷰어',
+          open: { kind: 'static', path: 'projects/delta/outputs/viewer/index.html', ask: 'delta 뷰어 보여줘', spec: 'projects/delta/config/viewer.yml' },
+        },
       ],
     );
     assert.ok(r.viewers.every((v) => v.skill === SKILL));
+  });
+
+  it('static 이 프로젝트 뷰어 산출물이고 그 viewer.yml 이 있으면 spec 을 싣는다(그 밖의 static 은 그대로)', async () => {
+    write(root, 'projects/eps/config/viewer.yml', 'schema_version: 1\n');
+    write(root, 'projects/eps/outputs/site/index.html', '<p>');
+    write(
+      root,
+      REGISTRY_PATH,
+      yml([
+        entry({ id: 'eps', open: { kind: 'static', path: 'projects/eps/outputs/viewer/index.html' } }),
+        entry({ id: 'site', open: { kind: 'static', path: 'projects/eps/outputs/site/index.html' } }),
+      ]),
+    );
+    const r = await make().list();
+    assert.deepEqual(r.viewers.map((v) => [v.id, v.status, v.open]), [
+      ['eps', 'ok', { kind: 'static', path: 'projects/eps/outputs/viewer/index.html', ask: null, spec: 'projects/eps/config/viewer.yml' }],
+      ['site', 'ok', { kind: 'static', path: 'projects/eps/outputs/site/index.html', ask: null }],
+    ]);
   });
 
   it('10초 캐시, refresh 는 건너뛴다', async () => {

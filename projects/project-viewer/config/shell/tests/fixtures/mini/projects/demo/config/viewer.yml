@@ -1,0 +1,180 @@
+# 셸 테스트용 가짜 프로젝트. 블록 8종을 한 번씩 쓴다. 내용은 모두 가상의 예시다.
+schema_version: 1
+meta:
+  title: 데모 프로젝트 뷰어
+  kind: project
+  audience: 블록 8종이 실제로 검사를 통과하는지 보는 사람
+  summary: 가상의 예시 서비스다. 실제 시스템을 가리키지 않는다.
+sources:
+  - {id: overview, path: projects/demo/docs/overview.md, title: 개요, group: 설계, role: primary, kind: doc}
+  - {id: flow, path: projects/demo/docs/flow.md, title: 처리 흐름, group: 설계, role: primary, kind: doc}
+  - {id: decisions, path: projects/demo/docs/decisions.md, title: 결정과 발견, group: 기록, role: primary, kind: doc}
+  - {id: ledger, path: projects/demo/docs/status.yml, title: 상태 원장, group: 상태, role: ledger, kind: data}
+glossary:
+  - id: G-queue
+    term: 대기열
+    easy: 처리 순서를 지키려고 요청을 줄 세우는 자리다.
+    evidence: [{source: overview, at: "용어"}]
+  - id: G-retry
+    term: 재시도
+    easy: 한 번 실패한 요청을 정해진 횟수만큼 다시 처리하는 일이다.
+    tech: 횟수 상한은 결정 문서에 적혀 있다.
+    evidence: [{source: overview, at: "용어"}, {source: decisions, at: "결정", label: 상한}]
+pages:
+  - id: P-arch
+    title: 구조
+    blocks:
+      - type: graph
+        id: B-graph
+        title: 구성 한 장
+        intro: 네 부분이 한 방향으로 이어진다.
+        evidence: [{source: overview, at: "구성 단위"}]
+        groups:
+          - {id: GR-front, label: 앞단}
+          - {id: GR-back, label: 뒷단}
+        nodes:
+          - {id: N-intake, label: 접수기, group: GR-front, easy: 요청을 받아 검사한다.}
+          - {id: N-worker, label: 처리기, group: GR-front, easy: 검사를 통과한 요청을 순서대로 처리한다.}
+          - {id: N-store, label: 보관소, group: GR-back, easy: 처리 결과를 남긴다.}
+          - {id: N-notify, label: 알림기, group: GR-back, tag: 외부}
+        edges:
+          - {from: N-intake, to: N-worker}
+          - {from: N-worker, to: N-store}
+          - {from: N-worker, to: N-notify, style: dashed}
+      - type: tree
+        id: B-tree
+        title: 포함 관계
+        evidence: [{source: overview, at: "묶음"}]
+        nodes:
+          - {id: T-front, label: 앞단}
+          - {id: T-intake, label: 접수기, parent: T-front}
+          - {id: T-worker, label: 처리기, parent: T-front}
+          - {id: T-back, label: 뒷단}
+          - {id: T-store, label: 보관소, parent: T-back}
+          - {id: T-notify, label: 알림기, parent: T-back}
+  - id: P-flow
+    title: 흐름
+    layout: tabs
+    blocks:
+      - type: sequence
+        id: B-seq
+        title: 요청 하나가 지나는 길
+        evidence: [{source: flow}]
+        fields:
+          - {label: 배경, text: 대기열을 둔 뒤의 흐름이다.}
+        steps:
+          - id: S-recv
+            label: 받기
+            lane: 접수기
+            easy: 요청을 받아 형식을 본다.
+            why: 형식이 어긋난 요청을 뒤로 넘기지 않기 위해서다.
+            evidence: [{source: flow, at: "받기"}]
+          - id: S-queue
+            label: 줄 세우기
+            lane: 대기열
+            easy: 검사를 통과한 요청이 대기열에 들어간다.
+            evidence: [{source: flow, at: "줄 세우기"}]
+          - id: S-work
+            label: 처리
+            lane: 처리기
+            easy: 대기열에서 하나씩 순서대로 꺼낸다.
+            evidence: [{source: flow, at: "처리"}]
+          - id: S-notify
+            label: 알리기
+            lane: 알림기
+            easy: 결과를 요청자에게 보낸다.
+            evidence: [{source: flow, at: "알리기"}]
+      - type: mermaid
+        id: B-mermaid
+        title: 한 줄 그림
+        evidence: [{source: flow, at: "그림"}]
+        code: |
+          graph LR
+            A[접수기] --> B[대기열] --> C[처리기]
+  - id: P-stages
+    title: 단계
+    blocks:
+      - type: stages
+        id: B-stages
+        title: 검증 단계
+        evidence: [{source: flow}]
+        stages:
+          - id: S1
+            title: 받기 확인
+            short: 받기
+            question: 요청 형식 검사가 실제로 도는가?
+            output: 확인 기록
+            detail: {source: flow, at: "받기"}
+            items:
+              - id: S1.C1
+                label: 형식 검사가 있다
+                criteria: 흐름 문서에 형식 검사 문장이 있다.
+                evidence: [{source: flow, at: "받기"}]
+              - id: S1.C2
+                label: 구성 단위가 적혀 있다
+                criteria: 개요에 네 부분이 적혀 있다.
+                evidence: [{source: overview, at: "구성 단위"}]
+          - id: S2
+            title: 처리 확인
+            short: 처리
+            question: 대기열에서 순서대로 꺼내는가?
+            detail: {source: flow, at: "처리"}
+            items:
+              - id: S2.C1
+                label: 순서 보장이 적혀 있다
+                required: false
+                criteria: 흐름 문서에 순서 문장이 있다.
+                evidence: [{source: flow, at: "처리"}]
+  - id: P-findings
+    title: 발견
+    blocks:
+      - type: items
+        id: B-items
+        title: 발견 목록
+        expect_count: 2
+        evidence: [{source: decisions, at: "발견"}]
+        items:
+          - id: F1
+            label: 느린 요청이 뒤를 막는다
+            body: 앞 요청이 오래 걸리면 뒤 요청이 기다린다.
+            tags: [성능]
+            refs: [F2]
+            evidence: [{source: decisions, find: "앞 요청이 오래 걸리면"}]
+          - id: F2
+            label: 알림 실패가 묻힌다
+            body: 알림이 실패해도 기록이 남지 않는다.
+            tags: [관측]
+      - type: table
+        id: B-table
+        title: 기존 방식과 새 방식
+        expect_count: 2
+        columns:
+          - {id: c-topic, label: 갈래}
+          - {id: c-old, label: 기존}
+          - {id: c-new, label: 새 방식}
+          - {id: c-note, label: 해석, derived: true}
+        rows:
+          - id: R-order
+            cells:
+              c-topic: 순서
+              c-old: 받는 즉시 처리
+              c-new: 대기열을 거쳐 처리
+              c-note: {text: 순서가 어긋날 자리가 줄었다.}
+            evidence: [{source: decisions, at: "견줌"}]
+          - id: R-retry
+            cells:
+              c-topic: 재시도
+              c-old: 없음
+              c-new: 세 번까지
+              c-note: 실패가 곧바로 끝나지 않는다.
+            evidence: [{source: decisions, at: "결정"}]
+  - id: P-howto
+    title: 읽는 법
+    blocks:
+      - type: prose
+        id: B-prose
+        evidence: [{source: overview}]
+        text: |
+          이 뷰어는 가상의 예시다.
+
+          해설에는 근거 단추가 붙고, 원본은 글자 그대로 보여 준다.

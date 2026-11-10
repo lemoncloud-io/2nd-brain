@@ -1,0 +1,88 @@
+/* 앱 플러그인(`/apps/<id>`). 가운데 열 전체를 앱이 쓴다 — 여백 없이, 앱이 자기 스크롤을 갖는다.
+   앱 CSS 는 빌드 때 .app-<id> 아래로 갇히고, 이 앱 CSS(src/styles/**)는 그 안에 닿지 않는다(vite.config.ts 의 appEmbed). */
+.col-center-app {
+  padding: 0;
+  overflow: auto;
+}
+
+.app-host {
+  min-height: 100%;
+}
+
+.app-host > .notice,
+.col-center-app > .notice {
+  padding: var(--gap-5);
+}
+
+/* 등록되지 않은 앱 안내. */
+.app-missing {
+  padding: var(--gap-5);
+}
+
+.app-missing-list {
+  padding-left: 1.2em;
+}
+
+/* 상단바 "앱" 메뉴: details 하나. 펼치면 아래로 목록이 뜬다.
+   단추(summary)는 격자 아이콘 하나라 크기·여백은 다른 .icon-btn(28px 정사각) 그대로 쓰고 목록 표식만 지운다. */
+.apps-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.apps-menu > summary {
+  list-style: none;
+}
+
+.apps-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.apps-menu[open] > summary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.apps-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  min-width: 180px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.apps-menu-list a {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.apps-menu-list a:hover,
+.apps-menu-list a[aria-current='page'] {
+  background: var(--accent-soft);
+}
+
+/* 메뉴 항목 앞 앱 아이콘(14px SVG). 폭을 고정해 제목 줄이 나란히 선다. */
+.apps-menu-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--text-2);
+}
+
+.apps-menu-icon .icon {
+  display: block;
+}

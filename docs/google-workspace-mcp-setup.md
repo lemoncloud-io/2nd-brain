@@ -1,14 +1,13 @@
 # Google Workspace MCP Setup
-<!-- origin: lemoncloud-io/knowledge@35cc79f:docs/google-workspace-mcp-setup.md -->
+<!-- origin: lemoncloud-io/knowledge@f68f1d38:docs/google-workspace-mcp-setup.md -->
 
 Claude Code에서 Google Drive / Sheets / Slides 문서를 읽고 편집하기 위한 연결 준비 문서.
-2026-08-11 작성. 연결이 완료되면 이 문서를 실제 구성 기록으로 갱신한다.
 
 ## 접근 방식 결정
 
 | 후보 | 범위 | 판정 |
 | --- | --- | --- |
-| claude.ai 네이티브 Google Drive 커넥터 | Drive 검색·읽기 전용. Sheets/Slides 편집 불가 | 보류 — 이번 세션의 커넥터 레지스트리 검색에서도 조회되지 않음 |
+| claude.ai 네이티브 Google Drive 커넥터 | Drive 검색·읽기 전용. Sheets/Slides 편집 불가 | 보류 |
 | Merge/Composio 등 관리형 MCP | 외부 SaaS에 OAuth 토큰 위탁 | 제외 — 팀 vault 데이터를 제3자 경유시키지 않음 |
 | **`google_workspace_mcp` (self-hosted)** | Drive·Docs·Sheets·Slides 포함 12개 서비스, 읽기+쓰기 | **채택 권고** — 활발히 유지보수됨(3k+ stars), `uvx`로 즉시 실행, OAuth 자격증명이 로컬에만 저장됨 |
 
@@ -25,8 +24,8 @@ Claude Code에서 Google Drive / Sheets / Slides 문서를 읽고 편집하기 �
 2. API 활성화: **Google Drive API**, **Google Sheets API**, **Google Slides API**,
    **Gmail API** (Docs도 쓸 예정이면 **Google Docs API** 추가).
    주의: OAuth scope 동의와 API 활성화는 별개다 — scope 동의가 통과해도 해당
-   API가 꺼져 있으면 도구 호출이 `API is not enabled` 오류를 낸다 (2026-08-12
-   gmail 확장에서 실측; 활성화 후 반영까지 1–2분).
+   API가 꺼져 있으면 도구 호출이 `API is not enabled` 오류를 낸다 (실측;
+   활성화 후 반영까지 1–2분).
 3. OAuth 동의 화면 구성 (조직 Workspace를 쓴다면 사용자 유형 Internal)
 4. 사용자 인증 정보 → **OAuth 클라이언트 ID** 생성 (앱 유형: 데스크톱 앱)
 5. 발급된 `Client ID` / `Client Secret`을 로컬 환경변수로 보관:
@@ -40,7 +39,7 @@ Claude Code에서 Google Drive / Sheets / Slides 문서를 읽고 편집하기 �
 
 ### 2. 자격증명 준비 후 실행할 등록 명령
 
-최종 등록 명령 (2026-08-12 gmail 확장 반영 — user 스코프 stdio):
+최종 등록 명령 (user 스코프 stdio):
 
 ```bash
 claude mcp add -s user workspace-mcp \
@@ -79,18 +78,7 @@ Claude 세션이 끝나면 콜백 리스너도 함께 죽는다. **세션이 반
 2. Drive 검색 → 시트 셀 읽기 → 슬라이드 목차 읽기 순으로 읽기 경로 검증
 3. 쓰기 검증은 테스트용 신규 문서에서만 수행 (기존 팀 문서로 첫 쓰기 테스트 금지)
 
-## 상태 (원본 볼트의 구성 이력)
-
-아래 체크는 이 절차를 처음 밟은 볼트의 실증 기록이다 — 새로 셋업하는 볼트는
-전 항목 미완 상태에서 시작한다. 검증 산출물 경로는 해당 문서가 있는 볼트에서만 열린다.
-
-- [x] 접근 방식 조사·결정 (2026-08-11)
-- [x] 로컬 실행 요건(`uvx`) 확인
-- [x] Google Cloud OAuth 클라이언트 발급 (2026-08-11)
-- [x] `claude mcp add` 등록 및 OAuth 동의 — user 스코프 stdio, 읽기 전용 선행 후 쓰기 확장
-- [x] 읽기/쓰기 검증
-- [x] gmail 도구 확장 (2026-08-12) — 재등록·scope 재동의·Gmail API 활성화, 초안·발송
-  검증
+## 관련 절차
 
 운용 절차서: `projects/second-brain/config/skills/google-workspace.md` (승격된 팀 스킬)
 주간 보고서 발송 절차: `projects/second-brain/config/skills/vault-weekly-report.md` § 이메일 발송

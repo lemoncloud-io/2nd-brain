@@ -13,11 +13,13 @@ import {
   keysFor,
   matchShortcut,
   parseCombo,
+  shortcutTable,
   type KeyEventLike,
   type Platform,
 } from '../../src/app/shortcuts.ts';
 import { stepIndex } from '../../src/app/tree-nav.ts';
 import { parseShortcutPlatform } from '../../src/app/prefs/shortcuts.ts';
+import { FAKE_VIEW } from '../helpers/fake-ext.ts';
 
 const ev = (key: string, mods: Partial<Omit<KeyEventLike, 'key'>> = {}): KeyEventLike => ({
   key,
@@ -178,6 +180,42 @@ test('단축키 표: 모든 그룹에 항목이 있고, 그래프 그룹은 지�
     assert.equal(findShortcut(ev(' '), p, false), null);
     assert.equal(findShortcut(ev('Shift', { shiftKey: true }), p, false), null);
   }
+});
+
+test('p 는 PR 번호 검색(search.pr) — 입력 상자 밖에서만, ⌘P(인쇄)는 잡지 않는다', () => {
+  const pr = SHORTCUTS.find((s) => s.id === 'search.pr')!;
+  assert.equal(pr.scope, 'app');
+  assert.equal(pr.group, 'search');
+  for (const p of ['mac', 'win'] as Platform[]) {
+    assert.deepEqual(findShortcut(ev('p'), p, false), { id: 'search.pr', combo: 'p' });
+    // 한글 자판(ㅔ)도 물리 키로 듣는다.
+    assert.deepEqual(findShortcut(ev('ㅔ', { code: 'KeyP' }), p, false), { id: 'search.pr', combo: 'p' });
+    // 글자를 치는 중에는 글자다.
+    assert.equal(findShortcut(ev('p'), p, true), null);
+    const mod = p === 'mac' ? { metaKey: true } : { ctrlKey: true };
+    assert.equal(findShortcut(ev('p', mod), p, false), null);
+    assert.equal(findShortcut(ev('P', { shiftKey: true }), p, false), null);
+  }
+});
+
+test('확장 화면 단축키 — 지도 행 바로 뒤에 들어가고, 입력 중 글자와 수식어 조합을 가로채지 않는다', () => {
+  const table = shortcutTable([FAKE_VIEW]);
+  const at = table.findIndex((s) => s.id === 'view.graph');
+  assert.deepEqual(table[at + 1], { id: 'view.ext.atlas', keys: ['q'], desc: '데모 지도 보기', group: 'nav', scope: 'app' });
+  assert.equal(table.length, SHORTCUTS.length + 1);
+  for (const p of ['mac', 'win'] as Platform[]) {
+    assert.deepEqual(findShortcut(ev('q'), p, false, table), { id: 'view.ext.atlas', combo: 'q' });
+    // 한글 자판(ㅂ)도 물리 키로 듣는다.
+    assert.deepEqual(findShortcut(ev('ㅂ', { code: 'KeyQ' }), p, false, table), { id: 'view.ext.atlas', combo: 'q' });
+    assert.equal(findShortcut(ev('q'), p, true, table), null);
+    const mod = p === 'mac' ? { metaKey: true } : { ctrlKey: true };
+    assert.equal(findShortcut(ev('q', mod), p, true, table), null);
+    // 코어 표에는 그 행이 없다.
+    assert.equal(findShortcut(ev('q'), p, false), null);
+  }
+  // 확장 화면이 없거나 단축키가 없으면 코어 표 그대로.
+  assert.equal(shortcutTable([]), SHORTCUTS);
+  assert.equal(shortcutTable([{ ...FAKE_VIEW, shortcut: undefined }]), SHORTCUTS);
 });
 
 test('뒤로·앞으로는 브라우저 기본 키를 적기만 한다 — 맥 ⌘[ ⌘], 윈도 Alt+←→', () => {

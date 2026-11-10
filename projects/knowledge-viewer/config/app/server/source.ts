@@ -34,6 +34,8 @@ export type SourceReader = {
   blobOids?(paths: string[]): Map<string, string>;
   /** git 리더만: blob oid → 내용(utf8). `cat-file --batch` 한 번이다. 못 읽은 것은 빠진다. */
   readBlobs?(oids: string[]): Map<string, string>;
+  /** git 리더만: 실제로 읽는 커밋의 전체 oid. 머지된 PR 은 ref(refs/kv/pr/<n>)가 아니라 머지 커밋일 수 있다. */
+  commit?: string | null;
 };
 
 export type SourceStatus = { available: boolean; head: string | null; fetchedAt: number | null; reason?: string };
@@ -45,15 +47,21 @@ export type PrMeta = {
   head: string;
   base: string;
   headOid: string;
+  /** gh 의 PR 상태. 모르는 값·빈 값은 OPEN 으로 본다. */
+  state: PrState;
+  /** 머지된 PR 의 머지 커밋 oid(gh mergeCommit.oid). 머지 전이거나 oid 꼴이 아니면 없다. */
+  mergeCommit?: string;
   updatedAt: string;
   url: string;
 };
+
+export type PrState = 'OPEN' | 'CLOSED' | 'MERGED';
 
 export const MAIN_REF = 'refs/remotes/origin/master';
 export const prRef = (n: number): string => `refs/kv/pr/${n}`;
 export const baseRef = (branch: string): string => `refs/kv/base/${branch}`;
 export const FETCH_TTL_MS = 60_000;
-const PR_FIELDS = 'number,title,author,headRefName,baseRefName,headRefOid,updatedAt,url';
+const PR_FIELDS = 'number,title,author,headRefName,baseRefName,headRefOid,updatedAt,url,state,mergeCommit';
 
 type GitFn = typeof git;
 const GIT_SCOPE = { includePrivate: false };
@@ -192,6 +200,11 @@ export function parseCatFileBatch(out: Buffer): Map<string, string> {
 
 const OID = /^[0-9a-f]{40,64}$/;
 
+/** 머지된 PR 이면 읽을 머지 커밋 oid, 아니면 null. oid 꼴(소문자 16진 40~64자)만 받는다 — git 인자로 넘기므로. */
+export function mergedCommitOf(meta: Pick<PrMeta, 'state' | 'mergeCommit'>): string | null {
+  return meta.state === 'MERGED' && meta.mergeCommit !== undefined && OID.test(meta.mergeCommit) ? meta.mergeCommit : null;
+}
+
 export function gitReader(root: string, ref: string, opts: GitReaderOptions = {}): SourceReader {
   const run = opts.git ?? git;
   const runBytes = opts.gitBytes ?? gitBytes;
@@ -312,10 +325,13 @@ export function gitReader(root: string, ref: string, opts: GitReaderOptions = {}
       const out = runBytes(root, ['cat-file', '--batch'], { input: want.join('\n') + '\n' });
       return out === null ? new Map() : parseCatFileBatch(out);
     },
+    commit: oid,
   };
 }
 
 type FetchState = { at: number; sig: string; ok: boolean; reason?: string; okAt: number | null };
+/** 머지된 PR 의 읽기 고정: `oid` 가 `within`(base ref)에 닿으면 ref 대신 그 커밋을 읽는다. */
+type Pin = { oid: string; within: string };
 type Cached<T> = { at: number; value: T };
 
 export type SourceManagerDeps = {
@@ -341,6 +357,7 @@ function putCapped<V>(m: Map<string, V>, max: number, key: string, value: V): vo
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const stateOf = (v: unknown): PrState => (v === 'MERGED' || v === 'CLOSED' ? v : 'OPEN');
 const asLogin = (v: unknown): string => (typeof v === 'object' && v !== null ? str((v as { login?: unknown }).login) : '');
 
 /**
@@ -368,6 +385,8 @@ export class SourceManager {
    * 경로를 키에 넣는 것은 제목이 없을 때 파일 이름으로 떨어지기 때문이다(같은 blob 도 경로마다 제목이 다르다).
    */
   private readonly titles = new Map<string, string>();
+  /** `<머지 커밋>\0<base ref>` 중 base 에 닿는다고 확인한 것. 커밋은 바뀌지 않으므로 참만 기억한다. */
+  private readonly pinsOk = new Map<string, true>();
 
   constructor(root: string, deps: SourceManagerDeps = {}) {
     this.root = root;
@@ -391,12 +410,15 @@ export class SourceManager {
     const meta = await this.prMeta(n);
     if ('error' in meta) return { error: meta.error };
     if (!this.isBranchName(meta.base)) return { error: `base 브랜치 이름이 올바르지 않다: ${meta.base}` };
+    // 머지된 PR 은 머지 커밋을 읽는다 — base ref 를 받으면 함께 온다. 아직 못 받았으면 PR 머리로 읽는다.
+    const merged = mergedCommitOf(meta);
     return this.openFresh(
       sourceKey(src),
       prRef(n),
       'pr',
       ['fetch', 'origin', `+refs/pull/${n}/head:${prRef(n)}`, `+refs/heads/${meta.base}:${baseRef(meta.base)}`],
       [baseRef(meta.base)],
+      merged === null ? undefined : { oid: merged, within: baseRef(meta.base) },
     );
   }
 
@@ -493,6 +515,19 @@ export class SourceManager {
     return out;
   }
 
+  /**
+   * 고정할 머지 커밋이 이 저장소에 있고 base ref 에서 닿는가. origin 에서 받은 base 의 커밋만 읽는다는 뜻이다 —
+   * gh 가 준 oid 라도 받은 적 없는 곳(다른 ref·남의 객체)이면 읽지 않는다.
+   */
+  private pinReady(pin: Pin): boolean {
+    if (!OID.test(pin.oid)) return false;
+    const key = `${pin.oid}\0${pin.within}`;
+    if (this.pinsOk.has(key)) return true;
+    const ok = this.git(this.root, ['merge-base', '--is-ancestor', pin.oid, pin.within]).ok;
+    if (ok) putCapped(this.pinsOk, RESOLVER_CACHE_MAX, key, true);
+    return ok;
+  }
+
   /** ttl 이 지났거나 refspec 이 바뀌었으면 true. */
   private due(key: string, sig: string): boolean {
     const prev = this.fetches.get(key);
@@ -500,10 +535,9 @@ export class SourceManager {
   }
 
   /** fetch 를 한 번 돌린다(진행 중이면 그 약속). 거부하지 않는다 — 실패는 상태(reason)로 남는다. */
-  private refresh(key: string, args: string[]): Promise<void> {
+  private refresh(key: string, args: string[], sig = args.join('\0')): Promise<void> {
     const pending = this.fetchInflight.get(key);
     if (pending !== undefined) return pending;
-    const sig = args.join('\0');
     const p = (async (): Promise<void> => {
       await null;
       let r: { ok: boolean; stderr: string };
@@ -522,10 +556,12 @@ export class SourceManager {
     return p;
   }
 
-  /** ref 가 있으면 바로 리더(필요하면 뒤에서 갱신), 없으면 fetch 를 기다린 뒤 리더 또는 {error}. */
   /**
    * ref 가 있으면 바로 리더를 주고 TTL 이 지났으면 뒤에서 갱신한다. ref 나 `alsoRefs`(pr 의 base ref) 중 하나라도
    * 없으면 fetch 를 기다린다 — base 브랜치가 바뀐 직후 "ref 가 없다" 가 잠깐 새지 않게.
+   * `pin`(머지된 PR 의 머지 커밋)이 있으면 그 커밋이 base 에 닿을 때 ref 대신 그것을 읽는다. 못 닿으면 fetch 를
+   * 기다려 본다 — 머지 커밋 oid 를 fetch 서명에 넣으므로 PR 이 머지된 뒤 처음 한 번은 ttl 과 무관하게 받는다.
+   * 그래도 없으면 ref(PR 머리)로 읽는다.
    */
   private async openFresh(
     key: string,
@@ -533,21 +569,25 @@ export class SourceManager {
     kind: 'main' | 'pr',
     args: string[],
     alsoRefs: string[] = [],
+    pin?: Pin,
   ): Promise<SourceReader | { error: string }> {
-    const due = this.due(key, args.join('\0'));
+    const sig = pin === undefined ? args.join('\0') : `${args.join('\0')}\0${pin.oid}`;
+    const due = this.due(key, sig);
     let oid = resolveCommit(this.root, ref, this.git);
-    const ready = oid !== null && alsoRefs.every((r) => resolveCommit(this.root, r, this.git) !== null);
+    const ready =
+      oid !== null && alsoRefs.every((r) => resolveCommit(this.root, r, this.git) !== null) && (pin === undefined || this.pinReady(pin));
     if (ready) {
-      if (due) void this.refresh(key, args);
+      if (due) void this.refresh(key, args, sig);
     } else {
-      if (due || this.fetchInflight.has(key)) await this.refresh(key, args);
+      if (due || this.fetchInflight.has(key)) await this.refresh(key, args, sig);
       oid = resolveCommit(this.root, ref, this.git);
     }
     if (oid === null) {
       const state = this.fetches.get(key);
       return { error: state?.reason ?? `ref 가 없다: ${ref}` };
     }
-    return gitReader(this.root, ref, { kind, git: this.git, gitBytes: this.gitBytes, oid });
+    const read = pin !== undefined && this.pinReady(pin) ? pin.oid : oid;
+    return gitReader(this.root, ref, { kind, git: this.git, gitBytes: this.gitBytes, oid: read });
   }
 
   private isBranchName(name: string): boolean {
@@ -572,9 +612,12 @@ function parseMeta(stdout: string, n: number): PrMeta | { error: string } {
     head: str(o.headRefName),
     base: str(o.baseRefName),
     headOid: str(o.headRefOid),
+    state: stateOf(o.state),
     updatedAt: str(o.updatedAt),
     url: str(o.url),
   };
+  const merge = typeof o.mergeCommit === 'object' && o.mergeCommit !== null ? str((o.mergeCommit as { oid?: unknown }).oid) : '';
+  if (OID.test(merge)) meta.mergeCommit = merge;
   if (meta.number !== n || meta.base === '' || meta.head === '') return { error: `gh 실패: PR #${n} 의 응답이 올바르지 않다` };
   return meta;
 }

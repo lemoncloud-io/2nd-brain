@@ -45,7 +45,7 @@ type ChargeStrength = (node: object, i: number, nodes: object[]) => number;
 type ForceHost = { d3Force(name: string, force?: unknown): unknown };
 
 /**
- * 노드 질량 — 연결 수를 로그로 누른 값(물리 엔진 설계 #933 § 매핑). FA2 의 `deg + 1` 을 그대로 쓰면 INDEX(270)가 중앙값(6)의 40 배라
+ * 노드 질량 — 연결 수를 로그로 누른 값(물리 엔진 설계 § 매핑). FA2 의 `deg + 1` 을 그대로 쓰면 INDEX(270)가 중앙값(6)의 40 배라
  * 구가 뭉개진다. 로그는 2~7 범위에 머문다: 0 → 1, 6 → 2.9, 57 → 5.1, 270 → 6.6.
  */
 export function massOf(degree: number): number {
@@ -68,7 +68,7 @@ export function readCharge(fg: ForceHost): ChargeStrength | null {
 type Degreed = { in?: number; out?: number };
 
 /**
- * 반발 = 엔진 처음 값(base) × 질량(연결 수의 로그) / 중앙값 질량. 허브가 이웃을 밀어 자기 자리를 넓힌다(#933 권고 "A + D").
+ * 반발 = 엔진 처음 값(base) × 질량(연결 수의 로그) / 중앙값 질량. 허브가 이웃을 밀어 자기 자리를 넓힌다(물리 엔진 설계의 권고 "A + D").
  * 노드가 많으면(WEAK_CHARGE_FROM 초과) 다시 절반. base 가 없으면 건드리지 않는다. R 을 주면 그 2.5 배 밖의 쌍은 끊는다.
  * 엔진마다 처음 값이 다르다 — 3D(three-forcegraph)는 -60, 2D(force-graph, d3 기본)는 -30.
  */

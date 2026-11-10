@@ -3,7 +3,7 @@
 // "불러오기" 로 연 주소는 이 탭의 메모리에만 둔다 — 저장하지 않는다.
 import { useSyncExternalStore } from 'react';
 
-import { DEFAULT_REMOTE_IMAGE_HOSTS } from '../../shared/image-src.ts';
+import { DEFAULT_REMOTE_IMAGE_HOSTS } from '../ext/registry.ts';
 import { readRemoteImageHosts, readRemoteImages, writeRemoteImageHosts, writeRemoteImages } from '../app/prefs.ts';
 
 export type RemoteImageView = { enabled: boolean; hosts: readonly string[] };
@@ -18,8 +18,10 @@ type RemoteImageIo = {
   writeHosts: (hosts: readonly string[]) => void;
 };
 
-/** 저장소를 만든다. 시험은 가짜 읽기·쓰기를 넣고 SSR 에서도 그 값을 보게(`ssr`) 한다. */
-export function createRemoteImageStore(io: RemoteImageIo, opts: { ssr?: boolean } = {}) {
+/** 저장소를 만든다. 시험은 가짜 읽기·쓰기를 넣고 SSR 에서도 그 값을 보게(`ssr`) 한다. defaults 는 "기본값" 되돌리기·SSR 값(기본은 확장 층 값). */
+export function createRemoteImageStore(io: RemoteImageIo, opts: { ssr?: boolean; defaults?: readonly string[] } = {}) {
+  const defaults = opts.defaults ?? DEFAULT_REMOTE_IMAGE_HOSTS;
+  const off: RemoteImageView = opts.defaults === undefined ? REMOTE_IMAGES_OFF : { enabled: false, hosts: defaults };
   let current: RemoteImageView | null = null;
   const listeners = new Set<() => void>();
   const get = (): RemoteImageView => (current ??= { enabled: io.readEnabled(), hosts: io.readHosts() });
@@ -38,14 +40,14 @@ export function createRemoteImageStore(io: RemoteImageIo, opts: { ssr?: boolean 
     },
     get,
     /** SSR 값. 앱 저장소는 끔이다(localStorage 가 없다). */
-    getServer: opts.ssr === true ? get : (): RemoteImageView => REMOTE_IMAGES_OFF,
+    getServer: opts.ssr === true ? get : (): RemoteImageView => off,
     setEnabled(on: boolean): void {
       io.writeEnabled(on);
       publish({ ...get(), enabled: on });
     },
     setHosts,
     resetHosts(): void {
-      setHosts(DEFAULT_REMOTE_IMAGE_HOSTS);
+      setHosts(defaults);
     },
   };
 }
@@ -54,7 +56,7 @@ export type RemoteImageStore = ReturnType<typeof createRemoteImageStore>;
 /** 앱의 저장소 — ⚙ 와 리더가 함께 본다. */
 export const remoteImageStore: RemoteImageStore = createRemoteImageStore({
   readEnabled: readRemoteImages,
-  readHosts: readRemoteImageHosts,
+  readHosts: () => readRemoteImageHosts(),
   writeEnabled: writeRemoteImages,
   writeHosts: writeRemoteImageHosts,
 });

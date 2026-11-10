@@ -16,7 +16,7 @@ const V: Viewer[] = [
   { ...base, id: 'gone', title: '없는 사이트', open: { kind: 'static', path: 'projects/demo/outputs/x/index.html', ask: '데모 빌드해줘' }, status: 'missing' },
   { ...base, id: 'on', title: '켜진 서버', open: { kind: 'server', url: 'http://127.0.0.1:43187/?agent=claude', port: 43187, launch: 'desk', ask: '이슈 보여줘' }, status: 'up' },
   { ...base, id: 'off', title: '꺼진 서버', open: { kind: 'server', url: 'http://localhost:8787/#single', port: 8787, launch: 'gr', ask: '골든리뷰 보여줘' }, status: 'down' },
-  { ...base, id: 'man', title: '앱 셸', open: { kind: 'server', url: null, port: null, launch: null, ask: '두유 시작' }, status: 'manual' },
+  { ...base, id: 'man', title: '앱 셸', open: { kind: 'server', url: null, port: null, launch: null, ask: '앱 시작' }, status: 'manual' },
   { ...base, id: 'pv:a', title: 'a 뷰어', group: '프로젝트 뷰어', open: { kind: 'static', path: 'projects/a/outputs/viewer/index.html', ask: 'a 뷰어 보여줘' }, status: 'ok' },
 ];
 
@@ -34,7 +34,7 @@ test('viewerAction: static ok 는 같은 포트 localhost /raw, server up 은 �
   assert.deepEqual(viewerAction(V[0]!, '8792'), { kind: 'open', href: 'http://localhost:8792/raw/projects/demo/outputs/site/index.html' });
   assert.deepEqual(viewerAction(V[2]!, '8792'), { kind: 'open', href: 'http://127.0.0.1:43187/?agent=claude' });
   assert.deepEqual(viewerAction(V[3]!, '8792'), { kind: 'ask', text: '골든리뷰 보여줘', reason: '서버 꺼짐' });
-  assert.deepEqual(viewerAction(V[4]!, '8792'), { kind: 'ask', text: '두유 시작', reason: '클로드가 띄운다' });
+  assert.deepEqual(viewerAction(V[4]!, '8792'), { kind: 'ask', text: '앱 시작', reason: '클로드가 띄운다' });
   assert.deepEqual(viewerAction(V[1]!, '8792'), { kind: 'ask', text: '데모 빌드해줘', reason: '파일 없음' });
   assert.deepEqual(viewerAction({ ...V[1]!, open: { kind: 'static', path: 'x.html', ask: null } }, '8792'), { kind: 'none', reason: '파일 없음' });
 });
@@ -42,6 +42,11 @@ test('viewerAction: static ok 는 같은 포트 localhost /raw, server up 은 �
 test('viewerAction: 경로의 @ 는 /raw/@ 소스 접두와 섞이지 않게 부호화하고, # 도 부호화한다', () => {
   const v: Viewer = { ...V[0]!, open: { kind: 'static', path: 'projects/@org/a#b/index.html', ask: null } };
   assert.deepEqual(viewerAction(v, '8778'), { kind: 'open', href: 'http://localhost:8778/raw/projects/@org/a%23b/index.html' });
+});
+
+test('viewerAction: 포트를 모르면(개인 이름 뒤, /api/info 전) 같은 출처 /raw — 프록시 포트로 짓지 않는다', () => {
+  assert.deepEqual(viewerAction(V[0]!, ''), { kind: 'open', href: '/raw/projects/demo/outputs/site/index.html' });
+  assert.deepEqual(viewerAction(V[2]!, ''), { kind: 'open', href: 'http://127.0.0.1:43187/?agent=claude' });
 });
 
 test('열 수 있는 항목은 새 탭 링크, 꺼진 항목은 흐린 본체 + 요청 버튼', () => {
@@ -86,4 +91,18 @@ test('오류 한 줄과 함께 남은 항목을 그린다, 비면 빈 문구', (
   assert.ok(html.includes('viewers.yml: 2번째 항목(b)에 description 이 없다'));
   assert.ok(html.includes('data-viewer-id="site"'));
   assert.ok(render({ viewers: [], fetchedAt: '', error: null }).includes('등록된 뷰어 없음'));
+});
+
+test('프로젝트 뷰어(viewer.yml 이 있는 static)는 새 탭 대신 이 화면 안의 통합 보기로 연다', () => {
+  const pv: Viewer = { ...V[5]!, id: 'pv:b', open: { kind: 'static', path: 'projects/b/outputs/viewer/index.html', ask: null, spec: 'projects/b/config/viewer.yml' } };
+  assert.deepEqual(viewerAction(pv, '8792'), { kind: 'inline', spec: 'projects/b/config/viewer.yml' });
+  // 산출물이 없어도(스펙만) 같다 — 통합 보기는 빌드를 거치지 않는다.
+  assert.deepEqual(viewerAction({ ...pv, status: 'missing' }, '8792'), { kind: 'inline', spec: 'projects/b/config/viewer.yml' });
+  const html = render({ viewers: [...V, pv], fetchedAt: '', error: null });
+  const c = card(html, 'pv:b');
+  assert.match(c, /<a class="viewer-main" href="\/v\/projects\/b\/config\/viewer\.yml\?src=local" data-vault-path="projects\/b\/config\/viewer\.yml"/);
+  assert.ok(!c.includes('target="_blank"'));
+  assert.ok(!c.includes('viewer-off'));
+  // 스펙이 없는 프로젝트 뷰어는 예전처럼 새 탭이다.
+  assert.match(card(html, 'pv:a'), /href="http:\/\/localhost:8792\/raw\/projects\/a\/outputs\/viewer\/index.html" target="_blank"/);
 });

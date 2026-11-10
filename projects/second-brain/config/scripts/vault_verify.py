@@ -36,7 +36,7 @@ Checks (all lanes):
      `review_since` and a one-line `review_gate` (≤ 300 bytes) and the project is not
      `status: done`. Added 2026-10-15 after one project's preparation PR was merged with
      its review still open and the only mark was a quoted paragraph; contract in
-     `docs/project-review.md`.
+     `docs/project-review.md`. Only project READMEs are judged (narrowed 2026-11-03).
   9. docs/raw-index.yml and docs/raw-index.md are committed by the lint lane only. A change
      set that touches either file must touch nothing under raw/ or Clippings/ — an ingest
      or promote change set always adds raw files, a lint change set never does. Added
@@ -60,6 +60,33 @@ Checks (all lanes):
      and rewrote links in 145 files by hand). Links already broken on the base are a lint item
      (`vault_orphans.py --broken` lists them: 246 in 86 documents on 2026-10-16), never a defect
      here — the set may not grow, that is all.
+ 13. The change set adds no live tally to a hub — a bare count of documents, folders or items
+     (`42건`, `35 folders`) on a line without a date, added to a project README
+     (`projects/<name>/README.md`, `projects/@<owner>/<repo>/README.md`) or a vault top hub
+     (`projects/README.md`, `outputs/README.md`, `docs/README.md`, `wiki/INDEX.md`). Added
+     2026-10-22: every PR that added a feature or a wiki folder edited the same count line in
+     one project README — parallel PRs editing one hub line conflict with each other — and the
+     line still read 42 where the folder held 47. Counts are asked for (`vault_tally.py`, a project's `--tally`) or
+     dated as a record. Only added body lines count — a count already on the base is a lint
+     item, and frontmatter is out of scope: a milestone or next_action label ("결정 31개 확정")
+     names a checkpoint, not a collection, and checks 7/8 govern those (narrowed 2026-10-22 after
+     the first PR it met tripped on two such labels). Contract in VAULT_RULES § Note
+     Contracts (Live tallies).
+ 14. The change set leaves frozen files alone — a Markdown file whose frontmatter on the base ref
+     carries `frozen: YYYY-MM-DD` is not modified, deleted or renamed. Added 2026-10-29: a
+     project's append-only round log was frozen after two PRs that each appended a block to its
+     end conflicted, and an agent appending out of habit would bring the conflict back with
+     nothing to stop it. Adding `frozen:` to a
+     file is allowed (the base has no key yet), so the freezing change set itself passes.
+     Contract in VAULT_RULES § Note Contracts (Frozen files).
+ 15. Every SKILL.md the change set touches passes skill_lint.py — a changed SKILL.md, or a skill
+     whose folder holds a changed Markdown file (its references), is linted whole: frontmatter
+     `name`·`description` (name = folder), at most 500 lines, every relative link resolves.
+     Errors are defects; warnings (the first-100-line trigger/boundary headings, a long
+     reference without a table of contents) are printed and never fail. Added 2026-11-05 with
+     the authoring rules of wiki/skill-authoring-practices.md; a skill already over a limit
+     is fixed when someone works on it, never in a sweep. Contract in
+     `docs/agent-skills-registration.md` § 7.
 
 Lane check: `--lane ingest|lint|promote` additionally requires the lane's trace in the
 diff against the base ref — a run-log under outputs/runs/ with the matching `kind:`
@@ -88,7 +115,9 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+import skill_lint
 import vault_orphans
+import vault_tally
 import vault_volume
 
 try:  # optional: absent on the Homebrew python3 that usually runs the lanes
@@ -655,6 +684,9 @@ RV_KEYS = ("review", "review_since", "review_gate", "review_ref", "status")
 RV_KEY_RE = re.compile(r"^(review|review_since|review_gate|review_ref|status):(?:[ \t]+(.*?))?[ \t]*$")
 RV_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 RV_DOC = "docs/project-review.md"
+# The gate lives in a project README only (`docs/project-review.md`); other notes may use a
+# `review` key for their own records (e.g. a marketing post's per-post check record).
+PROJECT_README_RE = re.compile(r"^projects/(?:@[^/]+/)?[^/@][^/]*/README\.md$")
 
 
 def _rv_plain(value: str) -> str:
@@ -674,8 +706,16 @@ def scan_review(text: str, rel_path: str) -> list[str]:
     `docs/project-review.md` is the contract. The lifecycle `status` is a different axis
     and is not judged here.
 
+    Only a project README (`projects/<name>/README.md`, `projects/@<owner>/<repo>/README.md`)
+    is judged: the contract covers that frontmatter, and other notes are free to use a
+    `review` key for something else. Narrowed 2026-11-03 after a project's marketing posts and
+    fixtures, whose `review` is a per-post check record, failed the check in every lane.
+
     Dependency-free on purpose, like scan_frontmatter — the lanes run where PyYAML is absent.
     """
+    # the gate is a project README field; any other note's `review` is not this contract
+    if not PROJECT_README_RE.match(rel_path):
+        return []
     if not text.startswith(FM_FENCE + "\n"):
         return []
 
@@ -878,6 +918,197 @@ def check_link_ratchet(vault: Path, base: str, work: vault_orphans.Vault, defect
         )
 
 
+FROZEN_KEY_RE = re.compile(r"^frozen:[ \t]*[\"']?([^\"'\n]*?)[\"']?[ \t]*$", re.M)
+FROZEN_PATHSPECS = ("*.md", ":(exclude)raw", ":(exclude)archive")
+
+
+def frozen_since(text: str) -> str | None:
+    """The top-level `frozen:` value of a document's frontmatter, None when the key is absent."""
+    m = FROZEN_KEY_RE.search(vault_orphans.frontmatter(text))
+    return (m.group(1) or "?") if m else None
+
+
+def _base_blobs(vault: Path, base: str, paths: list[str]) -> dict[str, str] | str:
+    """path → its text on the base ref, for every path that exists there; a message when git fails."""
+    if not paths:
+        return {}
+    try:
+        proc = subprocess.run(["git", "cat-file", "--batch"], cwd=vault, timeout=120, capture_output=True,
+                              input="".join(f"{base}:{p}\n" for p in paths).encode("utf-8"))
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"frozen file check could not run: {exc}"
+    if proc.returncode != 0:
+        head = proc.stderr.decode("utf-8", "replace").strip().splitlines()
+        return "frozen file check could not run: " + (head[0] if head else "git cat-file failed")
+    out, buf = {}, proc.stdout
+    for path in paths:
+        # each answer is "<sha> blob <size>\n<content>\n" or "<name> missing\n"
+        header, _, buf = buf.partition(b"\n")
+        fields = header.split()
+        if len(fields) == 3 and fields[1] == b"blob":
+            size = int(fields[2])
+            out[path] = buf[:size].decode("utf-8", "replace")
+            buf = buf[size + 1:]
+    return out
+
+
+def check_frozen_files(vault: Path, base: str, defects: list[str]) -> None:
+    """Check 14: no file frozen on the base ref (frontmatter `frozen:`) is modified, deleted or renamed."""
+    try:
+        diff = subprocess.run(["git", "diff", "--name-status", "-z", base, "--", *FROZEN_PATHSPECS],
+                              cwd=vault, capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        defects.append(f"frozen file check could not run: {exc}")
+        return
+    if diff.returncode != 0:
+        err = diff.stderr.decode("utf-8", "replace").strip().splitlines()
+        defects.append("frozen file check could not run: " + (err[0] if err else "git diff failed"))
+        return
+    # (base path, what happened to it) for every change that touches a file existing on the base
+    touched: list[tuple[str, str]] = []
+    fields = [f for f in diff.stdout.decode("utf-8", "replace").split("\0") if f]
+    i = 0
+    while i < len(fields):
+        status = fields[i]
+        paths = fields[i + 1:i + 3] if status.startswith(("R", "C")) else fields[i + 1:i + 2]
+        i += 1 + len(paths)
+        if not paths:
+            continue
+        if status[:1] in ("M", "T"):
+            touched.append((paths[0], "modified"))
+        elif status[:1] == "D":
+            touched.append((paths[0], "deleted"))
+        elif status[:1] == "R":
+            touched.append((paths[0], f"renamed to {paths[-1]}"))
+        # A (new on the branch) and C (the source stays as it was) cannot break a freeze
+    blobs = _base_blobs(vault, base, sorted({p for p, _ in touched}))
+    if isinstance(blobs, str):
+        defects.append(blobs)
+        return
+    for path, what in touched:
+        since = frozen_since(blobs.get(path, ""))
+        if since is not None:
+            defects.append(
+                f"{path}: frozen file {what} (frozen: {since}) — a frozen file is never edited; "
+                f"write the new record where its header points (VAULT_RULES § Frozen files)"
+            )
+
+
+HUB_FIXED = ("projects/README.md", "outputs/README.md", "docs/README.md", "wiki/INDEX.md")
+HUB_PROJECT = PROJECT_README_RE
+TALLY_PATHSPECS = ("projects", *HUB_FIXED)
+
+
+def is_hub(path: str) -> bool:
+    return path in HUB_FIXED or bool(HUB_PROJECT.match(path))
+
+
+def _added_lines(vault: Path, base: str, path: str) -> list[tuple[int, str]] | str:
+    """(new line number, text) of the lines `path` gains against base; every line when the file
+    is new on base. A message when git cannot tell."""
+    try:
+        exists = subprocess.run(["git", "cat-file", "-e", f"{base}:{path}"], cwd=vault,
+                                capture_output=True, timeout=60)
+        if exists.returncode != 0:
+            text = (vault / path).read_text(encoding="utf-8")
+            return list(enumerate(text.splitlines(), 1))
+        diff = subprocess.run(["git", "diff", "-U0", base, "--", path], cwd=vault,
+                              capture_output=True, text=True, encoding="utf-8", timeout=60)
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
+        return f"tally check could not run: {exc}"
+    if diff.returncode != 0:
+        head = diff.stderr.strip().splitlines()
+        return "tally check could not run: " + (head[0] if head else "git diff failed")
+    out, lineno = [], 0
+    for line in diff.stdout.splitlines():
+        if line.startswith("@@"):
+            m = re.search(r"\+(\d+)", line)
+            lineno = int(m.group(1)) if m else 0
+        elif line.startswith("+") and not line.startswith("+++"):
+            out.append((lineno, line[1:]))
+            lineno += 1
+    return out
+
+
+def _frontmatter_end(path: Path) -> int:
+    """Line number of the closing `---` of the file's frontmatter, 0 when it has none."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return 0
+    if not lines or lines[0].strip() != "---":
+        return 0
+    for n, line in enumerate(lines[1:], 2):
+        if line.strip() == "---":
+            return n
+    return 0
+
+
+def check_tally_ratchet(vault: Path, base: str, defects: list[str]) -> None:
+    """Check 13: no hub gains a live tally (a bare, undated count of items it points at)."""
+    try:
+        diff = subprocess.run(["git", "diff", "--name-status", "-z", base, "--", *TALLY_PATHSPECS],
+                              cwd=vault, capture_output=True, timeout=60)
+        others = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "-z", "--",
+                                 *TALLY_PATHSPECS], cwd=vault, capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        defects.append(f"tally check could not run: {exc}")
+        return
+    if diff.returncode != 0 or others.returncode != 0:
+        err = (diff.stderr or others.stderr).decode("utf-8", "replace").strip().splitlines()
+        defects.append("tally check could not run: " + (err[0] if err else "git failed"))
+        return
+    changed = []
+    fields = [f for f in diff.stdout.decode("utf-8", "replace").split("\0") if f]
+    i = 0
+    while i < len(fields):
+        status = fields[i]
+        paths = fields[i + 1:i + 3] if status.startswith(("R", "C")) else fields[i + 1:i + 2]
+        i += 1 + len(paths)
+        if status[:1] in ("A", "M", "R", "C") and paths:
+            changed.append(paths[-1])
+    changed += [p for p in others.stdout.decode("utf-8", "replace").split("\0") if p]
+    for path in sorted(set(p for p in changed if is_hub(p))):
+        added = _added_lines(vault, base, path)
+        if isinstance(added, str):
+            defects.append(added)
+            return
+        added = [(n, line) for n, line in added if n > _frontmatter_end(vault / path)]
+        text = "\n".join(line for _, line in added)
+        numbered = {k: n for k, (n, _) in enumerate(added, 1)}
+        for k, count in vault_tally.live_tallies(text):
+            defects.append(
+                f"{path}:{numbered[k]}: new live tally `{count}` — a hub points, it does not count; "
+                f"ask for the number (vault_tally.py) or date it as a record "
+                f"(VAULT_RULES § Live tallies)"
+            )
+
+
+def check_skill_lint(vault: Path, base: str, defects: list[str], notes: list[str]) -> None:
+    """Check 15: every SKILL.md the change set touches passes skill_lint (errors fail, warnings print)."""
+    # 바뀐 SKILL.md와 바뀐 참조 md가 속한 스킬만 모은다
+    try:
+        skills = skill_lint.changed_skills(vault, base)
+    except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+        defects.append(f"skill lint check could not run: {exc}")
+        return
+    # 스킬마다 판정해 오류는 결함, 경고는 출력 메모로 나눈다
+    for result in skill_lint.lint_many(skills, vault):
+        for error in result["errors"]:
+            defects.append(f"{result['path']}: {error} (skill_lint.py; docs/agent-skills-registration.md § 7)")
+        for warning in result["warnings"]:
+            notes.append(f"{result['path']}: {warning}")
+
+
+def print_notes(notes: list[str]) -> None:
+    """Warnings that never fail the run (skill lint W1/W2), printed after the verdict."""
+    # 경고가 있을 때만 머리줄과 함께 찍는다
+    if notes:
+        print(f"warnings (not defects): {len(notes)}")
+        for note in notes:
+            print(f"  - {note}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify shared vault invariants.")
     parser.add_argument(
@@ -905,6 +1136,7 @@ def main() -> int:
         return 2
 
     defects: list[str] = []
+    notes: list[str] = []
     check_memory(vault, args.lane, defects)
     check_lane_trace(vault, base, args.lane, defects)
     check_append_only(vault, base, defects)
@@ -915,20 +1147,26 @@ def main() -> int:
     work = vault_orphans.Vault(str(vault))
     check_reachability(work, defects)
     check_link_ratchet(vault, base, work, defects)
+    check_tally_ratchet(vault, base, defects)
+    check_frozen_files(vault, base, defects)
+    check_skill_lint(vault, base, defects, notes)
 
     lane_label = args.lane if args.lane != "none" else "shared"
     if defects:
         print(f"FAIL ({lane_label}, base {base}): {len(defects)} defect(s)")
         for defect in defects:
             print(f"  - {defect}")
+        print_notes(notes)
         return 1
 
     print(
         f"PASS ({lane_label}, base {base}): memory size, memory markers, lane trace, "
         "raw/archive append-only, raw index scope, snapshot lane placement, frontmatter structure, "
         "next_action shape, "
-        "milestone names, review gate, volume fold, reachability, link ratchet"
+        "milestone names, review gate, volume fold, reachability, link ratchet, tally ratchet, "
+        "frozen files, skill lint"
     )
+    print_notes(notes)
     return 0
 
 

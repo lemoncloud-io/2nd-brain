@@ -1,0 +1,104 @@
+/* 소스 바꾸는 중(PR·메인·로컬) 표시 — src/app/SwitchingVeil.tsx. 둘 다 .app 격자 칸에 겹친다.
+   z-index 10: 리더(1)·열 손잡이(2)·지도(2~3) 위, 검색 결과(20)·⚙·배지 팝오버(40) 아래 — 상단바는 계속 쓸 수 있다. */
+
+/* 상단바 아래 가장자리의 가는 막대(길이 모름). 상단바 아래 테두리에 겹친다. */
+.switching-bar {
+  grid-area: top;
+  align-self: end;
+  position: relative;
+  z-index: 10;
+  height: 2px;
+  margin-bottom: -1px;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.switching-bar[data-on='true'] {
+  visibility: visible;
+}
+
+.switching-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: var(--accent);
+  animation: switching-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes switching-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+/* 가운데 열 덮개. 꺼져 있으면 눌림을 통과시키고, 켜지면 옛 내용의 눌림을 막는다(초점은 가두지 않는다). */
+.switching-veil {
+  grid-area: center;
+  position: relative;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.switching-veil[data-on='true'] {
+  pointer-events: auto;
+  cursor: progress;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.switching-veil[data-on='true'] .switching-box {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  padding: var(--gap-2) var(--gap-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.switching-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  animation: switching-spin 0.8s linear infinite;
+}
+
+@keyframes switching-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 좁은 폭은 상단바가 z-index 55 의 쌓임 맥락이다. 막대가 그 위에 보이게. */
+@media (max-width: 900px) {
+  .switching-bar {
+    z-index: 56;
+  }
+}
+
+/* 움직임 줄이기: 움직이지 않는 막대와 글만 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .switching-bar::before {
+    width: 100%;
+    opacity: 0.6;
+    animation: none;
+  }
+
+  .switching-spinner {
+    display: none;
+  }
+}

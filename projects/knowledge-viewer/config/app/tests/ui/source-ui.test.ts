@@ -2,17 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { LOCAL, MAIN } from '../../shared/source.ts';
-import { badgeText, firstChangedMd, labelOf, prBadgeHead, prHeadLag, prTooltip, sourceOptions, staleness } from '../../src/app/source-ui.ts';
+import { badgeText, firstChangedMd, labelOf, prBadgeHead, prHeadLag, prStatePill, prTooltip, sourceOptions, staleness } from '../../src/app/source-ui.ts';
 
 test('sourceOptions: main · local · pr:<n> 순', () => {
-  const o = sourceOptions([{ number: 927, title: 't' }], true);
+  const o = sourceOptions([{ number: 123, title: 't' }], true);
   assert.deepEqual(
     o.map((x) => x.value),
-    ['main', 'local', 'pr:927'],
+    ['main', 'local', 'pr:123'],
   );
   assert.equal(o[0]?.label, '메인 (master)');
   assert.equal(o[1]?.label, '로컬 (워크트리)');
-  assert.equal(o[2]?.label, 'PR #927 t');
+  assert.equal(o[2]?.label, 'PR #123 t');
   assert.ok(o.every((x) => x.disabled !== true));
 });
 
@@ -35,22 +35,22 @@ test('sourceOptions: 제목은 40자 남짓에서 자르고 PR 은 20개까지',
 });
 
 test('sourceOptions: 목록에 없는 현재 PR 도 항목으로 남는다', () => {
-  const o = sourceOptions([{ number: 1, title: 'a' }], true, { kind: 'pr', number: 927 });
+  const o = sourceOptions([{ number: 1, title: 'a' }], true, { kind: 'pr', number: 123 });
   assert.deepEqual(
     o.map((x) => x.value),
-    ['main', 'local', 'pr:1', 'pr:927'],
+    ['main', 'local', 'pr:1', 'pr:123'],
   );
-  assert.equal(o[3]?.label, 'PR #927');
+  assert.equal(o[3]?.label, 'PR #123');
   // 목록에 있으면 겹치지 않는다.
-  const p = sourceOptions([{ number: 927, title: 't' }], true, { kind: 'pr', number: 927 });
+  const p = sourceOptions([{ number: 123, title: 't' }], true, { kind: 'pr', number: 123 });
   assert.deepEqual(
     p.map((x) => x.value),
-    ['main', 'local', 'pr:927'],
+    ['main', 'local', 'pr:123'],
   );
 });
 
 test('labelOf: 소스 이름', () => {
-  assert.equal(labelOf({ kind: 'pr', number: 927 }), 'PR #927');
+  assert.equal(labelOf({ kind: 'pr', number: 123 }), 'PR #123');
   assert.equal(labelOf(MAIN), '메인 (master)');
   assert.equal(labelOf(LOCAL), '로컬 (워크트리)');
 });
@@ -58,8 +58,8 @@ test('labelOf: 소스 이름', () => {
 test('badgeText: main · pr 의 머리 표시, local 은 null', () => {
   assert.equal(badgeText(MAIN, 'abc1234'), 'origin/master @ abc1234');
   assert.equal(badgeText(MAIN, null), 'origin/master');
-  assert.equal(badgeText({ kind: 'pr', number: 927 }, 'def5678'), 'PR #927 @ def5678');
-  assert.equal(badgeText({ kind: 'pr', number: 927 }, null), 'PR #927');
+  assert.equal(badgeText({ kind: 'pr', number: 123 }, 'def5678'), 'PR #123 @ def5678');
+  assert.equal(badgeText({ kind: 'pr', number: 123 }, null), 'PR #123');
   assert.equal(badgeText(LOCAL, 'abc1234'), null);
 });
 
@@ -106,6 +106,26 @@ test('prHeadLag: 같으면 null, 다르면 PR 머리 미반영 + 두 oid', () =>
     text: 'PR 머리 미반영',
     title: 'gh 머리 ffffffff · 읽은 커밋 01234567',
   });
+});
+
+test('prHeadLag: 머지된 PR 은 머지 커밋과 비교한다 — 머지 커밋을 읽으면 gh 머리와 달라도 null', () => {
+  const merged = { headOid: 'ffffffff00000000', headCommit: 'e8cdd003aaaaaaaa', state: 'MERGED' as const, mergeCommit: 'e8cdd003aaaaaaaa' };
+  assert.equal(prHeadLag(merged), null);
+  assert.deepEqual(prHeadLag({ ...merged, headCommit: 'ffffffff00000000' }), {
+    text: '머지 커밋 미반영',
+    title: '머지 커밋 e8cdd003 · 읽은 커밋 ffffffff',
+  });
+  // 머지 커밋을 모르면 예전처럼 gh 머리와 비교한다. 열린·닫힌 PR 도 그대로다.
+  assert.equal(prHeadLag({ ...merged, mergeCommit: undefined, headCommit: 'ffffffff00000000' }), null);
+  assert.deepEqual(prHeadLag({ ...merged, state: 'OPEN' })?.text, 'PR 머리 미반영');
+  assert.deepEqual(prHeadLag({ ...merged, state: 'CLOSED' })?.text, 'PR 머리 미반영');
+});
+
+test('prStatePill: MERGED 머지됨, CLOSED 닫힘, OPEN·없음 null', () => {
+  assert.deepEqual(prStatePill({ state: 'MERGED' }), { text: '머지됨', cls: 'pr-state pr-state-merged' });
+  assert.deepEqual(prStatePill({ state: 'CLOSED' }), { text: '닫힘', cls: 'pr-state pr-state-closed' });
+  assert.equal(prStatePill({ state: 'OPEN' }), null);
+  assert.equal(prStatePill({}), null);
 });
 
 test('staleness: 사유가 있으면 (오래됨) 과 툴팁 줄, 없으면 가져온 때만', () => {

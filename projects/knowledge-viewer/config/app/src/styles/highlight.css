@@ -1,0 +1,93 @@
+/* 코드 구문 강조(src/reader/highlight.ts 가 단 .hljs-* 토큰 span). 색은 tokens.css 의 --hl-* 만 쓴다.
+   hljs 기본 테마 CSS 는 넣지 않는다. 묶는 기준은 GitHub 라이트·다크 테마(hljs styles/github*.css)의 묶음을 따랐다.
+   범위는 본문(.doc) 안 — 파일 보기(.file-code)와 md 코드 블록(pre > code) 둘 다다. */
+
+/* 예약어·문서 태그 */
+.doc .hljs-keyword,
+.doc .hljs-doctag,
+.doc .hljs-template-tag,
+.doc .hljs-template-variable,
+.doc .hljs-variable.language_,
+.doc .hljs-meta .hljs-keyword {
+  color: var(--hl-keyword);
+}
+
+/* 문자열·정규식 */
+.doc .hljs-string,
+.doc .hljs-regexp,
+.doc .hljs-meta .hljs-string {
+  color: var(--hl-string);
+}
+
+/* 주석 */
+.doc .hljs-comment,
+.doc .hljs-code,
+.doc .hljs-formula {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+/* 숫자·리터럴·속성 이름(yaml·json 키 포함)·메타(데코레이터·셔뱅) */
+.doc .hljs-number,
+.doc .hljs-literal,
+.doc .hljs-attr,
+.doc .hljs-attribute,
+.doc .hljs-variable,
+.doc .hljs-meta,
+.doc .hljs-selector-attr,
+.doc .hljs-selector-class,
+.doc .hljs-selector-id,
+.doc .hljs-section {
+  color: var(--hl-number);
+}
+
+/* 함수·클래스 이름 */
+.doc .hljs-title,
+.doc .hljs-title.function_,
+.doc .hljs-title.class_,
+.doc .hljs-title.class_.inherited__ {
+  color: var(--hl-function);
+}
+
+/* 타입·내장 이름·심볼·목록 머리표 */
+.doc .hljs-type,
+.doc .hljs-built_in,
+.doc .hljs-symbol,
+.doc .hljs-bullet {
+  color: var(--hl-type);
+}
+
+/* 태그·선택자 이름·인용 */
+.doc .hljs-name,
+.doc .hljs-selector-tag,
+.doc .hljs-selector-pseudo,
+.doc .hljs-quote {
+  color: var(--hl-attr);
+}
+
+/* 구두점·연산자 */
+.doc .hljs-punctuation,
+.doc .hljs-operator {
+  color: var(--hl-punct);
+}
+
+/* 문단 머리(마크다운 제목)·강조 */
+.doc .hljs-section,
+.doc .hljs-strong {
+  font-weight: 600;
+}
+
+.doc .hljs-emphasis {
+  font-style: italic;
+}
+
+/* diff 의 추가·삭제 줄. PR 변경 색(tone)을 그대로 쓴다. */
+.doc .hljs-addition {
+  color: var(--tone-green-fg);
+  background: var(--tone-green-bg);
+}
+
+.doc .hljs-deletion {
+  color: var(--tone-red-fg);
+  background: var(--tone-red-bg);
+}

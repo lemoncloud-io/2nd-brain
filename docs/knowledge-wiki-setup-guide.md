@@ -1,13 +1,16 @@
-# 2nd Brain(Knowledge Wiki) Setup Guide
+# Knowledge Wiki Setup Guide
+<!-- origin: lemoncloud-io/knowledge@f68f1d38:docs/knowledge-wiki-setup-guide.md -->
 
 작성일: 2026-07-09
-초기 셋업 예시 repo: <https://github.com/lemoncloud-io/2nd-brain>
+비개발자(터미널 없이)는 `docs/non-developer-onboarding.md`를 본다(해당 문서가 있는 볼트에서만).
 
-> 이 GitHub 위치는 **초기 부트스트랩용 예시**다. clone한 뒤에는 origin을 본인/팀 소유의 git 저장소로 바꿔 사용한다(아래 3번 참조). 문서 어디에도 개인 머신의 절대경로를 쓰지 말고, 항상 `$VAULT_DIR`, `~`, 또는 저장소 기준 상대경로를 사용한다.
+이 문서는 repo 좌표를 `<vault-repo>`(= `org/repo` 형식)로 표기한다. 실제 좌표는 팀
+안내(초대 메일 또는 조직 GitHub)로 받고, clone 후에는
+`projects/second-brain/config/team-settings.yaml`의 `github.vault_repo`가 단일 출처다.
 
 ## 목표
 
-`lemoncloud-io/2nd-brain`를 공용 Obsidian vault로 열고, 문서를 수정한 뒤 GitHub PR로 공유한다.
+`<vault-repo>`를 공용 Obsidian vault로 열고, 문서를 수정한 뒤 GitHub PR로 공유한다.
 
 최종 상태:
 
@@ -31,6 +34,7 @@ git --version
 
 ```bash
 claude --version
+hermes --version
 gh --version
 ```
 
@@ -39,6 +43,7 @@ gh --version
 | Git | clone, branch, commit, push | 아니오 |
 | Obsidian | Markdown vault 편집 | 아니오 |
 | Claude CLI | clipping 정리, wiki ingest 위임 | 예 |
+| Hermes | 공용 wiki 자동화, Telegram gateway | 예 |
 | GitHub CLI `gh` | 터미널에서 PR 생성 | 예. GitHub 웹으로 대체 가능 |
 
 GitHub 인증 확인:
@@ -58,28 +63,9 @@ Obsidian을 설치한 뒤 아직 vault를 만들지 않아도 된다. 이 가이
 공용 knowledge repo를 별도 폴더에 clone한다.
 
 ```bash
-git clone https://github.com/lemoncloud-io/2nd-brain.git ~/knowledge
+git clone "https://github.com/<vault-repo>.git" ~/knowledge
 export VAULT_DIR="$HOME/knowledge"
 cd "$VAULT_DIR"
-```
-
-> `~/knowledge`는 예시 경로일 뿐이다. 핵심은 clone한 폴더를 `VAULT_DIR`로 **명시 지정**하는 것이다. `CLAUDE.md` § Vault Root는 어떤 툴도 `~/knowledge`로 조용히 폴백하지 못하게 하므로, 다른 위치에 clone했다면 그 경로를 홈 기준 상대경로(`$HOME/...`)로 `VAULT_DIR`에 지정하면 된다. 개인 머신의 절대경로는 문서에 남기지 않는다.
-
-clone 직후 origin은 예시 repo를 가리킨다. 본인/팀 소유의 git으로 전환한다.
-
-```bash
-git remote set-url origin <YOUR_GIT_REMOTE_URL>   # 예: git@github.com:<you>/<your-vault>.git
-git remote -v                                     # origin이 본인 저장소인지 확인
-git push -u origin master                          # 최초 1회 본인 저장소로 push
-```
-
-이후 clone·push·PR은 모두 본인 저장소를 기준으로 한다. 아래 8~9번의 `lemoncloud-io/2nd-brain`은 예시이므로 본인 저장소 경로로 바꿔 읽는다.
-
-이어서 배포 값을 본인/팀 값으로 교체한다. 스킬 본문은 건드리지 않는다 — 조직 고유 값의 단일 출처는 이 파일이다.
-
-```bash
-$EDITOR projects/second-brain/config/team-settings.yaml
-# vault.name · github.vault_repo · github.default_reviewer · mail.weekly_report.to
 ```
 
 매번 `export`하기 싫으면 shell 설정에 추가한다.
@@ -102,10 +88,10 @@ git remote -v
 정상 remote:
 
 ```text
-origin  https://github.com/lemoncloud-io/2nd-brain.git
+origin  https://github.com/<vault-repo>.git
 ```
 
-규칙: Obsidian에서 여는 폴더, Claude가 작업하는 폴더, Git repo 루트는 모두 `$VAULT_DIR`와 같아야 한다.
+규칙: Obsidian에서 여는 폴더, Claude/Hermes가 작업하는 폴더, Git repo 루트는 모두 `$VAULT_DIR`와 같아야 한다.
 
 ## 4. Obsidian에서 공용 vault 열기
 
@@ -126,7 +112,6 @@ Obsidian을 실행한다.
 | Git | pull, commit, push 보조 | `Pull updates before push` 켜기 |
 | Templater | templates 폴더 기반 노트 생성 | template folder를 `templates`로 설정 |
 | Dataview | vault 메타데이터 조회 | 기본값으로 시작 |
-| Claudian | 클로드 실행 플러그인 | 기본값으로 시작 |
 
 Git 플러그인을 쓰더라도 PR 전에는 터미널에서 한 번 확인한다.
 
@@ -143,19 +128,20 @@ areas/
 projects/
 outputs/
 templates/
+knowledge-wiki-setup-guide.md
 ```
 
 주요 위치:
 
 | 위치 | 용도 |
 | --- | --- |
-| `Clippings/` | 새 clipping inbox |
-| `raw/` | 처리된 원문. 직접 수정하지 않음 |
+| `wiki/` | 재사용 가능한 개념 문서 |
 | `areas/` | ongoing 책임 영역, daily/idea 문서 |
 | `projects/` | 프로젝트별 실행 문서 |
 | `outputs/` | Claude/Hermes가 만든 질의 응답, 분석 결과 |
 | `templates/` | 문서 템플릿 |
-| `wiki/` | 재사용 가능한 개념 문서 |
+| `raw/` | 처리된 원문. 직접 수정하지 않음 |
+| `Clippings/` | 새 clipping inbox |
 
 문서를 만들기 전에 `VAULT_RULES.md`와 `templates/`를 확인한다.
 
@@ -198,7 +184,23 @@ claude
 처음 요청:
 
 ```text
-지침을 읽고 이 vault 기준으로 작업해줘.
+VAULT_RULES.md를 읽고 이 vault 기준으로 작업해줘.
+```
+
+클리핑 처리 요청:
+
+```text
+Claude에 위임해서 클리핑 처리해줘.
+작업 경로는 $VAULT_DIR이고, VAULT_RULES.md와 vault-ingest-claude 규칙을 따라줘.
+```
+
+확인:
+
+```bash
+git status --short
+find Clippings -maxdepth 1 -type f
+ls -lt outputs 2>/dev/null | head
+find raw -maxdepth 1 -type f | tail
 ```
 
 성공 기준:
@@ -207,7 +209,69 @@ claude
 - 필요한 `wiki/`, `outputs/`, `areas/` 문서가 생성되거나 수정된다.
 - Claude 응답이나 세션 로그에 처리한 파일 목록이 남는다.
 
-## 8. Obsidian에서 문서 수정 테스트
+## 8. Hermes와 Telegram 설정
+
+Hermes는 공용 wiki 작업을 항상 `$VAULT_DIR` 기준으로 실행해야 한다.
+
+검증:
+
+```bash
+cd "$VAULT_DIR"
+hermes --version
+```
+
+Hermes를 처음 설정할 때는 Full 설치 옵션을 사용하고, 공용 wiki 작업 기준 경로를 `$VAULT_DIR`로 고정한다.
+
+Hermes에 먼저 전달할 기본 지시:
+
+```text
+이 vault는 $VAULT_DIR 기준으로만 작업해줘.
+main 실행은 Codex로 하고, Clippings ingest와 wiki 컴파일은 Claude CLI에 위임해줘.
+projects/second-brain/config/skills/vault-ingest-claude.md 규칙을 우선 사용해줘.
+Claude CLI가 없거나 인증되지 않았으면 vault-ingest Hermes-native fallback을 실행해줘.
+```
+
+Hermes에서 공용 wiki ingest 테스트:
+
+```text
+Claude에 위임해서 클리핑 처리해줘.
+```
+
+확인:
+
+```bash
+git status --short
+ls -lt outputs 2>/dev/null | head
+```
+
+Telegram 연결은 원격에서 Hermes에 메시지를 보내기 위한 선택 설정이다.
+
+1. Telegram에서 `@BotFather`를 연다.
+2. `/newbot`으로 bot을 만든다.
+3. bot token을 복사한다.
+4. 필요하면 `@userinfobot`으로 본인 Telegram user ID를 확인한다.
+5. Hermes gateway 설정을 실행한다.
+
+```bash
+hermes gateway setup
+hermes gateway
+```
+
+Telegram bot에게 테스트 메시지를 보낸다.
+
+```text
+hello
+```
+
+공용 wiki 작업 테스트:
+
+```text
+클리핑 처리해줘
+```
+
+주의: Telegram bot token은 절대 repo, vault 문서, `.env` 예시, PR 본문에 넣지 않는다. 로컬 Hermes 설정에만 저장한다.
+
+## 9. Obsidian에서 문서 수정 테스트
 
 예시는 이 문서를 수정해서 PR로 올리는 흐름이다.
 
@@ -234,7 +298,7 @@ git diff -- "$DOC_PATH"
 
 의도하지 않은 파일이 보이면 commit하지 않는다.
 
-## 9. GitHub PR 올리기
+## 10. GitHub PR 올리기
 
 의도한 파일만 stage한다.
 
@@ -267,7 +331,7 @@ gh pr create \
 
 GitHub CLI가 없으면 웹에서 만든다.
 
-1. 본인 저장소(GitHub 페이지)를 연다. 예: <https://github.com/lemoncloud-io/2nd-brain>
+1. `https://github.com/<vault-repo>` 를 연다.
 2. `Compare & pull request`를 누른다.
 3. base가 `master`, compare가 `docs/knowledge-wiki-setup-guide`인지 확인한다.
 4. 제목과 설명을 적고 PR을 생성한다.
@@ -281,7 +345,7 @@ git commit -m "docs: refine knowledge wiki setup guide"
 git push
 ```
 
-## 10. PR 전 체크리스트
+## 11. PR 전 체크리스트
 
 ```bash
 git status --short

@@ -1,0 +1,454 @@
+/* 원본 리더 — 3단(내비게이터·본문·목차)과 md 본문. 색·글꼴·간격은 tokens.css의 변수만 쓴다. */
+
+.reader {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 200px;
+  gap: var(--gap-5);
+  align-items: start;
+}
+
+/* 서랍 버튼은 넓은 화면에서 필요 없다 */
+.reader__bar {
+  display: none;
+  grid-column: 1 / -1;
+  gap: var(--gap-2);
+}
+
+.reader__side {
+  position: sticky;
+  /* 넓은 화면에서는 본문 칸(.main > .page)이 스크롤 칸이라 그 칸 위쪽·높이(cqh)를 기준으로 붙는다(layout.css § 두 칸 스크롤) */
+  top: var(--gap-4);
+  max-height: 100cqh;
+  overflow-y: auto;
+  font-size: var(--fs-sm);
+}
+
+/* ── 내비게이터 ─────────────────────────────────────────── */
+
+.nav-group + .nav-group {
+  margin-top: var(--gap-4);
+}
+
+.nav-group__title {
+  margin: 0 0 var(--gap-2);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.nav-group__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  padding: 4px var(--gap-2);
+  border-radius: var(--radius);
+  color: var(--text-2);
+}
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.nav-item[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* 없는 원본은 숨기지 않고 흐리게 둔다 — 없다는 사실이 리뷰에 필요하다 */
+.nav-item--missing {
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
+.nav-item__flag {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--tone-muted-line);
+  border-radius: 999px;
+  background: var(--tone-muted-bg);
+  color: var(--tone-muted-fg);
+  font-size: var(--fs-xs);
+}
+
+/* ── 가운데 ─────────────────────────────────────────────── */
+
+.reader__main {
+  min-width: 0;
+}
+
+.reader__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.reader__crumbs-here {
+  color: var(--text-2);
+}
+
+.reader__title {
+  margin: var(--gap-2) 0 var(--gap-4);
+  font-size: var(--fs-2xl);
+}
+
+.meta-card {
+  margin-bottom: var(--gap-5);
+  padding: var(--gap-3) var(--gap-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+}
+
+.meta-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-2);
+}
+
+.badge--verbatim {
+  padding: 2px 8px;
+  border: 1px solid var(--tone-green-line);
+  border-radius: 999px;
+  background: var(--tone-green-bg);
+  color: var(--tone-green-fg);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+}
+
+.meta-card__path {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  word-break: break-all;
+}
+
+.meta-card__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--gap-1) var(--gap-3);
+  margin: var(--gap-3) 0 0;
+}
+.meta-card__facts dt {
+  color: var(--text-3);
+}
+.meta-card__facts dd {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.meta-card__backlinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-2);
+  margin: var(--gap-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.meta-card__backlinks li {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--fs-xs);
+}
+
+/* 역링크가 많은 문서에서 본문이 밀리지 않게 접는다 */
+.meta-card__more {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.meta-card__more:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.notice {
+  margin: 0 0 var(--gap-4);
+  padding: var(--gap-2) var(--gap-3);
+  border: 1px solid var(--tone-amber-line);
+  border-radius: var(--radius);
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+  font-size: var(--fs-sm);
+}
+
+/* ── 본문 ───────────────────────────────────────────────── */
+
+.doc {
+  max-width: var(--measure);
+  font-size: var(--fs-md);
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.doc h1,
+.doc h2,
+.doc h3,
+.doc h4 {
+  margin: var(--gap-6) 0 var(--gap-3);
+  line-height: 1.35;
+  /* 절로 이동했을 때 상단 메뉴에 가리지 않게 한다 */
+  scroll-margin-top: calc(var(--topbar-h) + var(--gap-5));
+}
+.doc h1 {
+  font-size: var(--fs-2xl);
+}
+.doc h2 {
+  font-size: var(--fs-xl);
+  padding-bottom: var(--gap-1);
+  border-bottom: 1px solid var(--line);
+}
+.doc h3 {
+  font-size: var(--fs-lg);
+}
+.doc h4 {
+  font-size: var(--fs-md);
+}
+
+.doc p,
+.doc ul,
+.doc ol,
+.doc blockquote {
+  margin: 0 0 var(--gap-3);
+}
+
+.doc blockquote {
+  padding: var(--gap-1) var(--gap-3);
+  border-left: 3px solid var(--line-strong);
+  color: var(--text-2);
+}
+
+.doc code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.doc hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--gap-5) 0;
+}
+
+/* 넓은 표·코드·그림만 가로로 스크롤한다. 본문 자체는 가로로 밀리지 않는다. */
+.doc__scroll {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0 0 var(--gap-4);
+}
+
+.doc table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.doc th,
+.doc td {
+  padding: 6px var(--gap-3);
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.doc th {
+  background: var(--surface-2);
+}
+
+.doc pre {
+  padding: var(--gap-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.doc pre code {
+  padding: 0;
+  background: none;
+}
+
+/* 범위 밖·막힌 링크는 링크로 만들지 않고 회색 글자로 둔다 */
+.doc__dead {
+  color: var(--text-3);
+  text-decoration: underline dotted var(--line-strong);
+  cursor: help;
+}
+
+.doc__img img {
+  max-width: 100%;
+}
+
+.doc__img-fallback {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--gap-2);
+  padding: var(--gap-1) var(--gap-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+}
+.doc__img-alt {
+  color: var(--text-2);
+}
+/* 원격 그림은 부르지 않는다. 배지 안에 주소로 가는 길만 둔다. */
+.doc__img-fallback a {
+  font-size: var(--fs-xs);
+}
+
+/* ── 코드·데이터 원본 ───────────────────────────────────── */
+
+.doc__code table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+.doc__code td {
+  padding: 0 var(--gap-3) 0 0;
+  vertical-align: top;
+  white-space: pre;
+}
+.doc__code-no {
+  position: sticky;
+  left: 0;
+  width: 1%;
+  padding: 0 var(--gap-3) 0 var(--gap-2);
+  background: var(--surface);
+  color: var(--text-3);
+  text-align: right;
+  user-select: none;
+}
+.doc__code tr {
+  scroll-margin-top: calc(var(--topbar-h) + var(--gap-5));
+}
+.doc__code-on {
+  background: var(--tone-amber-bg);
+}
+.doc__code-on .doc__code-no {
+  background: var(--tone-amber-bg);
+  color: var(--tone-amber-fg);
+}
+.doc__code code {
+  background: none;
+  padding: 0;
+}
+
+.doc__coord dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--gap-1) var(--gap-3);
+  font-size: var(--fs-sm);
+}
+.doc__coord dt {
+  color: var(--text-3);
+}
+.doc__coord dd {
+  margin: 0;
+  font-family: var(--mono);
+}
+
+/* ── 목차 ───────────────────────────────────────────────── */
+
+.reader__toc-title {
+  margin: 0 0 var(--gap-2);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--text-3);
+}
+
+.reader__toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+
+.toc__item a {
+  display: block;
+  padding: 3px var(--gap-2);
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.toc__item a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+.toc__item a[aria-current='true'] {
+  border-left-color: var(--accent);
+  color: var(--accent-strong);
+}
+.toc__item--d3 a {
+  padding-left: var(--gap-4);
+}
+.toc__item--d4 a {
+  padding-left: var(--gap-5);
+}
+
+/* ── 원본 목록 ──────────────────────────────────────────── */
+
+.doclist__items {
+  list-style: none;
+  margin: 0 0 var(--gap-4);
+  padding: 0;
+}
+.doclist__items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--gap-2);
+  padding: var(--gap-1) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+.doclist__items code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+/* ── 좁은 화면: 한 단 + 서랍 ────────────────────────────── */
+
+@media (max-width: 900px) {
+  .reader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reader__bar {
+    display: flex;
+  }
+
+  .reader__side {
+    display: none;
+    position: static;
+    max-height: none;
+    padding: var(--gap-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+
+  .reader--nav-open .reader__side--left,
+  .reader--toc-open .reader__side--right {
+    display: block;
+  }
+
+  .reader__toc ul {
+    columns: 2;
+  }
+}

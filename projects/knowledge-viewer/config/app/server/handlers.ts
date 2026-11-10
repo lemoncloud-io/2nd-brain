@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { vaultInfo } from './info.ts';
+import { rootId, vaultInfo } from './info.ts';
 
 import { splitFrontmatter, titleOf } from '../shared/frontmatter.ts';
 import { embedKind } from '../shared/embeds.ts';
@@ -20,10 +20,14 @@ import { docChange, prChanges, type DocChange } from './changes.ts';
 import type { EmbeddingService } from './embeddings.ts';
 import { collectEmbeds } from './embeds.ts';
 import { handleFile } from './file-view.ts';
+import { handleViewerSpec } from './viewer-spec.ts';
+import { handleProjectViewer } from './project-viewer.ts';
 import { buildGraph, GraphError } from './graph.ts';
+import { handleResolvePaths } from './resolve-paths.ts';
 import type { GraphQuery } from './graph.ts';
 import { searchIndex } from './search.ts';
 import { redactReason, type SourceManager, type SourceReader } from './source.ts';
+import type { ExtApiRoute } from './ext.ts';
 
 export type Ctx = {
   root: string;
@@ -37,6 +41,10 @@ export type Ctx = {
   graphHub: number;
   /** 임베딩 묶음(로컬 Ollama). 없으면 꺼짐 — /api/info 가 available: false 로 알린다. */
   embeddings?: EmbeddingService;
+  /** 개인 이름(--public-host)이 있을 때만: /api/info 가 주 포트(rawPort)와 볼트 루트 지문(rootId)을 더 싣는다. 없으면 오늘과 같다. */
+  publicInfo?: { rawPort: () => number | null };
+  /** 확장 층의 /api 경로(경로 → 처리). 코어 경로가 늘 이긴다. 없으면 확장 API 없음. */
+  extApi?: ReadonlyMap<string, ExtApiRoute>;
 };
 
 export type ApiResult = { status: number; body: unknown };
@@ -377,11 +385,14 @@ async function handleInfo(ctx: Ctx): Promise<ApiResult> {
   await ctx.sources.reader(MAIN, ctx.includePrivate);
   const info = vaultInfo(ctx.root);
   const gitRawPort = ctx.gitRawPort?.() ?? null;
+  const rawPort = ctx.publicInfo?.rawPort() ?? null;
   return {
     status: 200,
     body: {
       ...info,
       ...(gitRawPort === null ? {} : { gitRawPort }),
+      // 개인 이름 뒤의 화면이 디스크 /raw 출처(localhost:<주 포트>)를 짓고, 스킬이 같은 볼트인지 견주는 값이다.
+      ...(ctx.publicInfo === undefined ? {} : { ...(rawPort === null ? {} : { rawPort }), rootId: rootId(ctx.root) }),
       embeddings: { available: ctx.embeddings !== undefined, model: ctx.embeddings?.model ?? null },
       sources: { main: ctx.sources.status(MAIN), local: { available: true, head: info.head } },
     },
@@ -418,8 +429,14 @@ export async function handleApi(ctx: Ctx, url: URL, method = 'GET'): Promise<Api
       return handleDoc(ctx, url);
     case '/api/file':
       return handleFile(ctx, url);
+    case '/api/viewer-spec':
+      return handleViewerSpec(ctx, url);
+    case '/api/project-viewer':
+      return handleProjectViewer(ctx, url);
     case '/api/resolve':
       return handleResolve(ctx, url);
+    case '/api/resolve-paths':
+      return handleResolvePaths(ctx, url);
     case '/api/preview':
       return handlePreview(ctx, url);
     case '/api/search':
@@ -431,6 +448,33 @@ export async function handleApi(ctx: Ctx, url: URL, method = 'GET'): Promise<Api
     case '/api/info':
       return handleInfo(ctx);
     default:
-      return fail(404, `알 수 없는 API다: ${url.pathname}`);
+      return handleExtApi(ctx, url, method);
   }
+}
+
+/** 코어 /api 경로(handleApi 의 case 와 색인 시작). 확장 API 는 이 경로를 쓰지 못한다. */
+export const CORE_API_PATHS: readonly string[] = [
+  EMBED_BUILD_PATH,
+  '/api/graph/embeddings/status',
+  '/api/tree',
+  '/api/doc',
+  '/api/file',
+  '/api/viewer-spec',
+  '/api/project-viewer',
+  '/api/resolve',
+  '/api/resolve-paths',
+  '/api/preview',
+  '/api/search',
+  '/api/titles',
+  '/api/graph',
+  '/api/info',
+];
+
+/** 코어가 모르는 경로: 확장 API 에 있으면 그것(GET·HEAD 만), 없으면 404. */
+function handleExtApi(ctx: Ctx, url: URL, method: string): Promise<ApiResult> | ApiResult {
+  const route = ctx.extApi?.get(url.pathname);
+  if (route === undefined) return fail(404, `알 수 없는 API다: ${url.pathname}`);
+  if (method !== 'GET' && method !== 'HEAD') return fail(405, 'GET만 받는다');
+  // 확장은 소스 읽기만 받는다(ctx 전체를 넘기지 않는다).
+  return route.handle({ includePrivate: ctx.includePrivate, readSource: (u) => readSource(ctx, u) }, url);
 }

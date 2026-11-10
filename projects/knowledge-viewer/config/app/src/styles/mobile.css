@@ -12,11 +12,6 @@
   padding-right: calc(var(--gap-3) + env(safe-area-inset-right, 0px));
 }
 
-/* 검색 아이콘은 폰 폭에서만 보인다. 넓은 폭은 상자가 늘 있다. */
-.search-toggle {
-  display: none;
-}
-
 /* 지도 캔버스: 터치 끌기·핀치를 브라우저 스크롤·확대가 가로채지 않게. 3D 는 TrackballControls 가 스스로 걸고,
    2D(force-graph, d3-zoom)는 걸지 않는다. 미니 지도는 서랍 스크롤을 막지 않게 두지 않는다. */
 .graph-root {
@@ -191,6 +186,7 @@
     top: 100%;
     left: 0;
     right: 0;
+    width: auto;
     padding: var(--gap-2) calc(var(--gap-3) + env(safe-area-inset-right, 0px)) var(--gap-2) calc(var(--gap-3) + env(safe-area-inset-left, 0px));
     background: var(--surface);
     border-bottom: 1px solid var(--line);
@@ -256,7 +252,7 @@
   }
 
   /* 리더 여백 --gap-5 → --gap-3. 지도·HTML 은 여백이 0 이라 건드리지 않는다. 글자 크기는 그대로. */
-  .col-center:not(.col-center-graph):not(.col-center-frame) {
+  .col-center:not(.col-center-graph):not(.col-center-frame):not(.col-center-app) {
     padding: var(--gap-3) calc(var(--gap-3) + env(safe-area-inset-right, 0px)) calc(var(--gap-3) + env(safe-area-inset-bottom, 0px))
       calc(var(--gap-3) + env(safe-area-inset-left, 0px));
   }

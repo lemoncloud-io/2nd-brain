@@ -4,27 +4,27 @@ description: >
   팀/개인 repo 문서(또는 개인 KB 증류 노트)를 vault로 승격한다 — 재사용 개념을
   wiki로 추출하고 원문 스냅샷을 raw/에 표준 capture header로 보존한다.
   clipping ingest와 레인이 다른 별도 워크플로. 트리거: "/promote", "승격해줘".
-origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-promote.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-promote.md
 ---
 
 # Vault Promote (repo 문서 → vault 승격)
 
-`docs/vault-ingest-log.md` § Promotions에 기록되어 온 실행 관행(2026-07-29 첫 승격 이후)을
-2026-08-14에 스킬로 명문화한 것이다. 스냅샷 헤더는 `docs/raw-layout.md` § repo-doc 스냅샷
-표준을 따른다 — 그 이전 실행이 쓰던 자유 형식 헤더(`정본:`/`snapshot_at:` 평문)는 이
-스킬로 대체된다(기존 스냅샷은 append-only라 그대로 둔다).
+`docs/vault-ingest-log.md` § Promotions에 기록되어 온 실행 관행을 스킬로 명문화한 것이다.
+스냅샷 헤더는 `docs/raw-layout.md` § repo-doc 스냅샷 표준을 따른다 — 명문화 이전 실행이 쓰던
+자유 형식 헤더(`정본:`/`snapshot_at:` 평문)는 이 스킬로 대체된다(기존 스냅샷은 append-only라
+그대로 둔다).
 
 ## 왜 승격하는가
 
 승격의 산출물은 문서 사본이 아니라 **팀이 나중에도 읽을 수 있는 시점 고정본**이다.
-2026-07-29 첫 실행 이후 § Promotions 원장에 쌓인 실행들이 보여준 효과는 네 가지다.
+§ Promotions 원장에 쌓인 실행들이 보여준 효과는 네 가지다.
 
 - **정본이 흔들려도 읽을 수 있다.** 근거 commit이 미머지 브랜치에 있는 경우가 반복됐고
   (프론트 repo PR 1건, 앱 repo PR 2건), 머지 방식에 따라 그 sha는 남지 않는다.
-  스냅샷 + 캐비앳 + 머지 후 확인 절차가 이 구멍을 닫는다 — 2026-08-12·2026-08-14 두 건이
-  실제로 머지 후 sha 유지를 확인하고 캐비앳을 걷었다.
-- **승격 심사가 repo 문서의 게이트가 된다.** 2026-08-12 한 프론트 레인 승격은 레인의 정본이
-  될 repo 문서가 아예 없다는 것을 드러내 ADR을 먼저 쓰게 만들었다. 2026-08-14 한 앱 레인
+  스냅샷 + 캐비앳 + 머지 후 확인 절차가 이 구멍을 닫는다 — 실제로 두 건이
+  머지 후 sha 유지를 확인하고 캐비앳을 걷었다.
+- **승격 심사가 repo 문서의 게이트가 된다.** 한 프론트 레인 승격은 레인의 정본이
+  될 repo 문서가 아예 없다는 것을 드러내 ADR을 먼저 쓰게 만들었다. 한 앱 레인
   승격은 올리기 전에 계약과 코드를 대조하다 코드가 문서보다 앞선 지점을 찾아냈다.
 - **repo 경계를 넘는 대조가 가능해진다.** 한 앱 레인의 구현 대조표가 다른 서비스 repo
   스펙의 한 필드 미구현을 드러냈다. 각 repo 안에만 있었으면 만나지 않는 두 문서다.
@@ -90,7 +90,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
    **기본값은 레인이다.** 승격 대상이 repo 문서인 이상 대개 그 repo의 실행 컨텍스트이고,
    **wiki 0건이 정상 결과다** — 억지 추출 금지. 그리고 **한 내용을 wiki와 레인으로
    쪼개지 않는다**: 계약의 절반이 wiki에 절반이 레인에 있으면 읽는 사람이 한쪽만 본다.
-   애매하면 레인 하나로 둔다. (2026-08-10 한 앱 레인 실측 — wiki부터 쓴 배치를 두 번 되돌렸고,
+   애매하면 레인 하나로 둔다. (한 앱 레인 실측 — wiki부터 쓴 배치를 두 번 되돌렸고,
    개념 층에만 있던 서술은 레인 README의 `### 왜 이 모양인가`로 접어 유실 없이 끝났다.)
 
    배치 판정과 그 근거는 7단계 run-log에 남긴다.
@@ -118,7 +118,7 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 8. **PR**: `master` 기준 `ingest/<YYYY-MM-DD>-<author-slug>-promote` 브랜치(같은 날 2회째부터
    `-2` suffix). author-slug 결정과 커밋/push/PR 오픈 절차, 금지 사항은
    `vault-ingest-claude.md` § GitHub PR 워크플로우를 그대로 따른다 (리뷰어:
-   `team-settings.yaml`의 `github.default_reviewer`). PR merge는 사용자 승인 없이 하지 않는다.
+   `team-settings.yaml`의 `github.default_reviewer`, 값이 비었으면 `--reviewer`를 뺀다). PR merge는 사용자 승인 없이 하지 않는다.
    raw 색인 생성기는 돌리지 않고 `docs/raw-index.*`는 스테이징하지 않는다 — 새 스냅샷은 다음
    lint 패스가 색인에 올린다(`docs/raw-layout.md` § 색인).
 
@@ -147,11 +147,9 @@ clipping 처리는 `vault-ingest-claude`/`vault-ingest`가 담당한다 — 섞�
 ## 원문 복제 불가 델타 (개념만 승격)
 
 **비공개는 면제 사유가 아니다.** raw 스냅샷은 링크가 아니라 사본이라 저장소가 비공개여도 뜰 수
-있고, 공개 전환도 답이 아니다 — 정본이 움직이면 링크는 끊기고 스냅샷만 남는다(2026-08-18 PR #137,
-비공개 개인 repo의 산문 문서 5건을 표준 header로 스냅샷). 이 델타는 **원문 자체를 vault에
-복제할 수 없을 때만** 적용한다: 원 구현이 코드·스크립트라 산문 원문이 없거나(2026-08-15
-`session-outcome-distillation`·`knowledge-consumption-gate` — 두 노트의 `sources` 사유는 2026-08-18에
-이 조항에 맞게 정정, run-log는 도입 전이라 없음), 개인 데이터·라이선스가 복제를 막을 때.
+있고, 공개 전환도 답이 아니다 — 정본이 움직이면 링크는 끊기고 스냅샷만 남는다(비공개
+개인 repo의 산문 문서도 표준 header로 스냅샷한 선례가 있다). 이 델타는 **원문 자체를 vault에
+복제할 수 없을 때만** 적용한다: 원 구현이 코드·스크립트라 산문 원문이 없거나, 개인 데이터·라이선스가 복제를 막을 때.
 
 - **raw 스냅샷 면제**: 3단계 스냅샷을 만들지 않는 대신 wiki `sources`에 자유 서술 문자열
   1행 이상 — 출처 종류·기준일·"raw 스냅샷 없이 개념만 옮긴다"와 **복제 불가 사유**를 명기한다

@@ -1,4 +1,4 @@
-import { prBadgeHead, prBadgeText, prHeadLag, prTooltip } from './source-ui.ts';
+import { prBadgeHead, prBadgeText, prHeadLag, prStatePill, prTooltip } from './source-ui.ts';
 import type { PrChanges } from './types.ts';
 
 type Props = {
@@ -17,9 +17,11 @@ type Props = {
 export function PrBadge({ changes, onClick, agent = false }: Props) {
   const attrs = { className: 'pr-badge', title: prTooltip(changes), 'data-pr': String(changes.number), 'data-head': changes.headCommit };
   const lag = prHeadLag(changes);
+  const pill = prStatePill(changes);
   const body = (
     <>
       <span className="pr-badge-title">{prBadgeText(changes)}</span>
+      {pill === null ? null : <span className={pill.cls}>{pill.text}</span>}
       <span className="pr-badge-head">@ {prBadgeHead(changes)}</span>
       {lag === null ? null : (
         <span className="pr-head-lag" title={lag.title}>

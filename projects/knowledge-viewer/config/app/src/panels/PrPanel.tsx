@@ -6,6 +6,7 @@ import { getPrChanges, getPrFiles, getPrRepos, getPrs } from '../app/api.ts';
 import { isPlainClick } from '../app/links.ts';
 import { hrefFor } from '../app/route.ts';
 import { firstChangedMd } from '../app/source-ui.ts';
+import { beginSourceSwitch } from '../app/useSourceSwitch.ts';
 import type { Pr, PrFilesResponse, PrListResponse, Source } from '../app/types.ts';
 import { formatUpdated, splitFiles } from './pr-format.ts';
 
@@ -136,6 +137,7 @@ export function PrPanel({ agent, path, src, onSource, onNavigate }: PrPanelProps
     const next: Source = { kind: 'pr', number };
     const from = pathRef.current;
     setEntering(number);
+    beginSourceSwitch(next);
     getPrChanges(number).then(
       (c) => {
         if (!live.current) return;

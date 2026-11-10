@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <!-- templates/weekly-report.html — areas/weekly/YYYY-MM-DD.html의 구조·스타일 계약.
-     진실원은 같은 이름의 .md. md가 바뀌면 이 HTML을 재생성한다.
+     진실원은 같은 이름의 .md. md가 바뀌면 이 HTML을 재생성한다. 수치·문구를 HTML에만 넣지 않는다.
 
      이메일 임베딩 호환 규칙 (본문 삽입 기준):
      - 모든 스타일은 각 요소에 인라인(style="")으로. <style> 블록·CSS 변수 금지
@@ -9,14 +9,33 @@
      - 레이아웃은 role="presentation" 테이블만. flex/grid/float 금지.
      - media query·:hover·color-mix 등 이메일 클라이언트 미지원 기능 금지.
      - 차트는 가로 막대만: td width="{{pct}}%" + bgcolor 기법 (세로 막대 금지 — Outlook 비호환).
-     - 라이트 팔레트 고정: page #f9f9f7 · surface #fcfcfb · ink #0b0b0b / #52514e / #898781 ·
-       line #e1e0d9 / #e3e2dc · bar #2a78d6.
      - 본문 폭 680px, bgcolor 속성과 background-color 스타일 병기.
      - 실측 (2026-08-12, 첫 보고서 25 KB): Gmail 웹 라이트/다크·모바일 앱 수신 렌더
        통과 (draft_gmail_message/send_gmail_message, body_format html). Gmail 클리핑
-       한도 약 102 KB — 본문이 커지면 발송 전 wc -c로 확인.
+       한도 약 102 KB — 본문이 커지면 발송 전 wc -c로 확인. 색 구분판은 인라인 스타일이
+       늘어 같은 내용에서 본문이 더 크다.
      - 발송 절차는 vault-weekly-report 스킬 § 이메일 발송 (초안 우선, 발송은 매건 승인).
      - {{vault-name}}은 projects/second-brain/config/team-settings.yaml의 vault.name.
+     - {{base-commit}}은 직전 보고서를 만든 커밋의 단축 해시 — 집계 구간은 {{base-commit}}..master다.
+       경계 규칙(직전 보고서 커밋 기준, 첫 보고서만 7일 공식)은 vault-weekly-report 스킬 § 기간 정의.
+
+     라이트 팔레트 (고정 값, 색 구분 강조판):
+     - 바탕: page #f9f9f7 · surface #fcfcfb · ink #0b0b0b / #52514e / #898781 / 본문 강조 #3d3c39 ·
+       line #e1e0d9 / #e3e2dc · code 배경 #f1f0ec
+     - 강조색 5개(accent / tint), 순서대로 돌려 쓴다:
+       ① blue #2a78d6 / #eaf2fc  ② green #1f8f5f / #e7f5ee  ③ amber #b7791f / #fdf4e3
+       ④ purple #6b4fc8 / #f0ecfb  ⑤ rose #c2416b / #fbeaf0
+     - 의미색: 경고·결정 필요 red #c0392b / #fdecea · 정비 gray #6b6a65 / #f1f0ec ·
+       일별 차트 피크 orange #e0742b / #fdeee3
+     - 쓰는 곳: 머리 색띠(5색) · 섹션 제목 왼쪽 막대(섹션마다 다른 강조색) ·
+       핵심 발견 번호 카드(①~⑤ 순환, 품질·위험 발견은 red) ·
+       지표 타일 위 테두리와 숫자 · 기여자별 막대(사람마다 한 색) · 워크스트림 카드(왼쪽 띠·번호·제목 같은 색) ·
+       New Assets 묶음 라벨 칩 · Follow-ups 상태 태그(결정 필요 red · 운영 amber · 정비 gray).
+       Notes 는 강조색을 쓰지 않는다(정비 gray 바탕).
+     - 일별 차트는 날짜 오름차순으로 그리고, 구간 합의 큰 몫을 차지하는 날(피크)만 orange 로 칠하고
+       위에 「피크」 칩과 한 줄 설명을 단다. 나머지 막대는 blue. 피크가 없으면 칩 줄을 뺀다.
+     - md에 없는 칸은 HTML에서도 뺀다(예: Summary에 핵심 발견 목록이 없으면 그 섹션 제목과 카드 전부).
+
      {{...}} 자리를 채우고, 반복 블록은 주석을 따라 복제한다. -->
 <head>
 <meta charset="utf-8">
@@ -24,106 +43,108 @@
 <title>주간 보고서 {{period-start}} ~ {{period-end}} · {{vault-name}}</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f9f9f7;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f9f9f7" style="background-color:#f9f9f7;">
-<tr><td align="center" style="padding:32px 12px 56px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f9f9f7" style="background-color:#f9f9f7;"><tr><td align="center" style="padding:32px 12px 56px;">
 <table role="presentation" width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; width:100%; font-family:system-ui,-apple-system,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:#0b0b0b; font-size:15px; line-height:1.6;">
 
-<!-- 헤더 -->
+<!-- 머리 색띠: 강조색 5개 -->
+<tr><td style="padding:0 4px 10px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="20%" bgcolor="#2a78d6" style="background-color:#2a78d6; height:5px; line-height:5px; font-size:0;">&nbsp;</td><td width="20%" bgcolor="#1f8f5f" style="background-color:#1f8f5f; height:5px; line-height:5px; font-size:0;">&nbsp;</td><td width="20%" bgcolor="#b7791f" style="background-color:#b7791f; height:5px; line-height:5px; font-size:0;">&nbsp;</td><td width="20%" bgcolor="#6b4fc8" style="background-color:#6b4fc8; height:5px; line-height:5px; font-size:0;">&nbsp;</td><td width="20%" bgcolor="#c2416b" style="background-color:#c2416b; height:5px; line-height:5px; font-size:0;">&nbsp;</td></tr></table></td></tr>
+
+<!-- 헤더. 구간이 한 주보다 길면 기간 옆에 amber 칩(예: 「8주 구간」) -->
 <tr><td style="padding:0 4px;">
   <div style="font-size:25px; font-weight:700; letter-spacing:-0.01em;">주간 보고서 <span style="color:#898781; font-weight:500;">· {{vault-name}}</span></div>
   <div style="color:#52514e; margin-top:2px;">{{period-start}} ~ {{period-end}}</div>
-  <div style="color:#898781; font-size:12.5px; margin-top:2px;">집계 기준: git log --since="{{period-start}} 00:00" master 전수 통계 · 큐레이션 아님</div>
+  <div style="color:#898781; font-size:12.5px; margin-top:2px;">집계 기준: git log {{base-commit}}..master (직전 보고서 커밋 이후 master) 전수 통계 · 큐레이션 아님</div>
 </td></tr>
 
-<!-- md의 Summary 문단 -->
-<tr><td style="padding:20px 4px 0;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<!-- md Summary 첫 문단. <strong>은 blue -->
+<tr><td style="padding:16px 4px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px; color:#52514e;">{{summary — 강조는 <strong style="color:#2a78d6;">...</strong>}}</td>
+</tr></table></td></tr>
+
+<!-- 섹션 제목: 왼쪽 4px 색 막대 + 제목 + 회색 부제. 섹션마다 색을 바꾼다(아래 섹션들도 같은 행을 쓴다) -->
+<tr><td style="padding:26px 4px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#b7791f" style="background-color:#b7791f; border-radius:2px; font-size:0;">&nbsp;</td><td style="padding-left:10px; font-size:17px; font-weight:700; letter-spacing:-0.01em; color:#0b0b0b;">핵심 발견 <span style="color:#898781; font-weight:500; font-size:13px;">Key findings</span></td></tr></table></td></tr>
+
+<!-- md Summary 의 「**핵심 발견**」 목록 → 번호 카드. 항목 사이 8px 스페이서 행 -->
+<tr><td style="padding:0 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr><td width="28" valign="top"><div style="width:24px; height:24px; line-height:24px; text-align:center; border-radius:12px; background-color:{{accent}}; color:#ffffff; font-size:12px; font-weight:700;">{{n}}</div></td><td width="10" style="font-size:0;">&nbsp;</td><td bgcolor="{{tint}}" style="background-color:{{tint}}; border-left:4px solid {{accent}}; border-radius:0 8px 8px 0; padding:8px 12px; font-size:14px;"><div style="font-weight:700; color:{{accent}};">{{발견 제목}}</div><div style="color:#3d3c39; font-size:13px;">{{근거 한 줄}}</div></td></tr>
+  <!-- 반복: <tr><td colspan="3" height="8" style="font-size:0; line-height:0;">&nbsp;</td></tr> 다음에 위 행 -->
+</table></td></tr>
+
+<!-- md Metrics → KPI 타일 3열. 위 테두리와 숫자를 강조색으로(①~⑤ 순환) -->
+<tr><td style="padding:14px 4px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td width="33%" bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-top:4px solid {{accent}}; border-radius:10px; padding:10px 14px;"><div style="font-size:22px; font-weight:700; color:{{accent}};">{{value}}</div><div style="font-size:12px; color:#52514e;">{{label}}</div></td>
+  <td width="8" style="font-size:0; line-height:0;">&nbsp;</td>
+  <!-- 열 반복 (행당 3타일), 행 사이: <tr><td colspan="5" height="8" style="font-size:0; line-height:0;">&nbsp;</td></tr> -->
+</tr></table></td></tr>
+
+<!-- 차트 카드: 가로 막대. pct는 최대값 대비 %, 0은 막대 없이 숫자만.
+     기여자별은 사람마다 강조색, 일별은 날짜 오름차순 · 피크만 orange -->
+<tr><td style="padding:14px 4px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
   <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px; color:#52514e;">
-    {{summary — 강조는 <strong style="color:#0b0b0b;">...</strong>}}
-  </td>
-  </tr></table>
-</td></tr>
-
-<!-- md의 Metrics 표 → KPI 타일: 3열 테이블, 행 사이 8px 스페이서 -->
-<tr><td style="padding:14px 4px 0;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-    <tr>
-      <td width="33%" bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:10px 14px;">
-        <div style="font-size:22px; font-weight:700;">{{value}}</div>
-        <div style="font-size:12px; color:#898781;">{{label}}</div>
-      </td>
-      <td width="8" style="font-size:0; line-height:0;">&nbsp;</td>
-      <!-- 열 반복 (행당 3타일), 행 반복 시 사이에:
-           <tr><td colspan="5" height="8" style="font-size:0; line-height:0;">&nbsp;</td></tr> -->
-    </tr>
-  </table>
-</td></tr>
-
-<!-- 차트 카드: 일별 커밋·기여자별 커밋 모두 가로 막대. pct는 최대값 대비 %, 0은 막대 없이 숫자만 -->
-<tr><td style="padding:14px 4px 0;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px;">
-    <div style="font-size:13px; font-weight:600; color:#52514e; margin-bottom:10px;">{{차트 제목}}</div>
+    <div style="font-size:13px; font-weight:600; color:#0b0b0b; margin-bottom:4px;">{{차트 제목}}</div>
+    <div style="font-size:12px; color:#52514e; margin-bottom:10px;"><span style="display:inline-block; background-color:#fdeee3; color:#e0742b; border:1px solid #e0742b; border-radius:999px; padding:0 8px; font-size:11px; font-weight:700; line-height:18px; white-space:nowrap;">피크</span> {{피크 설명 — 일별 차트에만}}</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:12px; color:#52514e;">
-      <!-- 행 반복 -->
-      <tr><td width="90" style="padding:2px 8px 2px 0;">{{라벨}}</td><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="{{pct}}%" bgcolor="#2a78d6" style="background-color:#2a78d6; height:12px; line-height:12px; font-size:0; border-radius:0 4px 4px 0;">&nbsp;</td><td style="padding-left:6px; font-size:12px; color:#52514e;">{{n}}</td></tr></table></td></tr>
+      <tr><td width="90" style="padding:2px 8px 2px 0;">{{라벨}}</td><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="{{pct}}%" bgcolor="{{bar}}" style="background-color:{{bar}}; height:12px; line-height:12px; font-size:0; border-radius:0 4px 4px 0;">&nbsp;</td><td style="padding-left:6px; font-size:12px; color:#52514e;">{{n}}</td></tr></table></td></tr>
+      <!-- 행 반복. 강조 행은 라벨·숫자에 font-weight:700; color:{{bar}} -->
     </table>
-    <div style="font-size:11px; color:#898781; margin-top:8px;">{{집계 기준 각주}}</div>
+    <div style="font-size:11px; color:#898781; margin-top:8px;">{{집계 명령}}</div>
   </td>
-  </tr></table>
-</td></tr>
+</tr></table></td></tr>
 
-<!-- md의 Workstreams: 소절마다 카드 1개 반복 -->
-<tr><td style="padding:26px 4px 6px;"><div style="font-size:17px; font-weight:700; letter-spacing:-0.01em;">주요 워크스트림</div></td></tr>
-<tr><td style="padding:0 4px 10px;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px;">
-    <div style="font-size:15px; font-weight:700;">{{순번}} · {{워크스트림 제목}}</div>
-    <div style="font-size:12px; color:#898781; margin-bottom:6px;">PR #{{n}} · {{기간}} · {{기여자}}</div>
-    <ul style="margin:0; padding-left:18px; color:#52514e;">
-      <li style="margin:3px 0;">{{항목}}</li>
-    </ul>
+<!-- 섹션 제목 행(위와 같은 모양) -->
+<tr><td style="padding:26px 4px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#2a78d6" style="background-color:#2a78d6; border-radius:2px; font-size:0;">&nbsp;</td><td style="padding-left:10px; font-size:17px; font-weight:700; letter-spacing:-0.01em; color:#0b0b0b;">주요 워크스트림 <span style="color:#898781; font-weight:500; font-size:13px;">Workstreams</span></td></tr></table></td></tr>
+
+<!-- md Workstreams: 소절마다 카드. 왼쪽 띠·번호 원·제목을 같은 강조색으로(①~⑤ 순환) -->
+<tr><td style="padding:0 4px 10px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-left:5px solid {{accent}}; border-radius:10px; padding:14px 18px; color:#52514e;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="30" valign="top"><div style="width:26px; height:26px; line-height:26px; text-align:center; border-radius:13px; background-color:{{accent}}; color:#ffffff; font-size:13px; font-weight:700;">{{순번}}</div></td><td style="padding-left:8px;"><div style="font-size:15px; font-weight:700; color:{{accent}};">{{워크스트림 제목}}</div><div style="font-size:12px; color:#898781;">PR #{{n}} · {{기간}} · {{기여자}}</div></td></tr></table>
+    <ul style="margin:8px 0 0; padding-left:18px; color:#52514e; font-size:14px;"><li style="margin:4px 0;">{{항목 — 굵은 머리는 <strong style="color:{{accent}};">...</strong>}}</li></ul>
   </td>
-  </tr></table>
-</td></tr>
+</tr></table></td></tr>
 
-<!-- md의 New Assets: 목록형은 칩(span), 설명형은 테이블 -->
-<tr><td style="padding:18px 4px 6px;"><div style="font-size:17px; font-weight:700;">{{자산 그룹 제목}} <span style="color:#898781; font-weight:500;">{{n}}</span></div></td></tr>
-<tr><td style="padding:0 4px; color:#52514e; font-size:13px; line-height:1.9;">
-  <span style="border:1px solid #e3e2dc; background-color:#fcfcfb; border-radius:999px; padding:2px 10px; white-space:nowrap;">{{slug}}</span>
-  <!-- 칩 반복 -->
-</td></tr>
-<tr><td style="padding:20px 4px 6px;"><div style="font-size:17px; font-weight:700;">{{자산 그룹 제목}}</div></td></tr>
-<tr><td style="padding:0 4px;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; font-size:13.5px;">
-    <tr>
-      <td style="padding:8px 12px; border-bottom:1px solid #e1e0d9; color:#898781; font-size:12px; font-weight:600;">{{열1}}</td>
-      <td style="padding:8px 12px; border-bottom:1px solid #e1e0d9; color:#898781; font-size:12px; font-weight:600;">{{열2}}</td>
-    </tr>
-    <!-- 행 반복. 마지막 행은 border-bottom 제거 -->
-    <tr><td style="padding:8px 12px; border-bottom:1px solid #e1e0d9;">{{name}}</td><td style="padding:8px 12px; border-bottom:1px solid #e1e0d9; color:#52514e;">{{설명}}</td></tr>
-  </table>
-</td></tr>
+<!-- 섹션 제목 행 -->
+<tr><td style="padding:16px 4px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#1f8f5f" style="background-color:#1f8f5f; border-radius:2px; font-size:0;">&nbsp;</td><td style="padding-left:10px; font-size:17px; font-weight:700; letter-spacing:-0.01em; color:#0b0b0b;">새 자산 <span style="color:#898781; font-weight:500; font-size:13px;">New Assets</span></td></tr></table></td></tr>
 
-<!-- md의 Follow-ups -->
-<tr><td style="padding:20px 4px 6px;"><div style="font-size:17px; font-weight:700;">Follow-ups</div></td></tr>
-<tr><td style="padding:0 4px;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px;">
-    <ul style="margin:0; padding-left:18px; color:#52514e;">
-      <li style="margin:3px 0;">{{항목}}</li>
-    </ul>
+<!-- md New Assets: 묶음마다 라벨 칩(강조색) + 목록. wiki 신규는 칩, 나머지는 문장 -->
+<tr><td style="padding:0 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px; color:#52514e;">
+    <!-- 묶음 반복 (마지막 묶음은 margin-bottom 0) -->
+    <div style="margin:0 0 12px;"><div style="margin-bottom:4px;"><span style="display:inline-block; background-color:{{tint}}; color:{{accent}}; border:1px solid {{accent}}; border-radius:999px; padding:0 8px; font-size:11px; font-weight:700; line-height:18px; white-space:nowrap;">{{묶음 라벨}} {{n}}</span></div>
+    <!-- 칩형(wiki 신규) -->
+    <div style="font-size:13.5px; line-height:1.9;"><span style="display:inline-block; border:1px solid {{accent}}; background-color:{{tint}}; color:#3d3c39; border-radius:999px; padding:1px 10px; margin:2px 2px; white-space:nowrap; font-size:12.5px;">{{이름}}</span></div>
+    <!-- 문장형(스킬·프로젝트 레인 등): 줄 반복 -->
+    <div style="font-size:13.5px; color:#3d3c39; margin:2px 0;"><strong style="color:{{accent}};">{{이름}}</strong> — {{설명}}</div></div>
   </td>
-  </tr></table>
-</td></tr>
+</tr></table></td></tr>
+
+<!-- 섹션 제목 행. Notes 는 정비 gray -->
+<tr><td style="padding:22px 4px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#6b6a65" style="background-color:#6b6a65; border-radius:2px; font-size:0;">&nbsp;</td><td style="padding-left:10px; font-size:17px; font-weight:700; letter-spacing:-0.01em; color:#0b0b0b;">Notes</td></tr></table></td></tr>
+
+<!-- md Notes: 회색 카드, 작은 글씨 목록. 집계 명령·경계 커밋 설명이 여기 온다 -->
+<tr><td style="padding:0 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td bgcolor="#f1f0ec" style="background-color:#f1f0ec; border:1px solid #e3e2dc; border-radius:10px; padding:12px 18px;">
+    <ul style="margin:0; padding-left:18px; color:#52514e; font-size:13px;"><li style="margin:3px 0;">{{항목}}</li></ul>
+  </td>
+</tr></table></td></tr>
+
+<!-- 섹션 제목 행 -->
+<tr><td style="padding:22px 4px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#c2416b" style="background-color:#c2416b; border-radius:2px; font-size:0;">&nbsp;</td><td style="padding-left:10px; font-size:17px; font-weight:700; letter-spacing:-0.01em; color:#0b0b0b;">Follow-ups</td></tr></table></td></tr>
+
+<!-- md Follow-ups: 상태 태그 + 항목. 결정 필요 red(#fdecea/#c0392b) · 운영 amber(#fdf4e3/#b7791f) ·
+     정비 gray(#f1f0ec/#6b6a65). 행 반복, 마지막 행은 border-bottom 제거 -->
+<tr><td style="padding:0 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td bgcolor="#fcfcfb" style="background-color:#fcfcfb; border:1px solid #e3e2dc; border-radius:10px; padding:14px 18px; color:#52514e;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td width="76" valign="top" style="padding:6px 0;"><span style="display:inline-block; background-color:#fdecea; color:#c0392b; border:1px solid #c0392b; border-radius:999px; padding:0 8px; font-size:11px; font-weight:700; line-height:18px; white-space:nowrap;">결정 필요</span></td><td style="padding:6px 0 6px 8px; border-bottom:1px solid #e1e0d9; font-size:13.5px;">{{항목}}</td></tr>
+    </table>
+  </td>
+</tr></table></td></tr>
 
 <!-- 푸터 -->
-<tr><td style="padding:28px 4px 0; color:#898781; font-size:12px;">
-  <div style="border-top:1px solid #e1e0d9; padding-top:12px;">
-    생성: {{date}} · 원본: areas/weekly/{{date}}.md · 집계는 git 전수 통계(큐레이션 아님) —
-    diffstat·신규 파일 목록은 {{period-start}} 00:00 직전 master 커밋과 현재 HEAD의 비교.
-  </div>
-</td></tr>
+<tr><td style="padding:28px 4px 0; color:#898781; font-size:12px;"><div style="border-top:1px solid #e1e0d9; padding-top:12px;">
+  생성: {{date}} · 원본: areas/weekly/{{date}}.md · 집계는 git 전수 통계(큐레이션 아님) —
+  diffstat·신규 파일 목록은 직전 보고서 커밋({{base-commit}})과 현재 HEAD의 비교.
+</div></td></tr>
 
 </table>
 </td></tr>

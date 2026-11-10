@@ -4,7 +4,7 @@ description: >
   사용자의 knowledge vault($VAULT_DIR)에 새로 들어온
   Clippings를 Hermes의 현재 LLM(GPT 또는 Claude)이 직접 wiki로 컴파일한다.
   Clippings/ 폴더에 새 파일이 생겼을 때, 또는 예약된 주기로 실행한다.
-origin: lemoncloud-io/knowledge@11357973:projects/second-brain/config/skills/vault-ingest.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-ingest.md
 ---
 
 # Vault Ingest (Hermes-native fallback)
@@ -60,7 +60,8 @@ vault 경로를 확인한다.
    (`projects/<name>/README.md` frontmatter가 진실원). 끝나면
    `python3 projects/second-brain/config/scripts/vault_verify.py --lane ingest --base "$(git merge-base HEAD master)"`가 exit 0인지 확인한다.
 10. 처리 완료된 클리핑은 원문을 보존한 채 `raw/`로 이동한다. 처리 전에 클리핑의
-   `source:` URL이 기존 raw frontmatter에 있는지 확인하고, 중복이면 새 wiki 노트를
+   `source:` URL이 기존 raw frontmatter에 있는지 확인하고(`raw_source_gate.py` — 열린 PR의 raw 파일까지 본다,
+   `docs/raw-layout.md` § ingest 게이트), 중복이면 새 wiki 노트를
    만들지 않고 기존 노트를 갱신한다(재클리핑 원문도 raw/에 보존).
    이동 시점에 파일명만 정규화한다(내용 무수정, `docs/raw-layout.md` § 파일명 정규화):
    smart punctuation → ASCII, emoji 제거, 120바이트 초과 절단, 한글은 NFC.

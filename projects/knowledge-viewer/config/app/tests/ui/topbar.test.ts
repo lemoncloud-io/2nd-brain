@@ -7,6 +7,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import '../helpers/tsx-hooks.ts';
 import type { PrChanges, VaultInfo } from '../../src/app/types.ts';
 
+import { FAKE_VIEW } from '../helpers/fake-ext.ts';
+
 const { TopBar } = await import('../../src/app/TopBar.tsx');
 const { SettingsPanel } = await import('../../src/app/SettingsMenu.tsx');
 
@@ -21,7 +23,7 @@ const info: VaultInfo = {
 
 const noop = () => {};
 const base = {
-  path: 'projects/dou/features/dou-subscription-web/README.md',
+  path: 'projects/demo/features/demo-signup/README.md',
   agent: false,
   view: 'doc' as const,
   rightOpen: true,
@@ -33,7 +35,7 @@ const base = {
   onToggleLeft: noop,
   onToggleView: noop,
   src: { kind: 'main' } as const,
-  prs: [{ number: 932, title: 'docs(dou)' }],
+  prs: [{ number: 932, title: 'docs(demo)' }],
   mainAvailable: true,
   onSourceChange: noop,
   info,
@@ -64,14 +66,33 @@ test('상단바: 아이콘 단추(트리·지도·북마크·설정·패널)와 
   assert.doesNotMatch(html, /role="dialog"/);
 });
 
+test('확장 화면 단추는 현재 소스를 유지하고 선택 상태와 단축키를 알린다, 확장이 없으면 단추가 없다', () => {
+  const html = renderToStaticMarkup(createElement(TopBar, { ...base, view: 'atlas', views: [FAKE_VIEW], src: { kind: 'pr', number: 123 } }));
+  assert.match(html, /class="icon-btn atlas-toggle" aria-label="데모 지도" title="데모 지도 \(Q\)" aria-keyshortcuts="q" aria-current="page"/);
+  assert.match(html, /href="\/v\/projects\/demo\/README.md\?src=pr:123&amp;view=atlas#\/map"/);
+  // 다른 보기면 선택 표시가 없다.
+  const doc = renderToStaticMarkup(createElement(TopBar, { ...base, views: [FAKE_VIEW] }));
+  assert.match(doc, /class="icon-btn atlas-toggle" aria-label="데모 지도" title="데모 지도 \(Q\)" aria-keyshortcuts="q" href=/);
+  // 확장이 없으면(기본) 단추가 없다.
+  const none = renderToStaticMarkup(createElement(TopBar, { ...base, view: 'atlas' }));
+  assert.doesNotMatch(none, /-toggle" aria-label="데모 지도"/);
+});
+
+test('⚙ "그림 글자" 줄은 확장 화면이 켤 때만(기본은 확장 층 — 유닛 시험은 없음)', () => {
+  const props = { src: { kind: 'main' } as const, prs: [], mainAvailable: true, onSourceChange: noop, fallbackReason: null, searchAll: false, onSearchAll: noop, leftOpen: true, rightOpen: true, onToggleLeft: noop, onToggleRight: noop };
+  assert.doesNotMatch(renderToStaticMarkup(createElement(SettingsPanel, props)), /그림 글자/);
+  assert.match(renderToStaticMarkup(createElement(SettingsPanel, { ...props, archifyZoom: true })), /<span class="settings-h">그림 글자<\/span>/);
+});
+
 test('상단바: pr 소스면 PR 배지가 서고 저장소 배지는 빠진다, ▾ 없음', () => {
   const changes: PrChanges = {
     number: 932,
-    title: 'docs(dou): 웹 구독 이메일 인증',
+    title: 'docs(demo): 웹 구독 이메일 인증',
     author: 'sunny',
     head: 'docs/x',
     base: 'master',
     headOid: '7ff0c0a6aaaaaaaa',
+    state: 'OPEN',
     updatedAt: '2026-10-23T00:00:00Z',
     url: 'https://github.com/o/r/pull/932',
     baseOid: 'b',

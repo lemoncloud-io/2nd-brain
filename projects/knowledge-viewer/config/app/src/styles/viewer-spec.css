@@ -1,0 +1,96 @@
+/* viewer.yml 보기(ViewerSpecView). 가운데 열은 틀 모드(.col-center-frame: 여백 없음·안 넘침·세로 flex)다.
+   막대는 html 틀 막대(.html-frame-bar)를 그대로 쓰고, 원문·안내는 자기 스크롤 칸(.viewer-spec-text)에 넣는다.
+   통합 보기(셸 화면)는 여백 없는 스크롤 칸(.viewer-spec-inline)이다 — 셸의 상단 띠(sticky)·하단 스탬프가 이 칸에 붙는다.
+   셸 CSS 는 빌드 때 .pv-root 아래로 갇히고, 이 앱 CSS 는 .pv-root 안에 닿지 않는다(vite.config.ts 의 플러그인). */
+.viewer-spec {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.viewer-spec-text {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--gap-5);
+}
+
+.viewer-spec-route {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.viewer-spec-route a {
+  color: inherit;
+}
+
+.viewer-spec-toggle {
+  display: inline-flex;
+  gap: var(--gap-1);
+}
+
+.viewer-spec-toggle button {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap-1) var(--gap-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.viewer-spec-toggle button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer-spec-note {
+  margin: 0 0 var(--gap-3);
+}
+
+.viewer-spec-inline {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.viewer-spec-fallback {
+  white-space: normal;
+}
+
+.viewer-spec-issues {
+  margin: 0 0 var(--gap-4);
+}
+
+.viewer-spec-issues ul {
+  margin: var(--gap-2) 0 0;
+  padding-left: var(--gap-5);
+  font-size: var(--fs-sm);
+}
+
+.viewer-spec-issues li[data-level='error'] code {
+  color: var(--tone-red-fg);
+}
+
+.viewer-spec-issue-where {
+  color: var(--text-2);
+}
+
+@media (max-width: 640px) {
+  .viewer-spec-text {
+    padding: var(--gap-3);
+  }
+
+  .viewer-spec-bar,
+  .viewer-spec .html-frame-bar {
+    flex-wrap: wrap;
+  }
+}

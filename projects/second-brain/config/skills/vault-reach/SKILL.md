@@ -5,7 +5,7 @@ description: >
   문서마다 어디를 고치면 연결되는지 계획을 내고, 승인되면 그 연결을 적용한다. 사용자가 "고아 문서 찾아줘",
   "고아 노트 점검", "INDEX에서 못 찾아가는 문서", "도달성 점검", "/vault-reach"라고 할 때, 그리고
   vault-lint의 고아 점검 단계에서 사용한다. node_modules·.claude 워크트리 등은 스캔하지 않는다.
-origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/skills/vault-reach/SKILL.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/vault-reach/SKILL.md
 ---
 
 # vault-reach (INDEX 도달성 점검 — 고아 문서)
@@ -40,20 +40,32 @@ origin: lemoncloud-io/knowledge@4e78a1cb:projects/second-brain/config/skills/vau
    보여 준다. 고아가 0이면 끝.
    - `--broken`은 어디로도 이어지지 않는 링크(위키링크·상대 링크)를 전부 나열한다. `vault_verify.py`
      검사 12는 변경분이 **새로** 만든 깨진 링크만 결함으로 올리고, base에 이미 있던 것은 이 목록으로
-     lint 레인이 정리한다.
+     lint 레인이 정리한다. 첨부 임베드(`![[shot.png]]`)는 Obsidian처럼 파일 이름(볼트 어디든)이나 루트 기준
+     경로로 찾으면 깨진 링크가 아니다(2026-10-25).
 2. **계획.** `--plan`(필요하면 `--skip`)으로 고아마다 연결 방법을 본다. 수정 하나가 다른 문서까지 열어 주므로
    계획은 라운드를 돌며 최소로 잡힌다.
    - `mention` — 이미 도달 가능한 살아 있는 문서가 그 경로를 인라인 코드로 언급한다 → 그 코드를 링크로 감싼다
      (`` `docs/a.md` `` → ``[`docs/a.md`](docs/a.md)``).
    - `readme` — 가장 가까운 상위 `README.md`가 도달 가능하다 → 그 README의 `## Document Map` 절에 한 줄
      (`- [제목](경로)`)을 더한다. 절이 없으면 끝에 만든다.
+   - 폴더 색인 — `## Document Map` 절에 `<!-- docmap: folder -->` 표식이 있는 README(`outputs/README.md`,
+     `projects/<name>/outputs/README.md`)는 그 폴더 트리의 문서 전부에 스스로 닿는다(하위 폴더에 README가 있으면
+     그 README까지). 그 아래 문서는 고아로 잡히지 않고, 점검 출력의 "폴더 색인 … 목록 갱신 필요"가 색인
+     목록이 낡았는지 알려 준다. 산출물을 내는 PR은 이 목록을 손으로 고치지 않는다 — 같은 자리에 줄을 더하는
+     PR끼리 충돌했다.
    - `hub` — 둘 다 없다 → 허브 연결이 끊긴 것이다. 손으로 고친다: 그 폴더의 README(없으면 짧은 허브 README)를
      만들고 `wiki/INDEX.md` § Vault Hubs나 상위 README에서 링크한다. 그다음 다시 `--plan`.
    계획을 사용자에게 요약해 보인다(종류별 건수, 수정될 파일 수, hub 목록).
-3. **적용(요청받았거나 lint 레인일 때).** master에서 딴 작업 브랜치에서 `--apply`. 도구는 다음을 고치지 않는다.
+3. **적용(요청받았거나 lint 레인일 때).** master에서 딴 작업 브랜치에서 `--apply`. 폴더 색인의 목록은 이때
+   경로순으로 다시 만들어진다(손으로 쓴 줄은 경로가 남아 있는 한 그대로, 없어진 파일의 줄은 삭제, 새 파일은
+   제목으로 추가). 도구는 다음을 고치지 않는다.
    - 날짜 기록: `outputs/runs/`, `outputs/monthly/`, `areas/weekly/`, `YYYY-MM-DD-*` 파일
    - 동결·생성 파일: `docs/vault-ingest-log.md`, `docs/raw-index.md`, `wiki/VAULT_MEMORY.md`
    - 도구·템플릿: `config/`, `templates/`
+   - 다른 곳에서 관리되는 사본: 앞부분에 출처 스탬프(`origin:` frontmatter 키, 또는 첫 10줄 안의
+     `# origin:`·`<!-- origin: -->` 줄)가 있는 파일. 도구는 이 파일을 건너뛰고 다음 언급이나 위 README로 잇는다.
+     건너뛴 것은 출력과 `--json`의 `skipped_managed`에 나온다. 사람이나 에이전트도 이 파일을 손으로 고치지 않는다.
+     고쳐야 하면 사본을 관리하는 쪽에 변경을 요청한다.
 4. **검증.** 다시 실행해 고아 0을 확인한다. 이어서 다음을 확인한다.
    - `git diff --name-only`에 위 고치지 않는 파일과 `raw/`·`archive/`가 없는가
    - `vault_verify.py --lane <레인>`이 PASS인가

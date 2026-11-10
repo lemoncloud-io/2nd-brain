@@ -84,10 +84,24 @@ export function prTooltip(c: Pick<PrChanges, 'author' | 'head' | 'base' | 'headC
 /**
  * 읽은 커밋이 gh 가 아는 PR 머리가 아니면(아직 fetch 전·fetch 실패) 짧은 표시와 툴팁. 같으면 null.
  * 비교는 gh 머리의 짧은 꼴(7자)로 한다. gh 가 머리를 주지 않았으면 비교하지 않는다.
+ * 머지된 PR 은 머지 커밋을 읽는 것이 정상이다 — 머지 커밋과 비교하고, 다르면(아직 못 받음) `머지 커밋 미반영`.
  */
-export function prHeadLag(c: Pick<PrChanges, 'headOid' | 'headCommit'>): { text: string; title: string } | null {
+export function prHeadLag(
+  c: Pick<PrChanges, 'headOid' | 'headCommit'> & Partial<Pick<PrChanges, 'state' | 'mergeCommit'>>,
+): { text: string; title: string } | null {
+  if (c.state === 'MERGED' && c.mergeCommit !== undefined && c.mergeCommit !== '') {
+    if (c.headCommit.startsWith(c.mergeCommit.slice(0, 7))) return null;
+    return { text: '머지 커밋 미반영', title: `머지 커밋 ${c.mergeCommit.slice(0, 8)} · 읽은 커밋 ${c.headCommit.slice(0, 8)}` };
+  }
   if (c.headOid === '' || c.headCommit.startsWith(c.headOid.slice(0, 7))) return null;
   return { text: 'PR 머리 미반영', title: `gh 머리 ${c.headOid.slice(0, 8)} · 읽은 커밋 ${c.headCommit.slice(0, 8)}` };
+}
+
+/** PR 상태 알약: 머지됨·닫힘. 열린 PR 은 null(알약 없음). */
+export function prStatePill(c: Partial<Pick<PrChanges, 'state'>>): { text: string; cls: string } | null {
+  if (c.state === 'MERGED') return { text: '머지됨', cls: 'pr-state pr-state-merged' };
+  if (c.state === 'CLOSED') return { text: '닫힘', cls: 'pr-state pr-state-closed' };
+  return null;
 }
 
 /**

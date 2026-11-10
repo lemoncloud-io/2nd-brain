@@ -1,0 +1,4 @@
+# origin: lemoncloud-io/knowledge@f68f1d38:projects/project-viewer/config/shell/.gitignore
+node_modules/
+dist/
+*.tsbuildinfo

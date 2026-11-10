@@ -39,9 +39,9 @@ this file is the contract layer.
   except inside a Markdown table cell, where escaping it is required
   (`[[note-slug\|Alias]]`), or the pipe splits the cell. Lint treats an escaped alias
   inside a table as compliant.
-- Save durable answers under `outputs/` or `projects/<name>/outputs/`; create `outputs/` if
-  it does not exist. Query-style answers that should be retained must not finish as
-  chat-only output.
+- Save durable answers under `outputs/` or `projects/<name>/outputs/` (which one: § Execution
+  Record Placement); create the directory if it does not exist. Query-style answers that
+  should be retained must not finish as chat-only output.
 - Keep project execution context in `projects/`; move reusable concepts to `wiki/`.
 - Project-specific skills, prompts, scripts, generated tools, cron wrapper prompts, and
   automation config belong under `projects/<name>/config/`; treat those files as the source
@@ -51,6 +51,8 @@ this file is the contract layer.
   `projects/second-brain/config/team-settings.yaml` and are referenced from skills by key —
   never hardcoded in skill bodies. Changing a value there (especially mail recipients) is a
   user-approval matter. (Established 2026-08-12.)
+- A file carrying an `origin:` stamp line is a copy maintained elsewhere. Do not edit it by
+  hand or by an automated fix; ask the vault operator for the change instead.
 - Execution-generated runtime state, caches, manifests, ledgers, and lock files are not
   source-of-truth artifacts. Keep them untracked and add project-specific ignore rules when
   they must live under `projects/<name>/outputs/`.
@@ -91,7 +93,9 @@ this file is the contract layer.
   "200 lines" and still costs a full load. Verify with
   `python3 projects/second-brain/config/scripts/vault_verify.py` before committing — it is the
   single checker for this cap, for raw/archive append-only, for the frontmatter of every
-  tracked Markdown file outside raw/ and archive/ staying parseable, and for the lane trace
+  tracked Markdown file outside raw/ and archive/ staying parseable, for the project `review`
+  gate fields (§ Note Contracts **Projects**), for live tallies (§ Note Contracts **Live
+  tallies**), for frozen files (§ Note Contracts **Frozen files**), and for the lane trace
   (a run-log or lint report must be in the diff against `--base`); every write lane calls it
   with `--lane ingest|lint|promote` (aligned 2026-09-03).
   The memory file holds durable policy plus static state and pointers — never an execution
@@ -115,13 +119,28 @@ this file is the contract layer.
   reports; never query answers) into one summary note per month at `outputs/monthly/YYYY-MM.md` with
   `projects/second-brain/config/scripts/outputs_compact.py` (`plan` → `write` → `apply`); before
   `apply`, move every lasting lesson from those records into `wiki/` first and leave the detailed
-  history to the linked PR.
+  history to the linked PR. A refresh keeps hand-written text outside `## Answer` too: lines under
+  the H1, hand lines in `## Notes`/`## Follow-ups` and sections the script does not own stay; a
+  hand line in the generated `## Evidence` moves to the end of `## Notes`.
 - One daily note per day at `areas/daily/YYYY-MM-DD.md`; ideas that recur get promoted to
   `areas/ideas/<slug>.md`. Weekly reports go to `areas/weekly/YYYY-MM-DD.md` (filename is the
   report date, one per week) plus a same-name `.html` view, via the `vault-weekly-report`
   skill; the `.md` is the source of truth and the `.html` is regenerated from it.
 - Project truth lives in `projects/<name>/README.md` frontmatter (`status`, `goal`, `due`,
   `milestones`, `next_action`).
+
+## Execution Record Placement
+
+Choose the location by the work's scope, not by whether it ran tools, used agents or has a PR.
+
+| Work | Location and format |
+| --- | --- |
+| Vault-wide ingest, promotion, lint and shared vault maintenance | `outputs/runs/YYYY-MM-DD-<kind>-<author-slug>.md`, `templates/run-log.md` |
+| Project research, design, implementation, verification and handoff | `projects/<name>/outputs/YYYY-MM-DD-<topic>.md`, `templates/query-output.md` |
+| Execution-generated caches, job records and raw receipts | Untracked runtime storage; keep the evidence and limits in the project report |
+
+Link a project report from the project README. Do not duplicate it as a root run-log just because
+`vault_verify.py` ran; project-only work uses `--lane none`.
 
 ## Automation Priority
 
@@ -140,7 +159,8 @@ read or write below the resolved vault root.
 When an Obsidian CLI is available and Obsidian is running, prefer it for search, link
 analysis, and frontmatter edits; otherwise use the Hermes `obsidian` skill's filesystem-first
 workflow with concrete absolute paths. For bulk operations across many files, direct file
-tools (Read/Edit/Write) remain appropriate.
+tools (Read/Edit/Write) remain appropriate. When the CLI is disabled (a non-interactive session
+cannot turn it on), move files with `git mv` and do not stop to ask for it.
 
 ## Note Contracts
 
@@ -183,7 +203,21 @@ checked by `vault_verify.py` check 8a.
 **Reachability** — every document must be reachable by links from `wiki/INDEX.md`; find and fix orphans
 with the `vault-reach` skill or `projects/second-brain/config/scripts/vault_orphans.py` (`--plan`,
 `--apply`, `--broken`), and `vault_verify.py` enforces it as check 11 (no unreachable document) and
-check 12 (a change set adds no broken link).
+check 12 (a change set adds no broken link). A README whose `## Document Map` carries
+`<!-- docmap: folder -->` is a folder index: it reaches every document in its folder tree without
+a hand-kept list, so a change that adds a document there edits no shared list. A change that
+deletes or moves a document also drops the index line that pointed at it (or reruns
+`vault_orphans.py --apply`); a stale link fails check 12.
+
+**Live tallies** — a hub (a project README, the `projects/`, `outputs/` or `docs/` README,
+`wiki/INDEX.md`) does not hand-write how many items the collection it points to holds. The
+number goes stale with the next added item. Keep the count where the items live, write it as a
+dated measurement, or compute it on demand with
+`projects/second-brain/config/scripts/vault_tally.py`. Checked by `vault_verify.py` check 13.
+
+**Frozen files** — a record closed to new entries carries `frozen: YYYY-MM-DD` in its frontmatter
+and names where new entries go. From then on it is not modified, deleted or renamed. Checked by
+`vault_verify.py` check 14.
 
 **Topic pages** — body is a one-line list of related wiki articles with `[[wikilinks]]`. Set
 `up: "[[topics/parent-topic]]"` except on root topics. 10+ linked articles → consider

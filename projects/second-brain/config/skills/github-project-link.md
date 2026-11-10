@@ -4,7 +4,7 @@ description: >
   외부 GitHub repo(org/repo)를 로컬 규약 위치($GITHUB_DIR/<org>/<repo>)에 클론하고,
   vault의 projects/@<org>/<repo>/README.md 추적 노트와 2계층 인덱스를 생성·갱신한다.
   사용자가 "이 repo를 vault에 연결/등록해줘"라고 요청할 때 사용한다.
-origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/github-project-link.md
+origin: lemoncloud-io/knowledge@f68f1d38:projects/second-brain/config/skills/github-project-link.md
 ---
 
 # GitHub Project Link (등록)
@@ -68,7 +68,7 @@ origin: lemoncloud-io/knowledge@01f358b:projects/second-brain/config/skills/gith
    org 행을 추가한다: `| [@<org>](@<org>/) | N repos | GitHub 연결 프로젝트 |`
    (N = org 인덱스의 repo 수. 이후 등록 시 N을 갱신).
 9. 변경 파일을 검토 후 커밋한다. 공용 vault이므로 push + PR
-   (base `master`, 리뷰어는 `team-settings.yaml`의 `github.default_reviewer`)까지 진행하고, 머지는 사용자 승인을 기다린다.
+   (base `master`, 리뷰어는 `team-settings.yaml`의 `github.default_reviewer`, 값이 비었으면 `--reviewer`를 뺀다)까지 진행하고, 머지는 사용자 승인을 기다린다.
 
 ## 금지 사항
 

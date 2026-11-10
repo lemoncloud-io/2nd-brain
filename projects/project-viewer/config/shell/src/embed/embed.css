@@ -1,0 +1,26 @@
+/* 통합 보기 전용 덧칠. 셸 CSS(src/styles/)는 빌드 때 .pv-root 아래로 갇히고, 이 파일은 손으로 그 범위를 적는다.
+   .pv-root.pv-embed 두 겹이라 갇힌 셸 규칙(.pv-root …)보다 늘 앞선다. 셸 단독 빌드는 이 파일을 부르지 않는다. */
+
+/* 셸 루트는 바깥 앱의 스크롤 칸 안에 놓인다. 좁은 화면(900px 이하)은 높이를 내용만큼 두어 그 칸이 문서를 굴리고,
+   상단 띠·하단 스탬프가 그 칸에 붙는다. */
+.pv-root.pv-embed {
+  height: auto;
+  min-height: 100%;
+}
+
+/* 넓은 화면은 셸의 두 칸 스크롤(layout.css)이다 — .app 이 height:100% 로 고정되므로 루트도 스크롤 칸 높이를 갖는다.
+   내용 높이로 두면 .app 이 상단 띠+스탬프만큼으로 줄고 .main 이 0 높이로 접혀 본문이 사라진다. */
+@media (min-width: 901px) {
+  .pv-root.pv-embed {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* 밝기는 바깥 앱이 고른다 — 셸의 테마 단추는 숨긴다. */
+.pv-root.pv-embed .topbar__tools > button.btn {
+  display: none;
+}
+
+/* 근거 패널 높이는 덧칠하지 않는다 — 루트가 스크롤 칸 높이를 가지니 셸의 max-height(.main 칸 기준 100%)가 그대로 맞다.
+   예전 덧칠(스크롤 칸 높이 - 52px - 100px)은 상단 띠·스탬프 높이를 어림해 패널이 스탬프 밑으로 넘쳤다. */

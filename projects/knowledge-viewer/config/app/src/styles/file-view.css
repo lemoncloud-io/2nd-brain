@@ -92,7 +92,7 @@
   box-shadow: inset 3px 0 0 var(--tone-green-line);
 }
 
-/* 지운 자리: 줄 번호 칸 뒤에 −n줄(reader.css 의 [data-removed]::after). */
+/* 지운 자리: 줄 번호 칸 뒤에 −n줄 글자. 리더의 여백 바(reader.css)와 달리 줄 하나를 차지한다. */
 .file-removed {
   min-height: 1.5em;
   padding-left: calc(var(--ln-ch, 3) * 1ch + var(--gap-2) + var(--gap-3) + var(--gap-2) + 1px);
@@ -101,6 +101,8 @@
 }
 
 .doc .file-removed[data-removed]::after {
+  content: '−' attr(data-removed) '줄';
+  color: var(--tone-red-fg);
   margin-left: var(--gap-2);
   font-size: var(--fs-xs);
 }

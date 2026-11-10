@@ -95,7 +95,7 @@ test('sanitize: img src 허용 3종(data:·같은 출처 /raw/…·git 출처 /r
 });
 
 test('sanitize: 원격 https:// 는 값 검사로 통과한다 — 그릴지는 rehypeImageSrcToTitle 이 앞에서 정한다', () => {
-  for (const src of ['https://image.lemoncloud.io/abc', 'https://miro.medium.com/v2/a.png', 'https://localhost:8779/raw/@main/a.png']) {
+  for (const src of ['https://img.example.com/abc', 'https://miro.medium.com/v2/a.png', 'https://localhost:8779/raw/@main/a.png']) {
     assert.equal(clean({ src, alt: 'a' }).src, src, src);
   }
   assert.equal(clean({ dataRemoteAsk: 'https://miro.medium.com/a.png' }).dataRemoteAsk, 'https://miro.medium.com/a.png');
@@ -107,12 +107,12 @@ test('sanitize: 원격 https:// 는 값 검사로 통과한다 — 그릴지는 
 test('sanitize: http 원격·절대경로·javascript:·file:·다른 출처·같은 출처 git 접두는 src 를 벗긴다', () => {
   for (const src of [
     'http://evil.test/a.png',
-    'http://image.lemoncloud.io/a.png',
+    'http://img.example.com/a.png',
     'http://evil.test/raw/@main/a.png',
     'http://localhost:8779/raw/wiki/a.png',
     'http://localhost.evil.test:80/raw/@main/a.png',
     '//evil.test/raw/a.png',
-    '//image.lemoncloud.io/a.png',
+    '//img.example.com/a.png',
     '/etc/passwd.png',
     '/raw//evil.test/a.png',
     '/raw/@main/wiki/a.png',

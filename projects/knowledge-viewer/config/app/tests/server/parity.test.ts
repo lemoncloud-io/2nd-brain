@@ -17,6 +17,11 @@ describe('lint 대조(vault_orphans.py)', () => {
       return;
     }
     const scripts = path.join(findVaultRoot(process.cwd()), 'projects/second-brain/config/scripts');
+    // 대조 상대(볼트 검사 스크립트)는 다른 유닛이다 — 같이 복제되지 않은 트리에서는 건너뛴다.
+    if (!fs.existsSync(path.join(scripts, 'vault_orphans.py'))) {
+      t.skip('대조할 볼트 검사 스크립트(vault_orphans.py)가 이 트리에 없음');
+      return;
+    }
     const fx = makeFixtureVault();
     try {
       const py = spawnSync(

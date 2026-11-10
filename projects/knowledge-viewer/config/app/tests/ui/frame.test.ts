@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { frameOrigin, frameSrc, frameUrl, gitRawOrigin, isHtmlPath, rawHref, shouldHopToRaw } from '../../src/reader/frame.ts';
+import { frameIsOpaque, frameOrigin, frameSrc, frameUrl, gitRawOrigin, isHtmlPath, isNamedHost, rawHref, shouldHopToRaw } from '../../src/reader/frame.ts';
 
 test('isHtmlPath: .html·.htm 만 참, 대소문자 무시', () => {
   assert.equal(isHtmlPath('a/b/index.html'), true);
@@ -58,6 +58,38 @@ test('rawHref·frameUrl: git 소스 html 은 git 포트 출처의 /raw/@… 주�
   const origin = frameOrigin('127.0.0.1', '8778', pr, 8779);
   assert.equal(rawHref(origin, 'outputs/a.html', '#/x', pr), 'http://localhost:8779/raw/@pr/7/outputs/a.html#/x');
   assert.equal(frameUrl(frameOrigin('127.0.0.1', '8778', { kind: 'main' }), 'a.html', '', { kind: 'main' }), 'http://localhost:8779/raw/@main/a.html');
+});
+
+test('isNamedHost: 루프백 이름 둘만 아니다 — 개인 이름(역프록시 뒤)이면 참', () => {
+  assert.equal(isNamedHost('127.0.0.1'), false);
+  assert.equal(isNamedHost('localhost'), false);
+  assert.equal(isNamedHost('vault.test'), true);
+  assert.equal(isNamedHost('my-vault.localhost'), true);
+});
+
+test('frameOrigin: 개인 이름 뒤면 포트를 받아도 빈 출처(같은 호스트) — localhost 로 건너뛰지 않는다', () => {
+  // 그 페이지의 localhost 하위 요청은 브라우저가 끊는다(ERR_BLOCKED_BY_CLIENT). 서버가 CSP sandbox 로 격리해 낸다.
+  for (const src of [undefined, { kind: 'local' } as const, { kind: 'main' } as const, { kind: 'pr', number: 3 } as const]) {
+    assert.equal(frameOrigin('vault.test', '', src, 8779, 8778), '', JSON.stringify(src));
+    assert.equal(frameOrigin('vault.test', '80', src), '', JSON.stringify(src));
+  }
+  // 새 탭·에이전트 링크도 같은 호스트 상대 주소다.
+  assert.equal(rawHref(frameOrigin('vault.test', '', undefined, 8779, 8778), 'a/b.html', '#x'), '/raw/a/b.html#x');
+  assert.equal(rawHref(frameOrigin('vault.test', '', { kind: 'pr', number: 7 }, 8779, 8778), 'a.html', '', { kind: 'pr', number: 7 }), '/raw/@pr/7/a.html');
+  assert.equal(frameUrl(frameOrigin('vault.test', '', { kind: 'main' }, 8779, 8778), 'a.html', '', { kind: 'main' }), '/raw/@main/a.html');
+});
+
+test('frameIsOpaque: 개인 이름 뒤에서만 틀 문서가 불투명 출처다', () => {
+  assert.equal(frameIsOpaque('vault.test'), true);
+  assert.equal(frameIsOpaque('127.0.0.1'), false);
+  assert.equal(frameIsOpaque('localhost'), false);
+});
+
+test('frameOrigin: 루프백 이름은 rawPort 를 받아도 오늘과 같다', () => {
+  assert.equal(frameOrigin('127.0.0.1', '8778', { kind: 'local' }, 9100, 9999), 'http://localhost:8778');
+  assert.equal(frameOrigin('127.0.0.1', '8777', undefined, null, 8778), 'http://localhost:8777');
+  assert.equal(frameOrigin('127.0.0.1', '8778', { kind: 'main' }, null, 9999), 'http://localhost:8779');
+  assert.equal(frameOrigin('localhost', '8778', { kind: 'pr', number: 3 }, 9100, 9999), 'http://localhost:9100');
 });
 
 test('frameUrl: 출처 + frameSrc', () => {

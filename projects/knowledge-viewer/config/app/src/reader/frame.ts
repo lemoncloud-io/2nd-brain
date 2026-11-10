@@ -25,7 +25,8 @@ export function frameSrc(path: string, hash: string, src?: Source): string {
  * 새 탭·에이전트·본문 첨부용 주소. 출처를 붙인 절대 주소다(origin 은 같은 소스로 부른 frameOrigin 의 값).
  * html 이 SPA 출처(127.0.0.1)에서 열리지 않게 localhost 로 보낸다. 서버의 302 도 같은 곳이다:
  * 디스크 html 은 `127.0.0.1:<port>` → `localhost:<port>`, git 소스(`/raw/@…`) html·svg·xml 은
- * 두 호스트 모두 → `localhost:<git 포트>`(주 포트 + 1 또는 --git-port).
+ * 루프백 두 호스트 모두 → `localhost:<git 포트>`(주 포트 + 1 또는 --git-port).
+ * 개인 이름 뒤면 origin 이 빈 문자열이라 같은 호스트 상대 주소(`/raw/…`)가 된다 — 서버가 CSP sandbox 로 격리해 낸다.
  */
 export function rawHref(origin: string, path: string, hash: string, src?: Source): string {
   return frameUrl(origin, path, hash, src);
@@ -48,11 +49,34 @@ export function gitRawOrigin(port: string, gitRawPort?: number | null): string {
 }
 
 /**
+ * 화면이 개인 이름(역프록시가 쓰는 호스트 이름) 뒤에서 열렸는가. 그때 브라우저(데스크톱 패널)는 그 페이지에서
+ * localhost·127.0.0.1 로 가는 하위 요청을 끊는다(ERR_BLOCKED_BY_CLIENT) — 그래서 localhost 로 건너뛰지 않는다.
+ */
+export function isNamedHost(hostname: string): boolean {
+  return hostname !== '127.0.0.1' && hostname !== 'localhost';
+}
+
+/**
+ * 틀 안 문서가 불투명 출처(`null`)인가. 개인 이름 뒤의 /raw 능동 콘텐츠는 서버가 `CSP: sandbox`(allow-same-origin 없음)
+ * 로 내므로 iframe 속성과 무관하게 불투명 출처다. postMessage 출처 검사(archify 맞춤)가 이 값을 쓴다.
+ */
+export function frameIsOpaque(hostname: string): boolean {
+  // 개인 이름 뒤에서만 같은 호스트 + CSP sandbox 로 낸다.
+  return isNamedHost(hostname);
+}
+
+/**
  * iframe·원본 링크의 출처. 앱(127.0.0.1)과 다른 출처 localhost 로 연다(서버는 localhost 에서 /raw 만 준다).
  * local(디스크)은 같은 포트, main·pr 은 git 포트(gitRawOrigin)다.
+ * 개인 이름 뒤면 빈 출처(같은 호스트 `/raw/…`)다 — localhost 로 가는 하위 요청이 끊기므로 건너뛰지 않고,
+ * 서버가 그 호스트로 온 능동 콘텐츠를 302 없이 `CSP: sandbox` 머리로 격리해 낸다. gitRawPort·rawPort 는 이때 쓰지 않는다.
  */
-export function frameOrigin(_hostname: string, port: string, src?: Source, gitRawPort?: number | null): string {
+export function frameOrigin(hostname: string, port: string, src?: Source, gitRawPort?: number | null, _rawPort?: number | null): string {
+  // 개인 이름: 같은 호스트(빈 출처).
+  if (isNamedHost(hostname)) return '';
+  // 루프백 + git 소스: git 포트 localhost.
   if (src !== undefined && src.kind !== 'local') return gitRawOrigin(port, gitRawPort);
+  // 루프백 + 디스크: 같은 포트 localhost.
   return `http://localhost:${port}`;
 }
 

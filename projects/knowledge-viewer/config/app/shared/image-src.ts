@@ -77,8 +77,7 @@ export function resolveImageEmbed(source: string, target: string, images: readon
 // ── 원격 이미지(사용자 토글 + 허용 호스트, 2026-10-24) ─────────────────────────────
 // 토글을 켜도 `https:` 만 그린다 — `http:`·`//host` 는 허용 호스트여도 배지다. 판정은 리더(imageSrc.ts)가 한다.
 
-/** 기본 허용 호스트 — 조직 CDN. ⚙ 에서 바꾸고 "기본값" 으로 되돌린다. */
-export const DEFAULT_REMOTE_IMAGE_HOSTS: readonly string[] = ['image.lemoncloud.io', 'file.eureka.codes'];
+// 기본 허용 호스트는 확장 층이 준다(src/ext/registry.ts 의 DEFAULT_REMOTE_IMAGE_HOSTS, 없으면 빈 목록).
 
 /** 목록 한 칸의 꼴: `호스트` 또는 `*.도메인`. 점이 하나 이상, 글자는 영문·숫자·`-`. 홀로 `*`·포트·경로는 아니다. */
 const HOST_ENTRY = /^(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
@@ -101,7 +100,7 @@ export function parseHostList(text: string): string[] {
 
 /**
  * 호스트가 목록에 있는가. 정확 일치, 또는 `*.도메인` 이 그 도메인의 하위 호스트와 맞는다(도메인 자체는 아니다).
- * 대소문자·끝 점은 보지 않는다. 꼬리 비교는 `.` 경계로만 한다 — `image.lemoncloud.io.attacker.com` 은 `image.lemoncloud.io` 가 아니다.
+ * 대소문자·끝 점은 보지 않는다. 꼬리 비교는 `.` 경계로만 한다 — `img.example.com.attacker.com` 은 `img.example.com` 이 아니다.
  */
 export function isAllowedHost(hostname: string, list: readonly string[]): boolean {
   const h = hostname.trim().toLowerCase().replace(/\.$/, '');

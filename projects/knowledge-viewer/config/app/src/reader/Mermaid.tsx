@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
+
+import { isPlainClick } from '../app/links.ts';
+import { hrefFor } from '../app/route.ts';
+import type { LinkEnv } from './DocLink.tsx';
+import { rawHref } from './frame.ts';
+import { mermaidLinkTarget, nodeIdFromGroupId, parseMermaidClicks } from './mermaid-links.ts';
 
 import { useMermaidTheme } from './mermaid-theme-prefs.ts';
 import { DEFAULT_THEME, findTheme, resolveDark } from '../app/themes.ts';
@@ -117,7 +123,71 @@ const withMarks = (base: string, marks: BlockMarks | undefined, themeId: string)
   'data-mermaid-theme': themeId,
 });
 
-export function Mermaid({ code, marks }: { code: string; marks?: BlockMarks }) {
+const XLINK = 'http://www.w3.org/1999/xlink';
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** svg `a` 의 주소를 바꾼다. href·xlink:href 를 같이 둔다(브라우저마다 읽는 쪽이 다르다). */
+function setLinkHref(a: Element, href: string | null): void {
+  if (href === null) {
+    a.removeAttribute('href');
+    a.removeAttributeNS(XLINK, 'href');
+    return;
+  }
+  a.setAttribute('href', href);
+  a.setAttributeNS(XLINK, 'xlink:href', href);
+}
+
+/**
+ * 그린 svg 의 노드 링크(`click` 문법 → `<a>`)를 뷰어 링크로 바꾼다. 캐시된 svg 문자열은 그대로 두고 DOM 만 고친다.
+ * 원래 주소는 `data-mermaid-href` 에 남겨 env 가 바뀌어 다시 돌아도 같은 결과다.
+ */
+function applyLinks(root: HTMLElement, code: string, env: LinkEnv): void {
+  const clicks = parseMermaidClicks(code);
+  for (const a of root.querySelectorAll('svg a')) {
+    // 첫 적용 때 mermaid 가 낸 주소를 보관한다.
+    let orig = a.getAttribute('data-mermaid-href');
+    if (orig === null) {
+      orig = a.getAttribute('href') ?? a.getAttributeNS(XLINK, 'href') ?? '';
+      a.setAttribute('data-mermaid-href', orig);
+    }
+    const t = mermaidLinkTarget(env.docPath, orig);
+    a.removeAttribute('data-vault-path');
+    a.removeAttribute('data-vault-anchor');
+    a.removeAttribute('target');
+    a.removeAttribute('rel');
+    if (t.kind === 'doc') {
+      // 앱 안 문서: 주소는 hrefFor(에이전트·소스 질의 포함), 클릭은 위임 핸들러가 SPA 이동으로 받는다.
+      setLinkHref(a, hrefFor(t.path, t.anchor, env.agent, env.src));
+      a.setAttribute('data-vault-path', t.path);
+      if (t.anchor !== '') a.setAttribute('data-vault-anchor', t.anchor);
+    } else if (t.kind === 'file') {
+      // 첨부·이미지 등은 본문 링크처럼 원본을 새 탭으로 연다.
+      setLinkHref(a, rawHref(env.rawOrigin, t.path, t.anchor === '' ? '' : `#${t.anchor}`, env.src));
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noreferrer');
+    } else if (t.kind === 'external') {
+      setLinkHref(a, t.url);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noreferrer');
+    } else if (t.kind === 'anchor') {
+      setLinkHref(a, `#${t.anchor}`);
+    } else {
+      // 볼트 밖·해석 안 되는 주소는 링크를 끈다.
+      setLinkHref(a, null);
+    }
+    // 툴팁: mermaid 는 JS 바인딩으로만 붙여 svg 에 없다. 소스의 click 줄에서 읽어 <title> 로 단다.
+    const group = a.querySelector('g[id]');
+    const nodeId = group === null ? null : nodeIdFromGroupId(group.id);
+    const tip = nodeId === null ? undefined : clicks.get(nodeId)?.tooltip;
+    if (tip !== undefined && a.querySelector(':scope > title') === null) {
+      const title = document.createElementNS(SVG_NS, 'title');
+      title.textContent = tip;
+      a.prepend(title);
+    }
+  }
+}
+
+export function Mermaid({ code, marks, env }: { code: string; marks?: BlockMarks; env?: LinkEnv }) {
   const theme = findMermaidTheme(useMermaidTheme());
   const screen = useScreen();
   useThemeCss(theme);
@@ -143,6 +213,23 @@ export function Mermaid({ code, marks }: { code: string; marks?: BlockMarks }) {
     };
   }, [code, theme, screen]);
 
+  const box = useRef<HTMLDivElement>(null);
+  // 그림이 바뀌거나 링크 환경이 바뀌면 노드 링크를 다시 적용한다.
+  useEffect(() => {
+    if (env === undefined || box.current === null || state === null || 'error' in state) return;
+    applyLinks(box.current, code, env);
+  }, [state, env, code]);
+
+  // 노드 링크 클릭 위임: 앱 안 문서면 전체 새로고침 없이 이동한다. 수정키 클릭은 브라우저 몫이다.
+  const onClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (env === undefined || !isPlainClick(e)) return;
+    const a = (e.target as Element).closest('a[data-vault-path]');
+    if (a === null || !e.currentTarget.contains(a)) return;
+    e.preventDefault();
+    const anchor = a.getAttribute('data-vault-anchor');
+    env.onNavigate(a.getAttribute('data-vault-path')!, anchor === null ? undefined : anchor);
+  };
+
   if (state === null) return <div {...withMarks('mermaid mermaid-pending', marks, theme.id)}>다이어그램 그리는 중…</div>;
   if ('error' in state) {
     return (
@@ -155,5 +242,5 @@ export function Mermaid({ code, marks }: { code: string; marks?: BlockMarks }) {
     );
   }
   // mermaid strict 모드가 정화한 svg다. dangerouslySetInnerHTML은 여기서만 쓴다.
-  return <div {...withMarks('mermaid', marks, theme.id)} dangerouslySetInnerHTML={{ __html: state.svg }} />;
+  return <div ref={box} {...withMarks('mermaid', marks, theme.id)} onClick={onClick} dangerouslySetInnerHTML={{ __html: state.svg }} />;
 }

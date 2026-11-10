@@ -1,9 +1,11 @@
 // 주소 ↔ Route. 순수 모듈이다(DOM을 만지지 않는다).
 import { MAIN, parseSource, sourceKey } from '../../shared/source.ts';
 import type { Source } from '../../shared/source.ts';
+import type { CenterViewExtension } from '../ext/define.ts';
+import { EXT_VIEWS } from '../ext/registry.ts';
 
-/** 가운데 열이 무엇을 보이는가. `doc` 은 리더(기본), `graph` 는 지도(링크 그래프)다. */
-export type View = 'doc' | 'graph';
+/** 가운데 열: 문서 리더(기본), 링크 그래프, 또는 확장 층이 등록한 화면의 id. */
+export type View = 'doc' | 'graph' | (string & {});
 
 /** 지도 깊이(홉 수). 1~3 만이다. */
 export type GraphDepth = 1 | 2 | 3;
@@ -20,7 +22,27 @@ export type GraphTarget = { view: 'graph'; depth?: number; mode?: GraphMode; all
  */
 export type NavigateFn = (path: string, anchor?: string, src?: Source, view?: View | GraphTarget) => void;
 
-export type Route = { path: string; anchor: string; agent: boolean; src: Source; view: View; graph: GraphParams };
+/** app: `/apps/<id>` 주소면 그 앱 id(가운데 열 전체가 앱이다). 문서 주소에는 키가 없다. */
+export type Route = { path: string; anchor: string; agent: boolean; src: Source; view: View; graph: GraphParams; app?: string };
+
+/** `/apps/<id>`(뒤에 `/…` 가 붙어도) 면 풀어 쓴 id, `/apps`·`/apps/` 면 ''(앱 없음 화면), 그 밖은 null. 등록부에 없는 id 는 화면이 "앱 없음" 으로 보인다. */
+export function appIdOf(pathname: string): string | null {
+  if (pathname === '/apps' || pathname === '/apps/') return '';
+  const m = /^\/apps\/([^/]+)(?:\/.*)?$/s.exec(pathname);
+  if (m === null) return null;
+  let id = m[1]!;
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    // 잘못된 % 열은 그대로 둔다(문법 검사에서 걸러진다).
+  }
+  return id;
+}
+
+/** 앱 화면 주소. 에이전트 모드는 `?agent=claude` 를 싣는다. 앱 이동은 전체 페이지 이동이다(서버가 토큰 meta 를 넣는다). */
+export function appHref(id: string, agent: boolean): string {
+  return `/apps/${encodeURIComponent(id)}${agent ? '?agent=claude' : ''}`;
+}
 
 export const GRAPH_DEFAULTS: GraphParams = { depth: 2, mode: '3d', all: false };
 
@@ -31,7 +53,8 @@ function depthOf(v: string | null): GraphDepth {
 
 export const HOME_PATH = 'wiki/INDEX.md';
 
-export function parseLocation(pathname: string, search: string, hash: string): Route {
+/** 주소를 읽는다. views 는 확장 화면 목록(기본은 확장 층 등록부) — 옛 경로·`?view=<id>` 를 그 화면으로 연다. */
+export function parseLocation(pathname: string, search: string, hash: string, views: readonly CenterViewExtension[] = EXT_VIEWS): Route {
   let path = HOME_PATH;
   if (pathname.startsWith('/v/')) {
     const raw = pathname.slice(3);
@@ -46,14 +69,21 @@ export function parseLocation(pathname: string, search: string, hash: string): R
   const params = new URLSearchParams(search);
   const agent = params.get('agent') === 'claude';
   const src = parseSource(params.get('src')) ?? MAIN;
-  // 지도 모드는 `view=graph` 일 때만이다. 다른 값·없음은 리더다.
-  const view: View = params.get('view') === 'graph' ? 'graph' : 'doc';
+  // 확장 화면(옛 경로 또는 등록된 `?view=<id>`)이면 그 화면, 지도면 지도, 그 밖(모르는 view 포함)은 기본 문서 리더다.
+  const wanted = params.get('view');
+  const ext = views.find((v) => v.legacyPaths?.includes(path) === true) ?? views.find((v) => v.id === wanted);
+  const view: View = ext !== undefined ? ext.id : wanted === 'graph' ? 'graph' : 'doc';
+  // 확장 화면의 문서 경로는 늘 그 화면의 home.path 다.
+  if (ext !== undefined) path = ext.home.path;
   // 지도 인자는 모르는 값이면 기본값이다. all 은 `1` 만 참이다.
   const graph: GraphParams = {
     depth: depthOf(params.get('depth')),
     mode: params.get('mode') === '2d' ? '2d' : '3d',
     all: params.get('all') === '1',
   };
+  // 앱 주소: 해시는 앱 것이라 앵커로 읽지 않는다. 경로·보기는 기본값(문서 데이터를 받지 않는다 — App 이 거른다).
+  const app = appIdOf(pathname);
+  if (app !== null) return { path, anchor: '', agent, src, view: 'doc', graph, app };
   let anchor = hash.startsWith('#') ? hash.slice(1) : hash;
   try {
     anchor = decodeURIComponent(anchor);
@@ -78,6 +108,7 @@ export function hrefFor(
   if (agent) query.push('agent=claude');
   if (src !== undefined && src.kind !== 'main') query.push(`src=${sourceKey(src)}`);
   if (view === 'graph') query.push('view=graph');
+  else if (typeof view === 'string' && view !== 'doc') query.push(`view=${encodeURIComponent(view)}`);
   else if (typeof view === 'object') {
     query.push('view=graph');
     const depth = depthOf(view.depth === undefined ? null : String(view.depth));

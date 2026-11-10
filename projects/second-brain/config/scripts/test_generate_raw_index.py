@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the conversion-original lanes in generate_raw_index.
+"""Tests for generate_raw_index (raw index schema 2: nodes + edges).
 
 Run from the scripts directory:
 
@@ -7,13 +7,18 @@ Run from the scripts directory:
 
 The generator is driven end-to-end in a throwaway vault: it reads git and the
 working tree, so exercising main() through a subprocess is the only honest way
-to cover it. The lanes under test are raw/pdf|hwp|doc|xlsx (docs/raw-layout.md § 레인 4),
-whose originals are paired to their converted MD by a source_<ext> frontmatter key.
+to cover it. Covered: the snapshot/slack/conversion lanes (docs/raw-layout.md § 레인),
+the node key and edge kinds of schema 2, the corpus boundary, and the split
+between the shared index and private/raw-index.yml.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import pathlib
+import re
+import sys
 import subprocess
 import tempfile
 import unittest
@@ -47,11 +52,65 @@ def commit_all(root: pathlib.Path) -> None:
     subprocess.run(git + ["commit", "-qm", "add"], check=True)
 
 
+def key(path: str) -> str:
+    return hashlib.sha1(path.encode("utf-8")).hexdigest()[:12]
+
+
+def parse_graph(yml: str) -> tuple:
+    """(nodes, edges) from a schema-2 index without PyYAML.
+
+    nodes: key → {field: value}; edges: set of (from file, to file, kind).
+    Node lines are `  "key": {file: "…", kind: "…"}` with JSON values; edge lines
+    are `- [JSON array]` at column 0.
+    """
+    nodes, raw_edges, section = {}, [], None
+    for line in yml.splitlines():
+        if section == "edges" and line.startswith("- ["):
+            raw_edges.append(json.loads(line[2:]))
+            continue
+        if not line.startswith(" "):
+            section = line.split(":", 1)[0]
+            continue
+        if section == "nodes":
+            k, body = line.strip().split(": ", 1)
+            nodes[json.loads(k)] = {f: json.loads(v) for f, v in
+                                    re.findall(r'(\w+): ("(?:[^"\\]|\\.)*")', body)}
+    edges = {(nodes[f]["file"], nodes[t]["file"], kind) for f, t, kind in raw_edges}
+    return nodes, edges
+
+
 def run(root: pathlib.Path) -> str:
     r = subprocess.run(["python3", str(SCRIPT)], cwd=root, capture_output=True, text=True)
     if r.returncode != 0:
         raise AssertionError(f"generator failed: {r.stderr}")
     return r.stdout
+
+
+def commit_at(root: pathlib.Path, date: str, *args: str) -> None:
+    """Stage `args` (a git subcommand, e.g. "mv a b", or nothing for add -A) and commit with author date `date`."""
+    git = ["git", "-C", str(root)]
+    subprocess.run(git + (list(args) or ["add", "-A"]), check=True)
+    env = {**__import__("os").environ, "GIT_AUTHOR_DATE": f"{date}T12:00:00", "GIT_COMMITTER_DATE": f"{date}T12:00:00"}
+    subprocess.run(git + ["commit", "-qm", "c"], check=True, env=env)
+
+
+class AddedDate(unittest.TestCase):
+    """`added` is when the source entered raw/. A rename inside raw/ keeps it; a move in from Clippings/ sets it."""
+
+    def test_rename_inside_raw_keeps_first_add_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "A title..md").write_text("---\ntitle: A\n---\nbody\n", encoding="utf-8")
+            (root / "Clippings").mkdir()
+            (root / "Clippings" / "b.md").write_text("---\ntitle: B\n---\nbody\n", encoding="utf-8")
+            commit_at(root, "2026-07-09")
+            commit_at(root, "2026-08-01", "mv", "Clippings/b.md", "raw/b.md")
+            commit_at(root, "2026-10-25", "mv", "raw/A title..md", "raw/A title.md")
+            run(root)
+            nodes, _ = parse_graph((root / "docs" / "raw-index.yml").read_text(encoding="utf-8"))
+            added = {n["file"]: n.get("added") for n in nodes.values()}
+            self.assertEqual(added["raw/A title.md"], "2026-07-09")
+            self.assertEqual(added["raw/b.md"], "2026-08-01")
 
 
 class SnapshotLane(unittest.TestCase):
@@ -89,7 +148,11 @@ class SnapshotLane(unittest.TestCase):
             md = (root / "docs" / "raw-index.md").read_text(encoding="utf-8")
             self.assertIn("root_files: 1", yml)
             self.assertIn("snapshot_files:\n  sample-app: 2", yml)
-            self.assertIn('- file: "raw/sample-app/adr-a-1234567.md"', yml)
+            nodes, edges = parse_graph(yml)
+            lane_node = nodes[key("raw/sample-app/adr-a-1234567.md")]
+            self.assertEqual(lane_node["kind"], "raw")
+            self.assertEqual(lane_node["source"], "example-org/sample-app — docs/adr/a.md")
+            self.assertIn(("wiki/n.md", "raw/sample-app/adr-a-1234567.md", "ref"), edges)
             self.assertNotIn("unknown", yml)  # first-add date found for lane files
             orphans = yml.split("orphans:")[1].split("duplicate_sources:")[0]
             self.assertIn("raw/sample-app/adr-b-89abcde.md", orphans)
@@ -168,7 +231,7 @@ class SlackLane(unittest.TestCase):
 
             self.assertIn("slack_files: 2", yml)
             self.assertIn('- "raw/slack/lonely.md"', yml)
-            self.assertNotIn("raw/slack/dev.md", yml.split("orphan_slack:")[1])
+            self.assertNotIn("raw/slack/dev.md", yml.split("orphan_slack:")[1].split("by_month:")[0])
             self.assertIn("slack 레인 2", md)
             self.assertIn("raw/slack/lonely.md", md)
 
@@ -206,7 +269,7 @@ class ConversionLanes(unittest.TestCase):
             self.assertIn("conversion_originals:", yml)
             self.assertIn("  pdf: 2", yml)
             self.assertIn('- "raw/pdf/lonely.pdf"', yml)
-            self.assertNotIn("paired.pdf", yml.split("orphan_originals:")[1])
+            self.assertNotIn("paired.pdf", yml.split("orphan_originals:")[1].split("by_month:")[0])
             self.assertIn("변환 원본", md)
             self.assertIn("raw/pdf/lonely.pdf", md)
 
@@ -329,6 +392,158 @@ class XlsxLane(unittest.TestCase):
             self.assertNotIn("xlsx", yml)
             self.assertNotIn("변환 원본", md)
             self.assertNotIn("xlsx", md)
+
+
+class GraphSchema(unittest.TestCase):
+    """설계 § raw 색인 — docs/raw-index.yml 스키마 2: 노드 키·엣지 종류·같은 줄 규칙."""
+
+    def test_header_and_node_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "a.md").write_text(
+                '---\nsource: "https://example.com/a"\n---\n\nbody\n', encoding="utf-8"
+            )
+            (root / "wiki" / "x.md").write_text('---\nsources:\n  - "raw/a.md"\n---\n', encoding="utf-8")
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            self.assertIn("\nschema: 2\n", yml)
+            self.assertNotIn("entries", yml)
+            k = hashlib.sha1("raw/a.md".encode("utf-8")).hexdigest()[:12]
+            self.assertRegex(
+                yml, rf'\n  "{k}": {{file: "raw/a.md", kind: "raw", '
+                     r'added: "\d{4}-\d{2}-\d{2}", source: "https://example.com/a"}\n')
+            self.assertIn(f'  "{key("wiki/x.md")}": {{file: "wiki/x.md", kind: "doc"}}\n', yml)
+            self.assertIn(f'\n- ["{key("wiki/x.md")}","{k}","ref"]\n', yml)
+
+    def test_edge_kinds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            for name in ("a.md", "b.md", "c d.md", "e.md", "f.md"):
+                (root / "raw" / name).write_text("---\n---\n\nbody\n", encoding="utf-8")
+            (root / "raw" / "pdf").mkdir()
+            (root / "raw" / "pdf" / "o.pdf").write_bytes(b"%PDF-1.4\n")
+            (root / "wiki" / "x.md").write_text(
+                '---\nsources:\n  - "raw/a.md"\nsource_pdf: "raw/pdf/o.pdf"\n---\n\n'
+                "B is [[raw/b|bee]] and in a table [[raw/b.md\\|bee]].\n\n"
+                "C is [c](../raw/c%20d.md#top).\n\n"
+                "E is ![[raw/e.md]] and F is ![f](<../raw/f.md>).\n\n"
+                "A bare name [[a]] is not a raw link.\n",
+                encoding="utf-8",
+            )
+            commit_all(root)
+            run(root)
+            _, edges = parse_graph((root / "docs" / "raw-index.yml").read_text(encoding="utf-8"))
+            self.assertEqual(edges, {
+                ("wiki/x.md", "raw/a.md", "ref"),
+                ("wiki/x.md", "raw/b.md", "wiki"),
+                ("wiki/x.md", "raw/c d.md", "md"),
+                ("wiki/x.md", "raw/e.md", "embed"),
+                ("wiki/x.md", "raw/f.md", "embed"),
+                ("wiki/x.md", "raw/pdf/o.pdf", "source"),
+            })
+
+    def test_same_line_link_suppresses_ref(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "a.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            (root / "wiki" / "link-only.md").write_text(
+                "See [raw/a.md](../raw/a.md).\n", encoding="utf-8"
+            )
+            (root / "wiki" / "both.md").write_text(
+                "See [it](../raw/a.md).\n\nAlso raw/a.md in prose.\n", encoding="utf-8"
+            )
+            commit_all(root)
+            run(root)
+            _, edges = parse_graph((root / "docs" / "raw-index.yml").read_text(encoding="utf-8"))
+            self.assertEqual(edges, {
+                ("wiki/link-only.md", "raw/a.md", "md"),
+                ("wiki/both.md", "raw/a.md", "md"),
+                ("wiki/both.md", "raw/a.md", "ref"),
+            })
+
+    def test_link_only_reference_is_not_an_orphan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / "raw" / "linked note.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            (root / "raw" / "lonely.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            (root / "wiki" / "x.md").write_text("[n](../raw/linked%20note.md)\n", encoding="utf-8")
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            orphans = yml.split("orphans:")[1].split("duplicate_sources:")[0]
+            self.assertIn('"raw/lonely.md"', orphans)
+            self.assertNotIn("linked note", orphans)
+
+    def test_ignored_and_excluded_md_are_not_in_the_corpus(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / ".gitignore").write_text("node_modules/\nprojects/app/ignored.md\n", encoding="utf-8")
+            (root / "raw" / "a.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            mention = 'see "raw/a.md"\n'
+            pkg = root / "projects" / "app" / "node_modules" / "pkg"
+            pkg.mkdir(parents=True)
+            (pkg / "README.md").write_text(mention, encoding="utf-8")
+            (root / "projects" / "app" / "ignored.md").write_text(mention, encoding="utf-8")
+            (root / "projects" / "app" / "dist").mkdir()
+            (root / "projects" / "app" / "dist" / "out.md").write_text(mention, encoding="utf-8")
+            commit_all(root)
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            nodes, edges = parse_graph(yml)
+            self.assertEqual(edges, set())
+            self.assertEqual([n["file"] for n in nodes.values()], ["raw/a.md"])
+            self.assertIn('"raw/a.md"', yml.split("orphans:")[1].split("duplicate_sources:")[0])
+
+    def test_untracked_raw_goes_to_private_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_vault(tmp)
+            (root / ".gitignore").write_text("private/\n", encoding="utf-8")
+            (root / "raw" / "pdf").mkdir()
+            (root / "raw" / "pdf" / "o.pdf").write_bytes(b"%PDF-1.4\n")
+            (root / "raw" / "shared.md").write_text("---\n---\n\nbody\n", encoding="utf-8")
+            (root / "wiki" / "x.md").write_text(
+                "raw/shared.md and [p](../raw/personal.md)\n", encoding="utf-8"
+            )
+            commit_all(root)
+            (root / "raw" / "personal.md").write_text(
+                '---\nsource: "local"\nsource_pdf: "raw/pdf/o.pdf"\n---\n\nbody\n', encoding="utf-8"
+            )
+            run(root)
+            yml = (root / "docs" / "raw-index.yml").read_text(encoding="utf-8")
+            private = (root / "private" / "raw-index.yml").read_text(encoding="utf-8")
+            self.assertNotIn("personal", yml)
+            self.assertNotIn(key("raw/personal.md"), yml)
+            self.assertIn("orphan_originals: []", yml)  # 미추적 노트의 짝도 센다
+            _, shared_edges = parse_graph(yml)
+            self.assertEqual(shared_edges, {("wiki/x.md", "raw/shared.md", "ref")})
+            self.assertIn("schema: 2", private)
+            self.assertIn("untracked_files: 1", private)
+            nodes, edges = parse_graph(private)
+            self.assertEqual(nodes[key("raw/personal.md")]["added"], "untracked")
+            self.assertEqual(edges, {
+                ("wiki/x.md", "raw/personal.md", "md"),
+                ("raw/personal.md", "raw/pdf/o.pdf", "source"),
+            })
+
+            (root / "raw" / "personal.md").unlink()
+            run(root)
+            self.assertFalse((root / "private" / "raw-index.yml").exists())
+
+    def test_key_collision_fails(self):
+        sys.path.insert(0, str(SCRIPT.parent))
+        try:
+            import generate_raw_index as g
+        finally:
+            sys.path.pop(0)
+        original = g.node_key
+        g.node_key = lambda path: "000000000000"
+        try:
+            with self.assertRaises(SystemExit) as cm:
+                g.emit_graph([("raw/a.md", "raw", []), ("raw/b.md", "raw", [])], set())
+            self.assertIn("collision", str(cm.exception.code))
+        finally:
+            g.node_key = original
 
 
 if __name__ == "__main__":

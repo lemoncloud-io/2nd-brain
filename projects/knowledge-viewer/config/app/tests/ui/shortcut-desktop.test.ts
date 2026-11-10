@@ -1,4 +1,4 @@
-// 폰·태블릿엔 Shift·Space·호버가 없다: 그래프 그룹의 그 행만 도움말에 "데스크톱" 이 붙는다.
+// 폰·태블릿엔 Shift·Space·호버·우클릭이 없다: 그래프 그룹의 그 행과 우클릭 끌기만 도움말에 "데스크톱" 이 붙는다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -10,10 +10,10 @@ import { SHORTCUTS } from '../../src/app/shortcuts.ts';
 const { ShortcutHelp } = await import('../../src/app/ShortcutHelp.tsx');
 const noop = () => {};
 
-test('데스크톱 전용은 지도의 Shift·Space·호버 셋뿐이다', () => {
+test('데스크톱 전용은 우클릭 끌기와 지도의 Shift·Space·호버 넷뿐이다', () => {
   assert.deepEqual(
     SHORTCUTS.filter((s) => s.desktopOnly).map((s) => s.id),
-    ['graph.pan', 'graph.reset', 'graph.hover'],
+    ['history.rightdrag', 'graph.pan', 'graph.reset', 'graph.hover'],
   );
 });
 

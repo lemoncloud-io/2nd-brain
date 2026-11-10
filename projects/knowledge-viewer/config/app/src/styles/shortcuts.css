@@ -180,3 +180,36 @@ kbd.kbd {
 .settings-help:hover {
   border-color: var(--line-strong);
 }
+
+/* 우클릭 끌기 표시(useGestureNav). 커서 위에 뜨고 누르기·고르기를 가리지 않는다. armed 는 놓으면 가는 상태다. */
+.gesture-hint {
+  position: fixed;
+  z-index: 70;
+  transform: translate(-50%, calc(-100% - 14px));
+  padding: var(--gap-1) var(--gap-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  transition: background-color 80ms, border-color 80ms, color 80ms;
+}
+
+.gesture-hint[hidden] {
+  display: none;
+}
+
+.gesture-hint[data-armed='1'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gesture-hint {
+    transition: none;
+  }
+}

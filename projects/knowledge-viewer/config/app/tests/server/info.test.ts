@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { vaultInfo } from '../../server/info.ts';
+import { rootId, vaultInfo } from '../../server/info.ts';
 import { makeFixtureVault } from '../helpers/fixture.ts';
 
 let fx: { root: string; cleanup(): void };
@@ -29,6 +29,21 @@ test('vaultInfo: 이름·브랜치·head 가 있고 절대경로는 없다', () 
 test('vaultInfo: 추적 파일을 고치면 dirty', () => {
   fs.appendFileSync(path.join(fx.root, 'wiki/beta.md'), '\n바뀜\n');
   assert.equal(vaultInfo(fx.root).dirty, true);
+});
+
+test('rootId: 같은 폴더면 심링크·다른 철자로 와도 같은 값, 다른 폴더면 다른 값 — 경로는 들어 있지 않다', () => {
+  const id = rootId(fx.root);
+  assert.match(id, /^[0-9a-f]{16}$/);
+  const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'kv-rootid-'));
+  try {
+    const link = path.join(tmp, 'alias');
+    fs.symlinkSync(fx.root, link);
+    assert.equal(rootId(link), id);
+    assert.equal(rootId(path.join(fx.root, 'wiki', '..')), id);
+    assert.notEqual(rootId(tmp), id);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('vaultInfo: git 저장소가 아니면 null 값', () => {

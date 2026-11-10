@@ -69,12 +69,37 @@
   outline-offset: 2px;
 }
 
+/* 인라인 코드 — 글자색·채움·점선 테두리 세 요소로 글에서 바로 구분한다. 줄 높이는 그대로 둔다. */
 .doc code {
   font-family: var(--mono);
   font-size: 0.9em;
-  background: var(--surface-2);
-  border-radius: 3px;
-  padding: 0.1em 0.35em;
+  color: var(--code-fg);
+  background: var(--code-bg);
+  border: 1px dashed var(--code-line);
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  line-height: 1;
+  /* 줄바꿈된 코드도 조각마다 양 끝 테두리가 닫힌다 */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* 인라인 코드 경로 링크(useCodePaths → InlineCode). 코드 모양은 그대로 두고 링크 밑줄 대신 점선 밑줄만 단다. */
+.doc a:has(> code.code-link) {
+  text-decoration: none;
+}
+
+/* 링크 코드는 글자색만 강조색 — 채움·점선 테두리는 일반 코드와 같은 가족 */
+.doc code.code-link {
+  color: var(--accent);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.doc a:hover > code.code-link {
+  color: var(--accent-strong);
+  text-decoration-color: currentColor;
 }
 
 .doc pre {
@@ -86,9 +111,14 @@
   line-height: 1.5;
 }
 
+/* 코드 블록 안은 인라인 강조를 되돌린다 — 블록 상자가 이미 구분한다 */
 .doc pre code {
+  color: inherit;
   background: none;
+  border: 0;
+  border-radius: 0;
   padding: 0;
+  line-height: inherit;
   font-size: var(--fs-sm);
 }
 
@@ -512,6 +542,14 @@
   color: var(--tone-amber-fg);
 }
 
+/* 이 문서를 다루는 앱 화면 링크("…에서 열기"). */
+.meta-app-links {
+  list-style: none;
+  margin: 0 0 var(--gap-2);
+  padding: 0;
+  font-size: var(--fs-sm);
+}
+
 .copy-path {
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
@@ -668,22 +706,53 @@
   font-size: var(--fs-xs);
 }
 
-/* PR 변경 표시(remarkChanged). 에이전트 모드는 클래스 대신 data-changed 라 이 규칙에 닿지 않는다. */
-.doc .changed {
-  border-left: 3px solid var(--tone-green-line);
-  background: var(--tone-green-bg);
+/* PR 변경 표시(remarkChanged). 본문은 최종본 그대로 두고 왼쪽 여백(.col-center 의 padding)에 얇은 바만 세운다
+   (2026-10-27 오너 요청 — 새 문서가 통째로 색칠되던 것을 없앴다). 표식(.changed·data-removed)은 그대로라 요약·목차 점·
+   PR 상세의 이전·다음은 바뀌지 않는다. 에이전트 모드는 클래스 대신 data-changed 라 이 규칙에 닿지 않는다.
+   텍스트 파일 보기(.doc.file-view)는 줄 단위라 제 규칙(file-view.css)을 쓴다. */
+.doc:not(.file-view) .changed,
+.doc:not(.file-view) [data-removed] {
+  position: relative;
 }
 
-/* 코드 블록·표·mermaid 그릇은 자기 안쪽 여백을 지킨다. */
-.doc .changed:not(pre):not(table):not(.mermaid) {
-  padding-left: var(--gap-2);
+/* 더하거나 바꾼 블록: 블록 높이만큼의 초록 세로 바. */
+.doc:not(.file-view) .changed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--gap-3));
+  width: 3px;
+  border-radius: 2px;
+  background: var(--tone-green-line);
+  pointer-events: none;
 }
 
-.doc [data-removed]::after {
+/* 지운 자리: 바로 뒤 블록의 윗머리에 짧은 빨간 가로 바. 마우스를 올리면 −n줄이 보인다. */
+.doc:not(.file-view) [data-removed]::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: calc(-1 * var(--gap-3));
+  width: var(--gap-3);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tone-red-line);
+  pointer-events: none;
+}
+
+.doc:not(.file-view) [data-removed]:hover::after {
   content: '−' attr(data-removed) '줄';
+  top: auto;
+  bottom: 100%;
+  width: auto;
+  height: auto;
+  padding: 0 var(--gap-1);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
   color: var(--tone-red-fg);
-  font-size: var(--fs-sm);
-  margin-left: var(--gap-2);
+  background: var(--tone-red-bg);
+  white-space: nowrap;
 }
 
 .doc-change-summary {

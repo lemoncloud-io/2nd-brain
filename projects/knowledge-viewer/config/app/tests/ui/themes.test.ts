@@ -36,6 +36,9 @@ const vaultDark = tokens.find((b) => b.selector === ":root[data-scheme='dark']")
 const vaultDarkMedia = tokens.find((b) => b.selector === ":root:not([data-scheme='light'])")!;
 const vaultLight = tokens.find((b) => b.selector === ':root')!;
 const REQUIRED = [...vaultDark.vars.keys()];
+// 구문 강조 토큰(--hl-*)은 vault 에만 둔다 — 화면 테마는 덮지 않고 밝기(라이트·다크)에 따라 vault 값을 쓴다.
+const HL = REQUIRED.filter((k) => k.startsWith('--hl-'));
+const THEME_REQUIRED = REQUIRED.filter((k) => !k.startsWith('--hl-'));
 
 test('tokens.css: 다크 블록 둘이 같고 라이트 :root 에 같은 색 토큰이 다 있다', () => {
   assert.ok(REQUIRED.length >= 40, `색 토큰 ${REQUIRED.length} 개`);
@@ -115,7 +118,7 @@ for (const t of THEMES.filter((x) => x.id !== DEFAULT_THEME)) {
       ['라이트', light],
       ['다크', dark],
     ] as const) {
-      assert.deepEqual([...p.keys()].sort(), [...REQUIRED].sort(), `${t.id} ${name}`);
+      assert.deepEqual([...p.keys()].sort(), [...THEME_REQUIRED].sort(), `${t.id} ${name}`);
       for (const [k, v] of p) assert.match(v, /^#[0-9a-f]{6}$/, `${t.id} ${name} ${k}=${v}`);
     }
     // 지도 캔버스는 늘 어둡다 — --graph-* 는 라이트·다크가 같은 값이고 바탕이 어둡다.
@@ -141,6 +144,8 @@ const CHECKS: [string, string, number][] = [
   ['--tone-amber-fg', '--tone-amber-bg', AA_TEXT],
   ['--tone-green-fg', '--tone-green-bg', AA_TEXT],
   ['--tone-red-fg', '--tone-red-bg', AA_TEXT],
+  // 리더 인라인 코드 글/채움
+  ['--code-fg', '--code-bg', AA_TEXT],
 ];
 
 for (const t of THEMES) {
@@ -161,3 +166,20 @@ for (const t of THEMES) {
     }
   });
 }
+
+test('구문 강조 토큰: 여덟 개, 라이트·다크 모두 있고 모든 테마의 코드 바탕(--surface-2) 위에서 4.5:1 이상', () => {
+  assert.equal(HL.length, 8, HL.join(','));
+  for (const t of THEMES) {
+    const p = palettes(t.id);
+    for (const [scheme, pal, hl] of [
+      ['light', p.light, vaultLight.vars],
+      ['dark', p.dark, vaultDark.vars],
+    ] as const) {
+      for (const k of HL) {
+        // 테마는 --hl-* 를 덮지 않으므로 vault 값을 그 테마의 코드 바탕에 댄다.
+        const r = contrastRatio(hl.get(k)!, pal.get('--surface-2')!);
+        assert.ok(r >= AA_TEXT, `${t.id} ${scheme} ${k} on --surface-2 = ${r.toFixed(2)}`);
+      }
+    }
+  }
+});

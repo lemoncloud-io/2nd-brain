@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# origin: lemoncloud-io/knowledge@e5a3687:projects/second-brain/config/skills/doc2md-ingest/scripts/test-d1-extract.py
 # /// script
 # dependencies = []
 # ///

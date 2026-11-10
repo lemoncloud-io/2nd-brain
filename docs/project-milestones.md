@@ -1,10 +1,10 @@
 # 프로젝트 `milestones` 계약
-<!-- origin: lemoncloud-io/knowledge@11357973:docs/project-milestones.md -->
+<!-- origin: lemoncloud-io/knowledge@f68f1d38:docs/project-milestones.md -->
 
 `projects/<name>/README.md`와 `projects/@<org>/<folder>/README.md` frontmatter의 `milestones`
 한 필드가 가질 수 있는 모양·문법·라벨화 기준. 진입점 요약은 `VAULT_RULES.md` § Note Contracts
 **Projects**, 필드 목록 자체는 `templates/project-readme.md`가 정본이다. 같은 판정을 `next_action`
-쪽에 적용한 것이 `docs/project-next-action.md`이고, 두 문서는 같은 원인을 다룬다 — frontmatter
+쪽에 적용한 것이 [`docs/project-next-action.md`](project-next-action.md)이고, 두 문서는 같은 원인을 다룬다 — frontmatter
 한 줄이 본문 몫까지 떠맡는 것.
 
 2026-09-21 제정. 계기는 한 프로젝트 README의 frontmatter가 **파일의 76%**(57,911 B / 75,313 B,
@@ -132,7 +132,7 @@ milestones:
 
 ## 근거 — 2026-09-21 실측
 
-master `4015cdd` 기준, `milestones`를 가진 프로젝트 노트 38건(매핑 24 · 문자열 14, 빈 값 65)의
+제정 시점 master 기준, `milestones`를 가진 프로젝트 노트 38건(매핑 24 · 문자열 14, 빈 값 65)의
 이름 254개 크기 분포:
 
 | 이름 크기 | 건수 |
@@ -163,7 +163,7 @@ master `4015cdd` 기준, `milestones`를 가진 프로젝트 노트 38건(매핑
   그래서 이 계약의 근거는 표 렌더가 아니라 **frontmatter가 통째로 읽히는 자리**라는 점이다 —
   base 열을 추가할 때 이 필드를 후보로 삼지 않는다.
 - 매핑 항목의 `due:`·`done:`은 이름과 같은 깊이(4칸)이고 항목 자체는 2칸이다. 깊이를 맞추지
-  않으면 frontmatter 전체가 파싱되지 않는다 — `docs/project-next-action.md` § 함정의 2026-08-28
+  않으면 frontmatter 전체가 파싱되지 않는다 — `docs/project-next-action.md` § 함정의 merge
   사고와 같은 종류다.
 - 라벨을 줄이면서 `done: true`를 함께 지우지 않는다. 지나온 체크포인트를 목록에서 빼는 것은
   정비가 아니라 이력 삭제다.

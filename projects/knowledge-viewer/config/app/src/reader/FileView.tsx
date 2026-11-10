@@ -1,5 +1,7 @@
 // 가운데 열의 텍스트 파일 보기(md·html 이 아닌 파일). 데이터는 /api/file — 서버가 JSON 문자열로만 준다.
-// 읽기 전용: 파일 이름 머리, 줄 번호, 고정폭, 가로 스크롤(긴 줄을 접지 않는다). 문법 강조는 없다 — 의존성에 하이라이터가 없다.
+// 읽기 전용: 파일 이름 머리, 줄 번호, 고정폭, 가로 스크롤(긴 줄을 접지 않는다).
+// 구문 강조: 확장자로 언어를 고르면(highlight-langs.ts) highlight.js 를 지연 로드해 줄 안의 글자만 토큰 span 으로 바꾼다.
+// 줄 구조(줄 번호·id·변경 덩어리)는 그대로다. 에이전트 모드·모르는 언어·상한 초과는 단색이다.
 // pr 소스면 바뀐 줄을 hunk 덩어리로 칠한다. 덩어리는 리더와 같은 표식(.doc 안의 .changed·data-changed·data-removed)이라
 // PR 상세의 이전·다음 변경(CHANGED_IN_DOC)이 그대로 센다.
 import { useEffect, useMemo, useState } from 'react';
@@ -9,6 +11,8 @@ import { getFile } from '../app/api.ts';
 import type { DocChange } from '../app/types.ts';
 import { formatSize, lineOfAnchor, segmentsOf, splitLines, type FileLine, type FileResponse } from './file-lines.ts';
 import { frameOrigin, rawHref } from './frame.ts';
+import { renderHl, splitHlLines, useHighlight, type HlNode } from './highlight.ts';
+import { langOfPath } from './highlight-langs.ts';
 import { CopyPathButton } from './MetaPanel.tsx';
 
 type BodyProps = {
@@ -18,21 +22,33 @@ type BodyProps = {
   rawUrl: string;
   /** 앵커 `#L12` 의 줄. 그 줄을 강조한다. */
   targetLine?: number | null;
+  /** 줄별 토큰(시험이 바꿔 끼운다). 빼면 확장자로 고른 언어를 지연 로드해 강조한다. */
+  tokens?: HlNode[][] | null;
 };
 
-function Line({ line, target }: { line: FileLine; target: number | null }) {
+function Line({ line, target, tokens }: { line: FileLine; target: number | null; tokens: HlNode[][] | null }) {
+  // 그 줄의 토큰이 있으면 span 으로, 없으면 글자 그대로.
+  const hl = tokens?.[line.n - 1];
   return (
     <span className={line.n === target ? 'file-line file-line-target' : 'file-line'} id={`L${line.n}`}>
       {/* 번호는 ::before 로 그린다 — 본문을 고를 때 번호가 따라오지 않게. */}
       <span className="file-ln" data-ln={line.n} aria-hidden="true" />
-      <span className="file-text">{line.text}</span>
+      <span className="file-text">{hl === undefined ? line.text : renderHl(hl)}</span>
     </span>
   );
 }
 
 /** 응답 하나를 그린다(요청 없음). SSR 시험이 이것을 그린다. */
-export function FileBody({ file, agent, rawUrl, targetLine = null }: BodyProps) {
+export function FileBody({ file, agent, rawUrl, targetLine = null, tokens: givenTokens }: BodyProps) {
   const lines = useMemo(() => splitLines(file.text), [file.text]);
+  // 강조는 \r 을 뗀 줄을 다시 이은 글에 한다 — 토큰 줄 수가 줄 번호와 맞게.
+  const joined = useMemo(() => lines.join('\n'), [lines]);
+  const lang = file.binary ? null : langOfPath(file.path);
+  const nodes = useHighlight(joined, lang, !agent && givenTokens === undefined);
+  const loaded = useMemo(() => (nodes === null ? null : splitHlLines(nodes)), [nodes]);
+  // 줄 수가 어긋나면(예상 밖) 강조를 버린다.
+  const picked = givenTokens !== undefined ? givenTokens : loaded;
+  const tokens = picked !== null && picked.length === lines.length ? picked : null;
   const segments = useMemo(() => segmentsOf(lines, file.change), [lines, file.change]);
   const name = file.path.split('/').pop() ?? file.path;
 
@@ -106,11 +122,11 @@ export function FileBody({ file, agent, rawUrl, targetLine = null }: BodyProps) 
               <code>
                 {segments.map((s) =>
                   s.kind === 'line' ? (
-                    <Line key={s.line.n} line={s.line} target={targetLine} />
+                    <Line key={s.line.n} line={s.line} target={targetLine} tokens={tokens} />
                   ) : s.kind === 'hunk' ? (
                     <span key={`h${s.start}`} className="file-hunk changed" data-lines={`${s.start}-${s.end}`}>
                       {s.lines.map((l) => (
-                        <Line key={l.n} line={l} target={targetLine} />
+                        <Line key={l.n} line={l} target={targetLine} tokens={tokens} />
                       ))}
                     </span>
                   ) : (
@@ -134,11 +150,13 @@ type Props = {
   anchor: string;
   /** /api/info 의 git 소스 출처 포트. 모르면 주 포트 + 1. */
   gitRawPort?: number | null;
+  /** /api/info 의 주 포트. 개인 이름 뒤에서만 쓴다(frameOrigin). */
+  rawPort?: number | null;
   /** 받은 파일의 변경(pr 소스). PR 상세 패널이 쓴다. */
   onChange?: (change: DocChange | null) => void;
 };
 
-export function FileView({ path, src, agent, anchor, gitRawPort, onChange }: Props) {
+export function FileView({ path, src, agent, anchor, gitRawPort, rawPort, onChange }: Props) {
   // 받은 것은 요청 키(소스·경로)와 함께 둔다 — 주소가 바뀐 뒤 새 응답이 오기 전에 옛 파일을 그리지 않게.
   const key = `${sourceKey(src)}\0${path}`;
   const [got, setGot] = useState<{ key: string; file: FileResponse | null; error: string | null } | null>(null);
@@ -172,6 +190,6 @@ export function FileView({ path, src, agent, anchor, gitRawPort, onChange }: Pro
 
   if (error !== null) return <p className="notice">{error}</p>;
   if (file === null) return <p className="notice">불러오는 중…</p>;
-  const rawUrl = rawHref(frameOrigin(location.hostname, location.port, src, gitRawPort), path, '', src);
+  const rawUrl = rawHref(frameOrigin(location.hostname, location.port, src, gitRawPort, rawPort), path, '', src);
   return <FileBody file={file} agent={agent} rawUrl={rawUrl} targetLine={lineOfAnchor(anchor)} />;
 }

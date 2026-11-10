@@ -1,8 +1,11 @@
 // 상단바 ⚙ 설정 메뉴. 자주 안 쓰는 조절(소스·검색 범위·화면 테마·다이어그램 테마·원격 이미지·패널 켜기)을 한 곳에 모아 상단 줄이 넘치지 않게 한다.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { DEFAULT_REMOTE_IMAGE_HOSTS, parseHostList } from '../../shared/image-src.ts';
+import { ARCHIFY_ZOOM_STEPS } from '../../shared/archify-fit.ts';
+import { parseHostList } from '../../shared/image-src.ts';
+import { ARCHIFY_ZOOM_ROW, DEFAULT_REMOTE_IMAGE_HOSTS } from '../ext/registry.ts';
 import type { Source } from '../../shared/source.ts';
+import { setArchifyZoom, useArchifyZoom } from '../archify/archify-zoom.ts';
 import { embeddingStatusText, embeddingStore } from '../graph/embedding.ts';
 import type { EmbeddingStore } from '../graph/embedding.ts';
 import { MermaidThemeSelect } from '../reader/MermaidThemeSelect.tsx';
@@ -11,15 +14,20 @@ import { PanelSettings } from '../panels/PanelSettings.tsx';
 import type { PanelPrefs } from '../panels/prefs.ts';
 import type { Panel } from '../panels/registry.ts';
 import { IconGear } from './icons.tsx';
+import { PrNumberInput } from './PrNumberInput.tsx';
 import { emitShortcutEvent, onShortcutEvent } from './shortcut-events.ts';
 import { SourceSelect } from './SourceSelect.tsx';
 import { ThemeSelect } from './ThemeSelect.tsx';
 
 export type SettingsPanelProps = {
+  /** "그림 글자" 줄을 보이는가. 기본은 확장 층(archifyZoom 을 켠 화면이 있을 때). 시험이 바꿔 끼운다. */
+  archifyZoom?: boolean;
   src: Source;
   prs: { number: number; title: string }[];
   mainAvailable: boolean;
   onSourceChange: (src: Source) => void;
+  /** PR 번호 칸 → 그 PR 로(App 의 enterPr). 없으면 칸을 그리지 않는다. */
+  onEnterPr?: (number: number) => void;
   /** main 을 못 써 local 로 떨어졌으면 그 까닭. 메뉴 안에 글로 보인다. */
   fallbackReason: string | null;
   /** 검색이 raw·archive 까지 보는가. */
@@ -133,6 +141,29 @@ function RemoteImageRow({ store }: { store: RemoteImageStore }) {
   );
 }
 
+/**
+ * "그림 글자" 줄: 확장 화면에 든 archify 그림의 글자 크기 단계. 글자만 키우면 노드 상자를 넘쳐(130·150% 실측)
+ * 그림을 통째로 키운다 — 글자와 상자가 함께 커지고, 열보다 넓어지면 그림 칸 안에서 가로로 민다. 열린 그림에 바로 반영된다.
+ */
+function ArchifyZoomSelect() {
+  const zoom = useArchifyZoom();
+  return (
+    <select
+      className="archify-zoom-select"
+      aria-label="그림 글자 크기"
+      title="archify 그림의 글자 크기 — 그림을 통째로 키워 글자가 상자를 넘치지 않는다"
+      value={zoom}
+      onChange={(e) => setArchifyZoom(Number(e.target.value))}
+    >
+      {ARCHIFY_ZOOM_STEPS.map((z) => (
+        <option key={z} value={z}>
+          {z}%
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** 메뉴 안쪽. 시험이 따로 그린다. 한 줄이 "라벨 | 조절" 인 압축 격자다 — 절 제목을 따로 두지 않는다. */
 export function SettingsPanel(p: SettingsPanelProps) {
   const [panelsOpen, setPanelsOpen] = useState(false);
@@ -142,7 +173,11 @@ export function SettingsPanel(p: SettingsPanelProps) {
       <div className="settings-grid">
         <span className="settings-h">소스</span>
         <div className="settings-cell">
-          <SourceSelect src={p.src} prs={p.prs} mainAvailable={p.mainAvailable} onChange={p.onSourceChange} />
+          {/* 선택 상자에는 열린 PR 만 있다 — 닫힌·머지된 PR 은 옆 칸에 번호로 연다. */}
+          <div className="src-row">
+            <SourceSelect src={p.src} prs={p.prs} mainAvailable={p.mainAvailable} onChange={p.onSourceChange} />
+            {p.onEnterPr !== undefined ? <PrNumberInput onEnterPr={p.onEnterPr} /> : null}
+          </div>
           {p.fallbackReason !== null && p.src.kind === 'local' ? (
             <p className="settings-note" role="status">
               메인을 못 열어 로컬로 연다: {p.fallbackReason}
@@ -158,6 +193,12 @@ export function SettingsPanel(p: SettingsPanelProps) {
         <ThemeSelect compact />
         <span className="settings-h">다이어그램</span>
         <MermaidThemeSelect compact />
+        {(p.archifyZoom ?? ARCHIFY_ZOOM_ROW) ? (
+          <>
+            <span className="settings-h">그림 글자</span>
+            <ArchifyZoomSelect />
+          </>
+        ) : null}
         <EmbeddingRow store={p.embedding ?? embeddingStore} />
         <RemoteImageRow store={p.remoteImages ?? remoteImageStore} />
         <span className="settings-h">패널</span>
@@ -190,7 +231,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
   );
 }
 
-/** ⚙ 단추 + 메뉴. Esc·바깥 클릭으로 닫힌다. 소스를 고르면 닫힌다. */
+/** ⚙ 단추 + 메뉴. Esc·바깥 클릭으로 닫힌다. 소스를 고르거나 PR 번호로 옮기면 닫힌다. */
 export function SettingsMenu(p: SettingsPanelProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -235,7 +276,7 @@ export function SettingsMenu(p: SettingsPanelProps) {
         aria-label="설정"
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="설정 — 소스·검색 범위·테마·다이어그램·이미지·패널 켜기·순서"
+        title="설정 — 소스·검색 범위·테마·다이어그램·그림 글자·이미지·패널 켜기·순서"
         onClick={() => setOpen((v) => !v)}
       >
         <IconGear />
@@ -247,6 +288,14 @@ export function SettingsMenu(p: SettingsPanelProps) {
             setOpen(false);
             p.onSourceChange(s);
           }}
+          onEnterPr={
+            p.onEnterPr === undefined
+              ? undefined
+              : (n) => {
+                  setOpen(false);
+                  p.onEnterPr!(n);
+                }
+          }
         />
       ) : null}
     </div>

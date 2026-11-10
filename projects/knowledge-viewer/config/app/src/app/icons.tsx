@@ -23,6 +23,16 @@ export function Svg({ size = 16, children }: IconProps & { children: ReactNode }
   );
 }
 
+/** 계층(층층이 놓인 상자) — 구조를 층으로 보는 화면(링크 그래프와 구분). */
+export function IconLayers({ size }: IconProps) {
+  return <Svg size={size}>
+    <rect x="8" y="2" width="8" height="6" rx="1" />
+    <rect x="2" y="16" width="7" height="6" rx="1" />
+    <rect x="15" y="16" width="7" height="6" rx="1" />
+    <path d="M12 8v4H5.5v4M12 12h6.5v4" />
+  </Svg>;
+}
+
 /** 왼쪽 패널(트리). open 이면 안쪽을 채운다. */
 export function IconPanelLeft({ open, size }: IconProps & { open: boolean }) {
   return (
@@ -201,6 +211,16 @@ export function IconInfo({ size }: IconProps) {
   );
 }
 
+/** 닫기(×): PR 상세의 "PR 리뷰 닫기 — 메인으로" 단추. */
+export function IconClose({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </Svg>
+  );
+}
+
 /** PR 상세(패널 제목): 바뀐 줄을 표시한 문서. */
 export function IconDiff({ size }: IconProps) {
   return (
@@ -214,7 +234,18 @@ export function IconDiff({ size }: IconProps) {
   );
 }
 
-/** 뷰어 모음(패널 제목): 네 칸 격자. */
+/** 검증 워크벤치(앱): 체크 표시가 있는 서식 판. */
+export function IconChecklist({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+      <rect x="9" y="3" width="6" height="3" rx="1" />
+      <polyline points="8.5 13 11 15.5 15.5 10.5" />
+    </Svg>
+  );
+}
+
+/** 뷰어 모음(패널 제목)·앱 메뉴 단추·기본 앱 아이콘: 네 칸 격자. */
 export function IconGrid({ size }: IconProps) {
   return (
     <Svg size={size}>

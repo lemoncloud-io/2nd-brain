@@ -1,0 +1,61 @@
+.viewer-fatal {
+  height: 100%;
+  overflow: auto;
+  padding: var(--gap-5);
+}
+
+/* 지도·임베드의 overflow:hidden도 오류 안내가 나오면 스크롤을 허용한다. */
+.col-center:has(> .viewer-error) {
+  overflow: auto;
+}
+
+.viewer-error {
+  width: min(100%, 860px);
+  margin: var(--gap-5) auto;
+  padding: var(--gap-5);
+  border: 1px solid var(--tone-red-line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.viewer-error-kind {
+  margin: 0 0 var(--gap-2);
+  color: var(--tone-red-fg);
+  font-weight: 600;
+}
+
+.viewer-error h1 { margin: 0 0 var(--gap-4); font-size: var(--fs-xl); }
+.viewer-error-message {
+  padding: var(--gap-3);
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  white-space: pre-wrap;
+}
+.viewer-error-meta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--gap-2) var(--gap-3); font-size: var(--fs-sm); }
+.viewer-error-meta dt { color: var(--text-2); }
+.viewer-error-meta dd { margin: 0; }
+.viewer-error-actions { display: flex; flex-wrap: wrap; gap: var(--gap-2); margin: var(--gap-4) 0; }
+.viewer-error-actions button, .viewer-error-actions a {
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: var(--gap-2) var(--gap-3);
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.viewer-error-actions :is(button, a):hover { background: var(--surface-3); }
+.viewer-error-details { border-top: 1px solid var(--line); padding-top: var(--gap-3); }
+.viewer-error-details summary { cursor: pointer; color: var(--text-2); }
+.viewer-error-details pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: var(--fs-xs); max-height: 45vh; overflow: auto; }
+@media (max-width: 600px) {
+  .viewer-fatal { padding: var(--gap-2); }
+  .viewer-error { padding: var(--gap-3); margin: var(--gap-2) auto; }
+  .viewer-error-meta { grid-template-columns: minmax(0, 1fr); gap: var(--gap-1); }
+}

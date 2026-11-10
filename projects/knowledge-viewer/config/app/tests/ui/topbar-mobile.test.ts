@@ -1,4 +1,4 @@
-// 폰 폭 상단바의 구조: 경로 끝 두 조각 표시(crumb-tail), 검색 아이콘 단추, 검색 줄 자리. 보이고 숨기는 것은 mobile.css 다.
+// 반응형 상단바: 경로 끝 두 조각 표시, 검색 아이콘과 기본으로 숨겨진 입력.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -10,7 +10,7 @@ const { TopBar } = await import('../../src/app/TopBar.tsx');
 
 const noop = () => {};
 const base = {
-  path: 'projects/dou/features/dou-subscription-web/README.md',
+  path: 'projects/demo/features/demo-signup/README.md',
   agent: false,
   view: 'doc' as const,
   rightOpen: false,
@@ -56,6 +56,8 @@ test('검색: 아이콘 단추는 닫힌 채(aria-expanded=false)로, 검색 줄
   const html = renderToStaticMarkup(createElement(TopBar, base));
   assert.match(html, /class="icon-btn search-toggle" aria-expanded="false" aria-label="검색 열기"/);
   assert.match(html, /class="search-slot" data-slot="search"/);
+  assert.match(html, /id="vault-search" hidden=""/);
+  assert.match(html, /aria-controls="vault-search"/);
   assert.doesNotMatch(html, /search-slot-open/);
 });
 

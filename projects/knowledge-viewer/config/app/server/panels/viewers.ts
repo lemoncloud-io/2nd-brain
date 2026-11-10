@@ -8,6 +8,7 @@ import path from 'node:path';
 
 import { parse } from 'yaml';
 
+import { viewerSpecOfOutput } from '../../shared/viewer-spec.ts';
 import { isFileInside, resolveDiskPath } from '../handlers.ts';
 
 export const REGISTRY_PATH = 'projects/knowledge-viewer/viewers.yml';
@@ -15,10 +16,13 @@ export const PING_TIMEOUT_MS = 300;
 export const VIEWERS_TTL_MS = 10_000;
 /** project-viewers 가 펼치는 산출물 위치: projects/<name>/outputs/viewer/index.html */
 const PROJECT_VIEWER_FILE = 'outputs/viewer/index.html';
+/** 그 스펙: projects/<name>/config/viewer.yml. 있으면 볼트 뷰어 안의 통합 보기로 연다(빌드 없이도). */
+const PROJECT_VIEWER_SPEC = 'config/viewer.yml';
 
 export type ViewerStatus = 'ok' | 'missing' | 'up' | 'down' | 'manual';
 export type ViewerOpen =
-  | { kind: 'static'; path: string; ask: string | null }
+  /** spec: 프로젝트 뷰어 산출물이고 그 viewer.yml 이 있으면 그 경로 — 화면은 새 탭 대신 통합 보기로 연다. */
+  | { kind: 'static'; path: string; ask: string | null; spec?: string }
   | { kind: 'server'; url: string | null; port: number | null; launch: string | null; ask: string };
 export type Viewer = {
   id: string;
@@ -190,18 +194,29 @@ export class ViewersSource {
     return abs !== null && isFileInside(this.root, abs);
   }
 
-  /** projects/<name>/outputs/viewer/index.html 이 있는 프로젝트. 이름순. 제목은 config/viewer.yml 의 meta.title. */
-  private projectViewers(): { name: string; path: string; title: string | null; summary: string | null }[] {
+  /** static 산출물이 프로젝트 뷰어 것이고 그 viewer.yml 이 있으면 그 경로. 아니면 null. */
+  private specOf(output: string): string | null {
+    const spec = viewerSpecOfOutput(output);
+    return spec !== null && this.exists(spec) ? spec : null;
+  }
+
+  /**
+   * 산출물(projects/<name>/outputs/viewer/index.html) 또는 스펙(config/viewer.yml)이 있는 프로젝트. 이름순.
+   * 스펙만 있어도 넣는다 — 통합 보기는 빌드 없이 그린다. 제목은 config/viewer.yml 의 meta.title.
+   */
+  private projectViewers(): { name: string; path: string; spec: string | null; title: string | null; summary: string | null }[] {
     let names: string[];
     try {
       names = fs.readdirSync(path.join(this.root, 'projects'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
     } catch {
       return [];
     }
-    const out: { name: string; path: string; title: string | null; summary: string | null }[] = [];
+    const out: { name: string; path: string; spec: string | null; title: string | null; summary: string | null }[] = [];
     for (const name of names.sort()) {
       const rel = `projects/${name}/${PROJECT_VIEWER_FILE}`;
-      if (!this.exists(rel)) continue;
+      const specRel = `projects/${name}/${PROJECT_VIEWER_SPEC}`;
+      const spec = this.exists(specRel) ? specRel : null;
+      if (!this.exists(rel) && spec === null) continue;
       let title: string | null = null;
       let summary: string | null = null;
       try {
@@ -213,7 +228,7 @@ export class ViewersSource {
       } catch {
         // viewer.yml 이 없거나 깨졌으면 이름으로 부른다.
       }
-      out.push({ name, path: rel, title, summary });
+      out.push({ name, path: rel, spec, title, summary });
     }
     return out;
   }
@@ -234,7 +249,9 @@ export class ViewersSource {
       const base = { id: e.id, title: e.title, description: e.description, skill: e.skill };
       const o = e.open;
       if (o.kind === 'static') {
-        viewers.push({ ...base, open: o, status: this.exists(o.path) ? 'ok' : 'missing', group: null });
+        const spec = this.specOf(o.path);
+        const open = spec === null ? o : { ...o, spec };
+        viewers.push({ ...base, open, status: this.exists(o.path) || spec !== null ? 'ok' : 'missing', group: null });
       } else if (o.kind === 'project-viewers') {
         for (const pv of this.projectViewers()) {
           viewers.push({
@@ -242,7 +259,7 @@ export class ViewersSource {
             title: pv.title ?? `${pv.name} 뷰어`,
             description: pv.summary ?? e.description,
             skill: e.skill,
-            open: { kind: 'static', path: pv.path, ask: o.ask ?? `${pv.name} 뷰어 보여줘` },
+            open: { kind: 'static', path: pv.path, ask: o.ask ?? `${pv.name} 뷰어 보여줘`, ...(pv.spec === null ? {} : { spec: pv.spec }) },
             status: 'ok',
             group: e.title,
           });

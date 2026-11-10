@@ -3,11 +3,12 @@ import type React from 'react';
 
 import { LOCAL, parseSource, sourceKey } from '../../shared/source.ts';
 import type { Source } from '../../shared/source.ts';
-import { ApiError, getDoc, getInfo, getPrChanges, getPrRepos, getPrs, getTree } from './api.ts';
+import { getDoc, getInfo, getPrChanges, getPrRepos, getPrs, getTree } from './api.ts';
 import { changedMapOf } from './changed.ts';
 import { ChangedEventsContext, type ChangedEvents } from './events.ts';
 import { FolderView } from './FolderView.tsx';
 import { LazyBoundary } from './LazyBoundary.tsx';
+import { RuntimeErrorGate, ViewerErrorBoundary } from './ViewerErrorBoundary.tsx';
 import { GraphListView } from '../graph/GraphListView.tsx';
 import { GraphControls, type GraphControlValues, type GraphHubs, type GraphStats } from '../graph/GraphControls.tsx';
 import type { RotateMode } from '../graph/autorotate.ts';
@@ -21,12 +22,18 @@ import { PanelHeading } from '../panels/PanelHeading.tsx';
 import { isCollapsed, loadPrefs, savePrefs, toggleCollapsed, visiblePanels, type PanelPrefs } from '../panels/prefs.ts';
 import { FileView } from '../reader/FileView.tsx';
 import { HtmlFrame } from '../reader/HtmlFrame.tsx';
+import { IntegratedViewLink, ViewerSpecView } from '../reader/ViewerSpecView.tsx';
+import { isViewerSpecPath } from '../../shared/viewer-spec.ts';
 import { CopyPathButton } from '../reader/MetaPanel.tsx';
 import { Reader } from '../reader/Reader.tsx';
 import { TemplateView } from '../reader/TemplateView.tsx';
-import { frameOrigin, isHtmlPath, rawHref, shouldHopToRaw } from '../reader/frame.ts';
+import { frameOrigin, isHtmlPath, isNamedHost, rawHref, shouldHopToRaw } from '../reader/frame.ts';
 import { TopBar } from './TopBar.tsx';
+import { enterPr } from './enter-pr.ts';
+import { isNotFound, nearestFolder, parentDir } from './missing-fallback.ts';
 import { GlobalShortcuts } from './Shortcuts.tsx';
+import { SwitchingVeil } from './SwitchingVeil.tsx';
+import { useSourceSwitch } from './useSourceSwitch.ts';
 import { Tree } from './Tree.tsx';
 // 설정은 기능별 파일에서 바로 가져온다 — 한 줄짜리 import 를 여러 PR 이 같이 고쳐 충돌하던 것을 막는다.
 import { readLeftOpen, readRightOpen, writeLeftOpen, writeRightOpen } from './prefs/layout.ts';
@@ -61,7 +68,25 @@ import {
   type Route,
   type View,
 } from './route.ts';
-import type { DocChange, DocResponse, PrChanges, RevealRequest, TreeEntry, VaultInfo } from './types.ts';
+import type { DocChange, DocResponse, PrChanges, RevealRequest, TreeEntry, TreeResponse, VaultInfo } from './types.ts';
+import { APP_UIS, findAppUi } from '../apps/registry.ts';
+import { EXT_VIEWS } from '../ext/registry.ts';
+import type { CenterViewExtension, CenterViewProps } from '../ext/define.ts';
+import { findView, isHashRouted, viewAnchor } from './ext-views.ts';
+import { AppView } from '../apps/AppView.tsx';
+import { readAppToken } from '../apps/token.ts';
+import { isAppHref, popAction, servedAsAppAt, shouldFullLoad } from '../apps/leave.ts';
+
+// 확장 화면은 각자 지연 청크다(load). 보기마다 lazy 하나를 만들어 둔다 — 그리기마다 새로 만들면 다시 불러온다.
+const extViewPanes = new Map<string, React.LazyExoticComponent<React.ComponentType<CenterViewProps>>>();
+function extViewPane(view: CenterViewExtension): React.LazyExoticComponent<React.ComponentType<CenterViewProps>> {
+  let pane = extViewPanes.get(view.id);
+  if (pane === undefined) {
+    pane = lazy(view.load);
+    extViewPanes.set(view.id, pane);
+  }
+  return pane;
+}
 
 // 지도는 three.js 를 끌어온다. 첫 화면(index 청크)에 싣지 않게 따로 불러온다.
 const GraphView = lazy(() => import('../graph/GraphView.tsx'));
@@ -71,6 +96,10 @@ export { ChangedEventsContext };
 export type { ChangedEvents };
 
 const readRoute = (): Route => parseLocation(location.pathname, location.search, location.hash);
+
+// 이 문서가 앱 페이지(`/apps/…`, 앱 CSP 가 붙은 응답)로 서빙됐는가. 첫 진입 주소로 한 번만 판정한다.
+const SERVED_AS_APP = typeof location === 'undefined' ? false : servedAsAppAt(location.pathname);
+
 
 const dirOf = (p: string): string => p.split('/').slice(0, -1).join('/');
 
@@ -130,7 +159,15 @@ export function App() {
   const onToggleRight = useCallback(() => (narrow ? toggleDrawer('right') : toggleRight()), [narrow, toggleDrawer, toggleRight]);
 
   useEffect(() => {
-    const onPop = () => setRoute(readRoute());
+    const onPop = () => {
+      // 앱 문서 ↔ 비앱 주소로 뒤로·앞으로 오면 다시 읽어 서버 헤더(CSP)를 주소에 맞춘다.
+      const next = readRoute();
+      if (popAction({ servedAsApp: SERVED_AS_APP, nextIsApp: next.app !== undefined }) === 'reload') {
+        location.reload();
+        return;
+      }
+      setRoute(next);
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
@@ -139,8 +176,16 @@ export function App() {
   // 지도 인자(깊이·모드·전체)는 GraphTarget 으로 준다. 주소가 상태다.
   const navigate = useCallback<NavigateFn>(
     (path: string, anchor?: string, to?: Source, view?: View | GraphTarget) => {
-      history.pushState(null, '', hrefFor(path, anchor, route.agent, to ?? src, view));
+      const href = hrefFor(path, anchor, route.agent, to ?? src, view);
+      // 앱 문서에서 나가는 이동은 전체 페이지 이동이다 — 앱 CSP 가 문서에 남아 html iframe 을 막는다.
+      if (shouldFullLoad({ servedAsApp: SERVED_AS_APP, toApp: isAppHref(href) })) {
+        window.location.assign(href);
+        return;
+      }
+      history.pushState(null, '', href);
       setRoute(readRoute());
+      // 이미 열린 내부 HashRouter에도 바깥 메뉴에서 바꾼 주소를 전달한다.
+      if (typeof view === 'string' && isHashRouted(EXT_VIEWS, view)) window.dispatchEvent(new PopStateEvent('popstate'));
     },
     [route.agent, src],
   );
@@ -151,8 +196,11 @@ export function App() {
   // 지도 보기에서 소스를 바꾸면 지도(깊이·모드·전체)를 그대로 둔다. 지도 데이터는 소스와 무관하다(주 색인).
   const { depth: gDepth, mode: gMode, all: gAll } = route.graph;
   const setSource = useCallback(
-    (to: Source) =>
-      navigate(pathRef.current, undefined, to, route.view === 'graph' ? { view: 'graph', depth: gDepth, mode: gMode, all: gAll } : undefined),
+    (to: Source) => {
+      // 확장 화면이면 그 화면을 둔다. HashRouter의 pushState는 popstate를 내지 않는다 — 바깥 route의 오래된 anchor 대신 실제 해시를 읽는다.
+      const ext = findView(EXT_VIEWS, route.view);
+      navigate(pathRef.current, ext !== null ? viewAnchor(ext, window.location.hash) : undefined, to, route.view === 'graph' ? { view: 'graph', depth: gDepth, mode: gMode, all: gAll } : ext !== null ? ext.id : undefined);
+    },
     [navigate, route.view, gDepth, gMode, gAll],
   );
 
@@ -173,8 +221,10 @@ export function App() {
         if (cur.src.kind !== 'main') return;
         setFallbackReason(main.reason ?? 'origin/master 를 읽지 못했다');
         // 지도 주소로 들어왔으면 지도 인자도 그대로 옮긴다.
-        const keep = cur.view === 'graph' ? { view: 'graph' as const, ...cur.graph } : undefined;
-        history.replaceState(null, '', hrefFor(cur.path, cur.anchor, cur.agent, LOCAL, keep));
+        // 확장 화면 주소면 그 화면과 실제 해시를 그대로 옮긴다.
+        const ext = findView(EXT_VIEWS, cur.view);
+        const keep = cur.view === 'graph' ? { view: 'graph' as const, ...cur.graph } : ext !== null ? ext.id : undefined;
+        history.replaceState(null, '', hrefFor(cur.path, ext !== null ? viewAnchor(ext, window.location.hash) : cur.anchor, cur.agent, LOCAL, keep));
         setRoute(readRoute());
       },
       () => {
@@ -219,6 +269,8 @@ export function App() {
   );
 
   // 검색 상자에서 고르면: 문서 보기는 그 문서를 열고, 지도 보기는 그 문서가 중심인 지도로 간다.
+  // 검색 상자에 PR 번호 → 그 PR 로(PR 패널의 "이 PR 로 보기"와 같은 규칙).
+  const onEnterPr = useCallback((n: number) => void enterPr(n, () => pathRef.current, { onSource: setSource, onNavigate: navigate }), [setSource, navigate]);
   const onSearchPick = useCallback(
     (p: string) => navigate(p, undefined, undefined, searchTarget({ view: route.view, graph: route.graph }, p)),
     [navigate, route.view, route.graph],
@@ -277,22 +329,35 @@ export function App() {
   const hash = route.anchor === '' ? '' : `#${route.anchor}`;
   const hop = shouldHopToRaw(route);
   const isHtml = isHtmlPath(route.path);
+  // viewer.yml 은 렌더된 프로젝트 뷰어가 기본 화면이다(틀 모드). 에이전트 모드는 텍스트라 보통 열이다.
+  const isSpec = isViewerSpecPath(route.path) && !route.agent;
   // 지도는 md 문서에서만 그린다. 그 밖의 경로는 view=graph 여도 보통 화면(안내문)이다.
   const graphMode = route.view === 'graph' && route.path.endsWith('.md');
 
   // 에이전트 모드: iframe 안은 읽을 수 없으므로 원본 주소로 건너뛴다.
   // git 소스(main·pr)면 /api/info 를 기다린다 — main 을 못 쓰면 폴백(local)과 같은 소스로, 그리고 git 소스 html 은
   // git 포트 출처(info.gitRawPort)로 건너뛰어야 한다. local 은 바로 건너뛴다.
+  // 개인 이름 뒤면 local 도 기다린다(예전 rawPort 규칙의 흔적). 출처는 이제 같은 호스트라 기다림은 무해하다.
   const mainUnavailable = info?.sources?.main.available === false;
   const gitRawPort = info?.gitRawPort ?? null;
-  const hopWaits = src.kind !== 'local' && !infoDone;
+  const rawPort = info?.rawPort ?? null;
+  const framesWait = (src.kind !== 'local' || isNamedHost(location.hostname)) && !infoDone;
   useEffect(() => {
-    if (!hop || hopWaits) return;
+    if (!hop || framesWait) return;
     const to = src.kind === 'main' && mainUnavailable ? LOCAL : src;
-    location.replace(rawHref(frameOrigin(location.hostname, location.port, to, gitRawPort), route.path, hash, to));
-  }, [hop, hopWaits, mainUnavailable, gitRawPort, route.path, hash, src]);
+    location.replace(rawHref(frameOrigin(location.hostname, location.port, to, gitRawPort, rawPort), route.path, hash, to));
+  }, [hop, framesWait, mainUnavailable, gitRawPort, rawPort, route.path, hash, src]);
+
+  // 없는 문서·폴더에서 떨어지며 받아 둔 착지 폴더의 목록. 그 폴더 주소의 효과가 같은 요청을 다시 보내지 않고 쓴다.
+  // 다른 주소로 가면 버린다(StrictMode 의 두 번 실행에도 맞게, 쓴 뒤 바로 지우지 않는다).
+  const landed = useRef<{ key: string; dir: string; tree: TreeResponse } | null>(null);
 
   useEffect(() => {
+    // 앱 화면은 문서를 읽지 않는다. 제목만 앱 이름으로.
+    if (route.app !== undefined) {
+      document.title = `${findAppUi(APP_UIS, route.app)?.title ?? '앱'} · knowledge-viewer`;
+      return;
+    }
     const leaf = isFolderPath(route.path) ? `${folderOf(route.path).split('/').pop() ?? ''}/` : (route.path.split('/').pop() ?? '');
     document.title = `${leaf} · knowledge-viewer`;
     setDoc(null);
@@ -300,48 +365,74 @@ export function App() {
     setFolder(null);
     setMissing((m) => (m !== null && m.at === route.path ? m : null));
     let live = true;
+    const fail = (e: unknown) => live && setError(e instanceof Error ? e.message : String(e));
+    // git 소스에 없는 경로: 그 소스에 실제로 있는 가장 가까운 상위 폴더(없으면 루트)로 떨어뜨리고 알림을 단다(소스는 그대로).
+    // 이미 단 알림(없는 문서에서 온 README 등)이 있으면 원래 문구를 그대로 옮긴다.
+    const fallBack = (from: string, text: string) => {
+      nearestFolder(from, (d) => getTree(d, src), () => live).then((hit) => {
+        if (hit === null || !live) return;
+        const folderPath = `${hit.dir}/`;
+        landed.current = hit.listing === null ? null : { key: sourceKey(src), dir: hit.dir, tree: hit.listing };
+        setMissing((m) => (m !== null && m.at === route.path ? { ...m, at: folderPath } : { at: folderPath, text }));
+        history.replaceState(null, '', hrefFor(folderPath, undefined, route.agent, src));
+        setRoute(readRoute());
+      }, fail);
+    };
     if (isFolderPath(route.path)) {
       // 폴더 주소: README 가 있으면 그 문서로 바꿔 열고, 없으면 목록이 기본 화면이다.
       const dir = folderOf(route.path);
+      const show = (t: TreeResponse) => {
+        const readme = t.entries.find((e) => e.kind === 'md' && e.name === 'README.md');
+        if (readme) {
+          // 없는 문서에서 떨어져 왔으면 알림을 README 로 옮겨 단다.
+          setMissing((m) => (m !== null && m.at === route.path ? { ...m, at: readme.path } : m));
+          history.replaceState(null, '', hrefFor(readme.path, undefined, route.agent, src));
+          setRoute(readRoute());
+          return;
+        }
+        setFolder({ dir, entries: t.entries });
+      };
+      const pre = landed.current;
+      if (pre !== null && pre.key === sourceKey(src) && pre.dir === dir) {
+        show(pre.tree);
+        return;
+      }
+      landed.current = null;
       getTree(dir, src).then(
-        (t) => {
+        (t) => live && show(t),
+        (e: unknown) => {
           if (!live) return;
-          const readme = t.entries.find((e) => e.kind === 'md' && e.name === 'README.md');
-          if (readme) {
-            // 없는 문서에서 떨어져 왔으면 알림을 README 로 옮겨 단다.
-            setMissing((m) => (m !== null && m.at === route.path ? { ...m, at: readme.path } : m));
-            history.replaceState(null, '', hrefFor(readme.path, undefined, route.agent, src));
-            setRoute(readRoute());
+          // git 소스에 없는 폴더(PR 을 바꿨을 때 등)도 위로 올라간다. local 은 디스크라 없는 경로는 진짜 오류다.
+          const up = parentDir(dir);
+          if (isNotFound(e) && src.kind !== 'local' && up !== null) {
+            fallBack(up, `이 소스엔 없는 폴더: ${route.path}`);
             return;
           }
-          setFolder({ dir, entries: t.entries });
+          fail(e);
         },
-        (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
       );
       return () => {
         live = false;
       };
     }
+    landed.current = null;
     if (!route.path.endsWith('.md')) return;
     getDoc(route.path, src).then(
       (d) => live && setDoc(d),
       (e: unknown) => {
         if (!live) return;
-        // git 소스에 없는 문서: 알림을 달고 그 폴더 목록으로 떨어뜨린다(소스는 그대로).
-        if (e instanceof ApiError && e.status === 404 && src.kind !== 'local') {
-          const folderPath = `${dirOf(route.path)}/`;
-          setMissing({ at: folderPath, text: `이 소스엔 없는 문서: ${route.path}` });
-          history.replaceState(null, '', hrefFor(folderPath, undefined, route.agent, src));
-          setRoute(readRoute());
+        // git 소스에 없는 문서: 그 폴더부터 위로 올라가 실제로 있는 폴더 목록으로 떨어뜨린다.
+        if (isNotFound(e) && src.kind !== 'local') {
+          fallBack(dirOf(route.path), `이 소스엔 없는 문서: ${route.path}`);
           return;
         }
-        setError(e instanceof Error ? e.message : String(e));
+        fail(e);
       },
     );
     return () => {
       live = false;
     };
-  }, [route.path, route.agent, src]);
+  }, [route.path, route.agent, route.app, src]);
 
   // PR 변경 목록: pr 소스일 때 PR 번호마다 한 번, 읽은 문서의 머리가 받은 목록의 머리와 다를 때만 다시 받는다.
   // 같은 PR 을 이미 받는 중이면(문서가 와서 docHead 만 생긴 경우) 그 요청을 그대로 둔다.
@@ -389,6 +480,16 @@ export function App() {
   const changes = prChanges !== null && prChanges.n === prNumber ? prChanges.data : null;
   const changesError = prChangesError !== null && prChangesError.n === prNumber ? prChangesError.text : null;
   const changed = useMemo(() => (changes === null ? undefined : changedMapOf(changes.files)), [changes]);
+
+  // 소스 바꾸는 중(PR·메인·로컬) 표시: 새 소스의 내용이 오면 끝난다(useSourceSwitch.ts). 지도·html·텍스트 파일은 주소가 닿으면 끝.
+  const switching = useSourceSwitch({
+    srcKey,
+    src,
+    needsContent: route.app === undefined && !isHtml && !graphMode && (isFolderPath(route.path) || route.path.endsWith('.md')),
+    doc,
+    folder,
+    error,
+  });
 
   // PR 배지 클릭: 오른쪽 열을 펴고(꺼 둔 PR 상세 패널은 켜고) 그 패널로 스크롤한다. 스크롤은 열이 그려진 뒤.
   const [scrollTick, setScrollTick] = useState(0);
@@ -484,18 +585,28 @@ export function App() {
 
   if (hop) return null;
 
+  // 앱 화면(`/apps/<id>`): 가운데 열 전체를 앱이 쓰고 양옆 열은 접힌다. 토큰은 문서의 meta 에서만 읽는다.
+  const appId = route.app;
+  const appUi = appId === undefined ? null : findAppUi(APP_UIS, appId);
   // 좁은 폭은 서랍이 열렸을 때만 오른쪽 패널을 그린다(닫힌 서랍이 데이터를 긁지 않게).
-  const rightShown = !route.agent && (narrow ? drawer === 'right' : rightOpen);
+  const rightShown = appId === undefined && !route.agent && (narrow ? drawer === 'right' : rightOpen);
   const leftShownForBar = narrow ? drawer === 'left' : leftOpen;
   const rightShownForBar = narrow ? drawer === 'right' : rightOpen;
   // 배지 머리: 읽은 문서의 커밋, 없으면 main 머리(pr 은 문서를 읽기 전엔 모른다).
   const head = doc !== null && doc.source === srcKey ? doc.head : src.kind === 'main' ? (info?.sources?.main.head ?? null) : null;
   const mainAvailable = info?.sources?.main.available ?? true;
+  // 가운데 열 확장 화면(등록된 ?view=<id>). 없으면 리더·지도다.
+  const extView = findView(EXT_VIEWS, route.view);
+  const ExtViewPane = extView === null ? null : extViewPane(extView);
 
   return (
     <ChangedEventsContext.Provider value={events}>
       <div
-        className={appClassName({ agent: route.agent, leftOpen, rightOpen, drawer })}
+        className={
+          appId === undefined
+            ? appClassName({ agent: route.agent, leftOpen, rightOpen, drawer })
+            : `${appClassName({ agent: route.agent, leftOpen: false, rightOpen: false, drawer: null })} app-apps`
+        }
         style={{ '--left-w': `${leftResize.width}px`, '--right-w': `${rightResize.width}px` } as React.CSSProperties}
       >
         <TopBar
@@ -508,6 +619,7 @@ export function App() {
           onExpand={expandDir}
           onNavigate={navigate}
           onSearchPick={onSearchPick}
+          onEnterPr={onEnterPr}
           onToggleRight={onToggleRight}
           onToggleLeft={onToggleLeft}
           onToggleView={toggleView}
@@ -526,85 +638,129 @@ export function App() {
           onPanelPrefs={setPrefs}
           searchAll={searchAll}
           onSearchAll={setSearchAll}
+          apps={APP_UIS}
+          views={EXT_VIEWS}
+          app={appId === undefined ? undefined : { id: appId, title: appUi?.title ?? '앱 없음' }}
         />
         <nav className="col col-left" aria-label="볼트 트리">
-          <Tree key={srcKey} current={route.path} agent={route.agent} src={src} reveal={reveal} onOpen={navigate} changed={changed} filter={searchFilter} />
-        </nav>
-        <main className={isHtml ? 'col col-center col-center-frame' : graphMode ? 'col col-center col-center-graph' : 'col col-center'}>
-          {!isHtml && missing !== null && missing.at === route.path ? (
-            <p className="notice notice-src" role="status">
-              {missing.text}
-            </p>
+          {appId === undefined ? (
+            <Tree key={srcKey} current={route.path} agent={route.agent} src={src} reveal={reveal} onOpen={navigate} changed={changed} filter={searchFilter} />
           ) : null}
-          {isHtml ? (
-            // git 소스 html 은 /api/info 의 git 포트를 안 뒤에 연다 — 다른 포트로 먼저 요청을 보내지 않게.
-            src.kind !== 'local' && !infoDone ? (
-              <p className="notice">불러오는 중…</p>
-            ) : (
-              <HtmlFrame path={route.path} hash={hash} src={src} gitRawPort={gitRawPort} />
-            )
-          ) : graphMode && route.agent ? (
-            // 에이전트 모드는 캔버스 대신 텍스트 목록이다. 그래프 라이브러리를 불러오지 않는다.
-            <GraphListView center={route.path} depth={route.graph.depth} hubs={hubs} all={route.graph.all} src={src} />
-          ) : graphMode ? (
-            // 지도 청크를 못 받으면 루트 전체가 아니라 가운데 열에만 안내를 남긴다. 주소가 바뀌면 오류를 걷고 다시 그린다.
-            <LazyBoundary
-              resetKey={`${route.path}\0${route.view}\0${route.graph.mode}`}
-              fallback={(message) => <p className="notice">지도를 불러오지 못했다 — 새로고침해 달라: {message}</p>}
-            >
-              <Suspense fallback={<p className="notice">지도를 불러오는 중…</p>}>
-                <GraphView
-                  center={route.path}
+        </nav>
+        {appId !== undefined ? (
+          <main className="col col-center col-center-app">
+            <ViewerErrorBoundary resetKey={`app\0${appId}`}>
+              <AppView id={appId} apps={APP_UIS} token={readAppToken()} agent={route.agent} navigate={(p) => navigate(p)} />
+            </ViewerErrorBoundary>
+          </main>
+        ) : (
+        <main className={isHtml || isSpec ? 'col col-center col-center-frame' : graphMode ? 'col col-center col-center-graph' : 'col col-center'}>
+          <ViewerErrorBoundary resetKey={`${srcKey}\0${route.path}\0${route.view}\0${route.graph.mode}`}>
+            <RuntimeErrorGate>
+              {!isHtml && missing !== null && missing.at === route.path ? (
+                <p className="notice notice-src" role="status">
+                  {missing.text}
+                </p>
+              ) : null}
+              {extView !== null && ExtViewPane !== null ? (
+                <LazyBoundary resetKey={srcKey} fallback={message => <p className="notice">{extView.title} 화면 오류: {message}</p>}>
+                  <Suspense fallback={<p className="notice">{extView.title} 화면을 불러오는 중…</p>}>
+                    <ExtViewPane key={srcKey} src={src} agent={route.agent} navigate={navigate} frame={{ gitRawPort, rawPort, ready: !framesWait }} />
+                  </Suspense>
+                </LazyBoundary>
+              ) : isHtml ? (
+                // git 소스 html(개인 이름 뒤면 모든 html)은 /api/info 의 포트를 안 뒤에 연다 — 다른 포트로 먼저 요청을 보내지 않게.
+                framesWait ? (
+                  <p className="notice">불러오는 중…</p>
+                ) : (
+                  <HtmlFrame
+                    path={route.path}
+                    hash={hash}
+                    src={src}
+                    gitRawPort={gitRawPort}
+                    rawPort={rawPort}
+                    extra={<IntegratedViewLink output={route.path} agent={route.agent} src={src} onNavigate={navigate} />}
+                  />
+                )
+              ) : graphMode && route.agent ? (
+                // 에이전트 모드는 캔버스 대신 텍스트 목록이다. 그래프 라이브러리를 불러오지 않는다.
+                <GraphListView center={route.path} depth={route.graph.depth} hubs={hubs} all={route.graph.all} src={src} />
+              ) : graphMode ? (
+                // 지도 청크를 못 받으면 루트 전체가 아니라 가운데 열에만 안내를 남긴다. 주소가 바뀌면 오류를 걷고 다시 그린다.
+                <LazyBoundary
+                  resetKey={`${route.path}\0${route.view}\0${route.graph.mode}`}
+                  fallback={(message) => <p className="notice">지도를 불러오지 못했다 — 새로고침해 달라: {message}</p>}
+                >
+                  <Suspense fallback={<p className="notice">지도를 불러오는 중…</p>}>
+                    <GraphView
+                      center={route.path}
+                      agent={route.agent}
+                      navigate={navigate}
+                      depth={route.graph.depth}
+                      mode={route.graph.mode}
+                      all={route.graph.all}
+                      hubs={hubs}
+                      labels={graphLabels}
+                      motion={graphMotion}
+                      damping={graphDamping}
+                      cluster={graphCluster}
+                      rotate={graphRotate}
+                      orbit={graphOrbit}
+                      legendInCanvas={!rightShown}
+                      onStats={setGraphStats}
+                    />
+                  </Suspense>
+                </LazyBoundary>
+              ) : error !== null ? (
+                <p className="notice">{error}</p>
+              ) : folder !== null ? (
+                <FolderView
+                  dir={folder.dir}
+                  entries={folder.entries}
                   agent={route.agent}
-                  navigate={navigate}
-                  depth={route.graph.depth}
-                  mode={route.graph.mode}
-                  all={route.graph.all}
-                  hubs={hubs}
-                  labels={graphLabels}
-                  motion={graphMotion}
-                  damping={graphDamping}
-                  cluster={graphCluster}
-                  rotate={graphRotate}
-                  orbit={graphOrbit}
-                  legendInCanvas={!rightShown}
-                  onStats={setGraphStats}
+                  src={src}
+                  onNavigate={navigate}
+                  changed={changed}
+                  gitRawPort={gitRawPort}
+                  rawPort={rawPort}
                 />
-              </Suspense>
-            </LazyBoundary>
-          ) : error !== null ? (
-            <p className="notice">{error}</p>
-          ) : folder !== null ? (
-            <FolderView
-              dir={folder.dir}
-              entries={folder.entries}
-              agent={route.agent}
-              src={src}
-              onNavigate={navigate}
-              changed={changed}
-              gitRawPort={gitRawPort}
-            />
-          ) : isFolderPath(route.path) ? (
-            <p className="notice">불러오는 중…</p>
-          ) : !route.path.endsWith('.md') ? (
-            <FileView
-              path={route.path}
-              src={src}
-              agent={route.agent}
-              anchor={route.anchor}
-              gitRawPort={gitRawPort}
-              onChange={(change) => setFileChange({ key: `${srcKey}\0${route.path}`, change })}
-            />
-          ) : doc === null ? (
-            <p className="notice">불러오는 중…</p>
-          ) : (
-            isTemplatePath(route.path) ? (
-              <TemplateView doc={doc} />
-            ) : (
-              <Reader doc={doc} agent={route.agent} src={src} anchor={route.anchor} onNavigate={navigate} gitRawPort={gitRawPort} />
-            )
-          )}
+              ) : isFolderPath(route.path) ? (
+                <p className="notice">불러오는 중…</p>
+              ) : isViewerSpecPath(route.path) ? (
+                <ViewerSpecView
+                  path={route.path}
+                  src={src}
+                  agent={route.agent}
+                  anchor={route.anchor}
+                  gitRawPort={gitRawPort}
+                  rawPort={rawPort}
+                  infoReady={infoDone}
+                  onNavigate={navigate}
+                  onChange={(change) => setFileChange({ key: `${srcKey}\0${route.path}`, change })}
+                />
+              ) : !route.path.endsWith('.md') ? (
+                <FileView
+                  path={route.path}
+                  src={src}
+                  agent={route.agent}
+                  anchor={route.anchor}
+                  gitRawPort={gitRawPort}
+                  rawPort={rawPort}
+                  onChange={(change) => setFileChange({ key: `${srcKey}\0${route.path}`, change })}
+                />
+              ) : doc === null ? (
+                <p className="notice">불러오는 중…</p>
+              ) : (
+                isTemplatePath(route.path) ? (
+                  <TemplateView doc={doc} />
+                ) : (
+                  <Reader doc={doc} agent={route.agent} src={src} anchor={route.anchor} onNavigate={navigate} gitRawPort={gitRawPort} rawPort={rawPort} />
+                )
+              )}
+            </RuntimeErrorGate>
+          </ViewerErrorBoundary>
         </main>
+        )}
         <aside className="col col-right" aria-label="보조 패널">
           {/* 에이전트 모드와 접힌 상태는 오른쪽 열이 안 보인다(display: none). 숨은 패널이 데이터를 긁지 않게 아예 그리지 않는다. 켜기·순서는 ⚙ 안이다. */}
           {rightShown && isHtml && (
@@ -639,6 +795,8 @@ export function App() {
           {rightShown &&
             !graphMode &&
             visiblePanels(PANELS, prefs).map((p) => {
+              // 확장 화면이 숨기는 패널(예: 안쪽 라우터 해시를 쓰는 화면의 목차 — README 목차의 #slug로 덮어쓰지 않게).
+              if (extView?.hidePanels?.includes(p.id) === true) return null;
               if (p.needsDoc !== false && doc === null) return null;
               const body = p.render({
                 doc,
@@ -650,6 +808,8 @@ export function App() {
                 changes,
                 change: doc?.change ?? (fileChange?.key === `${srcKey}\0${route.path}` ? fileChange.change : null),
                 changesError,
+                mainAvailable,
+                rawPort,
               });
               // 그릴 것이 없다는 패널(예: pr 소스가 아닐 때의 PR 상세)은 제목도 뺀다.
               if (body === null) return null;
@@ -663,6 +823,8 @@ export function App() {
               );
             })}
         </aside>
+        {/* 소스 바꾸는 중: 상단바 아래 막대 + 가운데 열 덮개. 격자 칸에 겹쳐 그린다(styles/switching.css). */}
+        <SwitchingVeil active={switching} />
         {/* 좁은 폭의 서랍 바깥 덮개: 누르면 서랍을 닫는다. 넓은 폭에서는 서랍이 없으니 그리지 않는다. */}
         {drawer !== null && !route.agent ? <div className="drawer-scrim" aria-hidden="true" onClick={closeDrawer} /> : null}
         {/* 열 폭 손잡이: 열 안에 두면 열과 같이 스크롤돼 사라진다. 격자 칸에 겹쳐 두고 가장자리에 붙인다(layout.css). */}
@@ -685,8 +847,9 @@ export function App() {
           onDoubleClick={rightResize.onDoubleClick}
         />
         {/* 전역 단축키와 ? 도움말. 에이전트 모드는 조절 단추가 없으니 단축키도 걸지 않는다. */}
-        {route.agent ? null : (
-          <GlobalShortcuts path={route.path} docTitle={doc?.title} onToggleLeft={onToggleLeft} onToggleRight={onToggleRight} onToggleView={toggleView} onSearchAll={setSearchAll} />
+        {/* 앱 화면은 키보드를 앱에 맡긴다. */}
+        {route.agent || appId !== undefined ? null : (
+          <GlobalShortcuts path={route.path} docTitle={doc?.title} onToggleLeft={onToggleLeft} onToggleRight={onToggleRight} onToggleView={toggleView} onSearchAll={setSearchAll} views={EXT_VIEWS} />
         )}
       </div>
     </ChangedEventsContext.Provider>
