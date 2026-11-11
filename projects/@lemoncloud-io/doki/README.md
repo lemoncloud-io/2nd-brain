@@ -1,6 +1,6 @@
 ---
 type: project
-repo: "lemoncloud-io/2nd-brain"
+repo: "lemoncloud-io/doki"
 scope: team
 branch: ""
 status: active
@@ -11,7 +11,7 @@ next_action: "링크 워크플로우 검증 결과를 확인하고 필요한 후
 last_synced: 2026-07-23
 ---
 
-# 2nd-brain
+# doki
 
 ## Status
 
@@ -28,4 +28,5 @@ Hermes와 Claude Code로 운영하는 공용 AI Second Brain vault의 구조·�
 
 ## Sync Notes
 
-- 2026-07-23: `github-project-link`로 최초 등록. 로컬 클론은 `$GITHUB_DIR/lemoncloud-io/2nd-brain`. 기본 브랜치(master) 추적.
+- 2026-07-23: `github-project-link`로 최초 등록. 로컬 클론은 `$GITHUB_DIR/lemoncloud-io/doki`. 기본 브랜치(master) 추적.
+- 2026-11-11: repo 이름을 doki 로 바꿨다(옛 이름 2nd-brain). 등록 폴더도 `projects/@lemoncloud-io/doki/` 로 옮겼다.

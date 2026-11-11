@@ -1,10 +1,10 @@
-# 2nd-brain — An AI Second Brain Vault for Obsidian, Run by Claude Code
+# doki — An AI Second Brain Vault for Obsidian, Run by Claude Code
 
 [한국어](README.md) · **English**
 
 > A personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it.
 
-![The 2nd-brain vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view](screenshot.png)
+![The doki vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view](screenshot.png)
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-vault-7C3AED)](https://obsidian.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-agent-D97757)](https://claude.com/claude-code)
@@ -125,25 +125,25 @@ The script installs Git, Obsidian, Claude Code, and the GitHub CLI along with th
 **macOS** — paste into Terminal:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-mac.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-mac.sh)"
 ```
 
 **Windows** (10 1809+) — paste into PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
 ```
 
 The script asks for your **team vault repo URL** partway through. Pressing Enter clones this public template instead of your team's wiki, so supply the URL if you are joining a team. To decide up front, set `REPO_URL` / `TARGET_DIR` (on Windows, the `-RepoUrl` / `-TargetDir` parameters); to skip the converters, pass `SKIP_CONVERTERS=1` (`-SkipConverters` on Windows).
 
-> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path — they type one line in the Claude desktop **Code** tab (`github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘`) and Claude follows the [`SETUP.md`](SETUP.md) runbook, then everything happens in a Code-tab session on the vault folder. It also carries the checklist for whoever runs the onboarding. Agents run these scripts with `--non-interactive` (Windows `-NonInteractive`); see the script header for the options.
+> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path — they type one line in the Claude desktop **Code** tab (`github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘`) and Claude follows the [`SETUP.md`](SETUP.md) runbook, then everything happens in a Code-tab session on the vault folder. It also carries the checklist for whoever runs the onboarding. Agents run these scripts with `--non-interactive` (Windows `-NonInteractive`); see the script header for the options.
 
 ### Manual setup
 
 1. **Clone the repo and set `VAULT_DIR`** — the repo and path below are examples. After cloning, repoint `origin` to your own/team git, and use `$VAULT_DIR`/`~` relative paths instead of absolute machine paths.
 
    ```bash
-   git clone https://github.com/lemoncloud-io/2nd-brain.git ~/knowledge
+   git clone https://github.com/lemoncloud-io/doki.git ~/knowledge
    export VAULT_DIR="$HOME/knowledge"
    cd "$VAULT_DIR"
    ```
