@@ -1,8 +1,8 @@
 # doki — An AI Second Brain Vault for Obsidian, Run by Claude Code
 
-[한국어](README.md) · **English**
+[한국어](README.md) · **English** · [Homepage](https://doki.lemoncloud.io)
 
-> A personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it.
+> **doki** is a personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it. The compiled wiki opens in the **vault viewer**, a local browser view with a file tree, search, backlinks, and a link graph. Setup is one line in the Claude desktop Code tab.
 
 ![The doki vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view](screenshot.png)
 
@@ -12,7 +12,7 @@
 [![Git](https://img.shields.io/badge/sync-Git%20%2B%20PR-F05032)](https://git-scm.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Keywords**: Obsidian second brain · personal knowledge management (PKM) · AI knowledge base · markdown wiki automation · web clipper ingest pipeline · Claude Code agent skills · PARA method · Zettelkasten · cited Q&A over your notes
+**Keywords**: Obsidian second brain · personal knowledge management (PKM) · AI knowledge base · markdown wiki automation · web clipper ingest pipeline · Claude Code agent skills · vault viewer · knowledge graph · Korean HWP to Markdown · PARA method · Zettelkasten · cited Q&A over your notes
 
 ---
 
@@ -25,6 +25,7 @@
 - [Requirements](#requirements)
 - [Getting started](#getting-started)
 - [Usage](#usage)
+- [Vault viewer](#vault-viewer)
 - [Rules and contracts](#rules-and-contracts)
 - [Skills](#skills)
 - [FAQ](#faq)
@@ -50,6 +51,13 @@ This vault inserts a **compile step** in between. Originals are preserved untouc
 | **Word ingest** | Converts Word documents (.doc/.docx) to Markdown and drops them into `Clippings/` — `.docx` keeps its structure, `.doc` may lose structure depending on the conversion path (`doc2md-ingest`) |
 | **Document promotion** | Promotes team/personal repo docs — reusable concepts to wiki, original snapshots to `raw/` (`vault-promote`) |
 | **Cited Q&A** | Answers from `wiki/INDEX.md` and saves retained answers to `outputs/` |
+| **Vault viewer** | A read-only local viewer that opens the vault's Markdown, HTML, and React outputs at one address, `/v/<path>` — file tree, search, backlinks, link graph, hover previews, and a PR review mode (`knowledge-viewer`) |
+| **Review viewer** | Builds a single-HTML viewer for reviewing a project's design and progress from one `viewer.yml` (`project-viewer`) |
+| **Open by local name** | Opens local services such as the vault viewer at `http://doki.local` instead of a port — an nginx reverse-proxy generator; a person runs the sudo step (`local-nginx-proxy`) |
+| **Open-question triage** | Gathers the `## Open Questions` of wiki notes into a queue, closes what the agent can, and batches the rest for the owner (`vault-questions`) |
+| **Orphan check** | Finds documents that cannot be reached by links from `wiki/INDEX.md`, proposes where to link them, and applies the approved links (`vault-reach`) |
+| **PR review** | Reviews a PR's code, design, and doc changes for decisions made without instruction, checked against the evidence (`github-review`) |
+| **Serverless data pipeline** | A reference for deploying S3 → Lambda → DynamoDB → OpenSearch to your own AWS account with a restricted deploy key, plus 8 skills (`aws-serverless`) |
 | **Quality lint** | Detects stubs, contradictions, broken links, and frontmatter violations, files a report, and regenerates the `raw/` index |
 | **Invariant verification** | Every write lane (ingest, lint, promote) checks the shared invariants — memory under 8 KB, `raw/`/`archive/` append-only — through one script, `vault_verify.py` |
 | **Weekly report** | Aggregates the last week from full git statistics into `areas/weekly/` as Markdown plus an email-ready HTML view |
@@ -58,6 +66,7 @@ This vault inserts a **compile step** in between. Originals are preserved untouc
 | **Agent context budget** | Caps the always-loaded rule set at 8 KB so instructions never crowd out the actual work |
 | **Counter-free memory** | Run and volume counters are derived from the append-only ledgers instead of being stored in memory, so concurrent ingest branches stop colliding (`vault_volume.py`) |
 | **One-line install** | macOS and Windows onboarding scripts handle tool installation, GitHub login, the vault clone, and environment setup (safe to re-run) |
+| **Shared tool sync** | Shared tools — vault viewer, review viewer, local-name proxy, PR review — arrive as copies from an upstream vault (vault-sync). The `managed: vault-sync` and `origin:` stamps in each copy's README record the source |
 
 ## How it works
 
@@ -227,6 +236,33 @@ Aggregates the last 7 days of git history into `areas/weekly/YYYY-MM-DD.md` plus
 
 Writes to `private/YYYY-MM-DD.md`, which is gitignored and never reaches the shared repo.
 
+## Vault viewer
+
+The vault viewer (`projects/knowledge-viewer`) is a **read-only local viewer** for the whole vault in a browser. It opens Markdown wiki articles and HTML or React outputs at one address, `/v/<vault-relative path>`. It runs no commands and never edits the source documents.
+
+- **Tree, search, backlinks** — the document list, full-text search, and the documents that link here
+- **Link graph** — `?view=graph` maps how documents connect
+- **Hover preview** — hover a link to preview its target
+- **PR review mode** — `src=pr:<n>` opens the vault as it is on a PR branch (uses your existing `gh` login)
+- **Claude browser panel** — see the same screen as the agent in the Claude Code desktop browser panel
+
+Ask the agent to open it:
+
+```text
+뷰어로 보여줘 wiki/INDEX.md   (show wiki/INDEX.md in the viewer)
+연결 그래프 보여줘             (show the link graph)
+```
+
+To run it yourself, from the vault root:
+
+```bash
+(cd projects/project-viewer/config/shell && npm ci)
+(cd projects/knowledge-viewer/config/app && npm ci && npm run build)
+node projects/knowledge-viewer/config/app/start.ts   # → http://127.0.0.1:8778/v/wiki/INDEX.md
+```
+
+To run it as a login service and open it at `http://doki.local` (macOS), follow [`projects/knowledge-viewer/README.md`](projects/knowledge-viewer/README.md) § 직접 구성하기 (set it up yourself). To add a new tool screen as a viewer app (`/apps/<id>`), use the `knowledge-viewer-app-build` skill.
+
 ## Rules and contracts
 
 Humans and LLMs read the same documents. Each one owns a different layer.
@@ -270,14 +306,40 @@ The skill documents in `projects/second-brain/config/skills/` are the source of 
 | `claude-telegram-channel` | Connect and operate a Telegram bot as an inbound channel on a session (setup checklist, outbound send) |
 | `parallel-wp-orchestration` | Decompose multi-repo/module work into parallel sub-agent work packages, run, and integrate |
 | `ai-studio-project-onboarding` | Onboard a Google AI Studio export: settle it into local git, register it in the vault, and plan local development |
+| `vault-questions` | Queue the wiki's `## Open Questions`, close what the agent can, and batch the owner-only ones |
+| `vault-reach` | Find orphan documents unreachable from `wiki/INDEX.md`, plan the links, and apply the approved ones |
+| `knowledge-viewer-open` | "Show <path> in the viewer" / "show the link graph" — start the vault viewer and open a document, map, or PR view |
+| `knowledge-viewer-app-build` | Build a new web tool screen (dashboard, review desk) in React + Vite and register it as a vault viewer app |
+| `project-viewer-build` / `project-viewer-open` | Build and open a project review viewer (single HTML) from `viewer.yml` |
+| `local-nginx-proxy` | Set up, add, check, and roll back `http://<name>.local` names for local services through an nginx reverse proxy |
+| `github-review` | Review a PR's code, design, and doc changes as decisions — policy, default, and scope changes made without instruction, checked against the evidence |
+| `aws-*` (8 skills) | Step procedures for the serverless pipeline — account-setup · iam-access · s3-ingest · transformer · lambda-deploy · dynamodb-stream · opensearch · athena (`projects/aws-serverless/config/skills/`) |
 
 ## Projects
 
 - [second-brain](projects/second-brain/) — `active` · continuously improving this vault's structure and workflow
+- [knowledge-viewer](projects/knowledge-viewer/) — `active` · read-only local viewer for the whole vault
+- [project-viewer](projects/project-viewer/) — `active` · shared shell that builds project review viewers from `viewer.yml`
+- [local-nginx-proxy](projects/local-nginx-proxy/) — `active` · reverse-proxy generator that opens local services at `http://<name>.local`
+- [github](projects/github/) — `active` · PR review procedure skill
+- [aws-serverless](projects/aws-serverless/) — `active` · serverless data pipeline reference
+- [devops](projects/devops/) — `active` · entry procedure for development work (local vs. AWS serverless)
 
 The source of truth for a project's status, due date, and next action is the frontmatter of its own README. See [projects/README.md](projects/README.md) for details.
 
 ## FAQ
+
+**What is doki?**
+doki is an open-source (MIT) AI second brain vault template made by LemonCloud. Claude Code compiles the articles, PDFs, Word files, and Korean HWP documents you collect into a cited Markdown wiki, then answers questions from that wiki. The wiki stays in your own GitHub repository as Markdown files.
+
+**How much does it cost?**
+The template is free. Running ingest and Q&A with Claude needs a Claude Pro or higher subscription. If setup gets stuck, ask LemonCloud for help through the contact form on the [homepage](https://doki.lemoncloud.io).
+
+**What is the vault viewer?**
+The vault viewer is a read-only local viewer that shows a doki vault in a browser. It has a file tree, search, backlinks, a link graph, and a PR review mode, and the agent starts it when you say "show <path> in the viewer". You can browse the wiki without Obsidian. See [Vault viewer](#vault-viewer).
+
+**Is this the same project as 2nd-brain?** <!-- 옛 이름 -->
+Yes. The repository was renamed from `lemoncloud-io/2nd-brain` to `lemoncloud-io/doki` (old name). GitHub redirects the old address to the new one. <!-- 옛 이름 -->
 
 **Do I need Obsidian?**
 No. The vault is just Markdown files in a Git repository, and agents read and write them with plain file tools. Obsidian is recommended for the graph view, backlinks, and Web Clipper.
@@ -299,7 +361,7 @@ Full-text search only finds what lives inside a single document. The wiki layer 
 
 ## Related concepts
 
-Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Method · Obsidian vault · Markdown wiki · AI agent skills · Retrieval-grounded Q&A · Knowledge base automation
+Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Method · Obsidian vault · Markdown wiki · Knowledge graph viewer · AI agent skills · Retrieval-grounded Q&A · Knowledge base automation
 
 ## Contributing
 

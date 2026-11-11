@@ -1,8 +1,8 @@
 # doki — Obsidian + Claude Code로 운영하는 AI Second Brain Vault
 
-**한국어** · [English](README.en.md)
+**한국어** · [English](README.en.md) · [홈페이지](https://doki.lemoncloud.io)
 
-> 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다.
+> **doki(도키)** 는 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿이다. 정리된 위키는 **볼트 뷰어**로 브라우저에서 트리·검색·역링크·연결 그래프로 읽는다. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다. 설치는 Claude 데스크톱 Code 탭에 한 줄이면 된다.
 
 ![Obsidian에서 연 doki vault — wiki 문서, 토픽 인덱스, 그래프 뷰가 보이는 화면](screenshot.png)
 
@@ -12,7 +12,7 @@
 [![Git](https://img.shields.io/badge/sync-Git%20%2B%20PR-F05032)](https://git-scm.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**키워드**: Obsidian second brain · 세컨드 브레인 · 제2의 뇌 · 개인 지식 관리(PKM) · AI 지식 베이스 · 마크다운 위키 자동 생성 · 웹 클리퍼 인제스트 · Claude Code agent skills · PARA 노트 정리법
+**키워드**: Obsidian second brain · 세컨드 브레인 · 제2의 뇌 · 개인 지식 관리(PKM) · AI 지식 베이스 · 마크다운 위키 자동 생성 · 웹 클리퍼 인제스트 · 볼트 뷰어 · 지식 그래프 · 한글(HWP) 문서 위키 변환 · Claude Code agent skills · PARA 노트 정리법
 
 ---
 
@@ -25,6 +25,7 @@
 - [필요한 도구](#필요한-도구)
 - [설치 및 시작](#설치-및-시작)
 - [사용법](#사용법)
+- [볼트 뷰어](#볼트-뷰어)
 - [규칙과 계약](#규칙과-계약)
 - [스킬](#스킬)
 - [자주 묻는 질문](#자주-묻는-질문)
@@ -50,6 +51,13 @@
 | **Word 인제스트** | Word 문서(.doc/.docx)를 MD로 변환해 `Clippings/`에 투입 — `.docx`는 구조 보존, `.doc`은 변환 경로에 따라 구조 손실 가능 (`doc2md-ingest`) |
 | **문서 승격** | 팀/개인 repo의 문서를 재사용 개념은 wiki로, 원문 스냅샷은 `raw/`로 승격 (`vault-promote`) |
 | **인용 기반 질의응답** | `wiki/INDEX.md`를 근거로 답하고, 보존할 답변은 `outputs/`에 저장 |
+| **볼트 뷰어** | 볼트의 md·HTML·React 산출물을 `/v/<경로>` 주소 하나로 여는 읽기 전용 로컬 뷰어 — 트리·검색·역링크·연결 그래프·호버 미리보기·PR 리뷰 모드 (`knowledge-viewer`) |
+| **리뷰 뷰어** | 프로젝트가 `viewer.yml` 하나만 쓰면 설계·진행을 리뷰할 단일 HTML 뷰어를 빌드 (`project-viewer`) |
+| **로컬 이름으로 열기** | 볼트 뷰어 같은 로컬 서비스를 포트 없이 `http://doki.local` 로 연다 — nginx 역프록시 생성기, sudo 적용은 사람이 직접 (`local-nginx-proxy`) |
+| **열린 질문 정리** | 위키 노트의 `## Open Questions`를 큐로 모아 에이전트가 닫을 것과 소유자에게 물을 것을 가른다 (`vault-questions`) |
+| **고아 문서 점검** | `wiki/INDEX.md`에서 링크로 못 찾아가는 문서를 찾아 연결 계획을 내고, 승인되면 적용 (`vault-reach`) |
+| **PR 리뷰** | PR의 코드·설계·문서 변경을 "지시 없이 무엇을 결정했나" 관점에서 근거와 대조해 리뷰 (`github-review`) |
+| **서버리스 데이터 파이프라인** | 자기 AWS 계정에 S3 → Lambda → DynamoDB → OpenSearch 파이프라인을 제한된 배포 키로 올리는 레퍼런스와 스킬 8종 (`aws-serverless`) |
 | **품질 린트** | stub·모순·끊긴 링크·frontmatter 위반을 검사해 리포트를 남기고 `raw/` 색인을 재생성 |
 | **불변식 자동 검증** | 인제스트·린트·승격 모든 쓰기 레인이 공유 불변식(memory 8 KB, `raw/`·`archive/` append-only 등)을 `vault_verify.py` 한 곳으로 판정 |
 | **주간 보고서** | git 전수 통계로 지난 주 활동을 집계해 `areas/weekly/`에 md + 메일 발송용 HTML 생성 |
@@ -58,6 +66,7 @@
 | **에이전트 컨텍스트 예산 관리** | 매 세션 로드되는 문서를 8 KB로 제한해 규칙이 컨텍스트를 잠식하지 않게 함 |
 | **수치 없는 메모리** | 실행·볼륨 카운터를 메모리에 두지 않고 append-only 원장에서 유도 — 동시 인제스트 브랜치 간 충돌이 사라진다 (`vault_volume.py`) |
 | **한 줄 설치** | macOS·Windows 온보딩 스크립트가 도구 설치·GitHub 로그인·vault clone·환경 설정까지 처리 (재실행 안전) |
+| **공통 도구 동기화** | 볼트 뷰어·리뷰 뷰어·로컬 이름 프록시·PR 리뷰 같은 공통 도구는 원본 볼트에서 사본으로 받아온다(vault-sync). 사본 README의 `managed: vault-sync`·`origin:` 스탬프가 출처를 적는다 |
 
 ## 동작 방식
 
@@ -239,6 +248,33 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 
 `private/YYYY-MM-DD.md`에 기록한다. 이 폴더는 `.gitignore`에 있어 팀 저장소로 올라가지 않는다.
 
+## 볼트 뷰어
+
+볼트 뷰어(`projects/knowledge-viewer`)는 볼트 전체를 브라우저에서 읽는 **읽기 전용 로컬 뷰어**다. 마크다운 위키뿐 아니라 HTML·React 산출물도 `/v/<볼트 상대경로>` 주소 하나로 연다. 명령을 실행하지 않고 원본 문서를 고치지 않는다.
+
+- **트리·검색·역링크** — 문서 목록과 전문 검색, 이 문서를 가리키는 문서 목록
+- **연결 그래프** — `?view=graph`로 문서가 어떻게 이어졌는지 지도로 본다
+- **호버 미리보기** — 링크 위에 올리면 대상 문서를 미리 본다
+- **PR 리뷰 모드** — `src=pr:<n>`으로 PR 브랜치의 볼트를 연다 (`gh` 인증 그대로 사용)
+- **Claude 브라우저 패널** — Claude Code 데스크톱의 브라우저 패널에서 에이전트와 같은 화면을 본다
+
+에이전트에게 말로 연다.
+
+```text
+뷰어로 보여줘 wiki/INDEX.md
+연결 그래프 보여줘
+```
+
+직접 띄우려면 볼트 루트에서:
+
+```bash
+(cd projects/project-viewer/config/shell && npm ci)
+(cd projects/knowledge-viewer/config/app && npm ci && npm run build)
+node projects/knowledge-viewer/config/app/start.ts   # → http://127.0.0.1:8778/v/wiki/INDEX.md
+```
+
+로그인 때 늘 뜨는 서비스로 올리고 `http://doki.local`로 여는 순서(macOS)는 [`projects/knowledge-viewer/README.md`](projects/knowledge-viewer/README.md) § 직접 구성하기에 있다. 새 도구 화면을 뷰어 앱(`/apps/<id>`)으로 붙이는 절차는 `knowledge-viewer-app-build` 스킬이다.
+
 ## 규칙과 계약
 
 사람과 LLM이 같은 문서를 읽는다. 문서마다 소관이 다르다.
@@ -282,14 +318,40 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 | `claude-telegram-channel` | Channels로 텔레그램 봇을 세션에 인바운드 연결·운영 (셋업 체크리스트, 아웃바운드 발신) |
 | `parallel-wp-orchestration` | 멀티 repo/모듈 작업을 서브 에이전트 병렬 WP로 분해·실행·통합 |
 | `ai-studio-project-onboarding` | Google AI Studio export 앱을 로컬 git 정착 → vault 등록 → 개발 계획까지 온보딩 |
+| `vault-questions` | 위키의 `## Open Questions`를 큐로 모아 에이전트가 닫을 것을 정리하고, 소유자만 답할 것을 묶어 묻는다 |
+| `vault-reach` | `wiki/INDEX.md`에서 링크로 못 찾아가는 고아 문서를 찾아 연결 계획을 내고 승인분을 적용 |
+| `knowledge-viewer-open` | "뷰어로 보여줘 <경로>"·"연결 그래프 보여줘" — 볼트 뷰어를 띄워 문서·지도·PR 보기를 연다 |
+| `knowledge-viewer-app-build` | 새 웹 도구 화면(대시보드·검수 화면)을 React + Vite로 짓고 볼트 뷰어 앱으로 등록 |
+| `project-viewer-build` / `project-viewer-open` | `viewer.yml`로 프로젝트 리뷰 뷰어(단일 HTML)를 빌드·연다 |
+| `local-nginx-proxy` | 로컬 서비스를 `http://<이름>.local`로 여는 nginx 역프록시 셋업·이름 추가·점검·되돌리기 |
+| `github-review` | PR의 코드·설계·문서 변경을 의사결정 관점에서 리뷰 — 지시 밖 정책·기본값·범위 변경을 근거와 대조 |
+| `aws-*` (8종) | 서버리스 파이프라인 단계별 절차 — account-setup · iam-access · s3-ingest · transformer · lambda-deploy · dynamodb-stream · opensearch · athena (`projects/aws-serverless/config/skills/`) |
 
 ## 프로젝트
 
 - [second-brain](projects/second-brain/) — `active` · 이 vault의 구조·워크플로우 지속 개선
+- [knowledge-viewer](projects/knowledge-viewer/) — `active` · 볼트 전체를 읽는 읽기 전용 로컬 뷰어
+- [project-viewer](projects/project-viewer/) — `active` · `viewer.yml`로 프로젝트 리뷰 뷰어를 빌드하는 공용 셸
+- [local-nginx-proxy](projects/local-nginx-proxy/) — `active` · 로컬 서비스를 `http://<이름>.local`로 여는 역프록시 생성기
+- [github](projects/github/) — `active` · PR 리뷰 절차 스킬
+- [aws-serverless](projects/aws-serverless/) — `active` · 서버리스 데이터 파이프라인 레퍼런스
+- [devops](projects/devops/) — `active` · 개발 작업 진입 절차 (로컬 vs AWS 서버리스)
 
 프로젝트 상태·마감·다음 행동의 진실원은 각 프로젝트 README의 frontmatter다. 자세한 내용은 [projects/README.md](projects/README.md)를 참조한다.
 
 ## 자주 묻는 질문
+
+**doki는 무엇인가?**
+doki는 레몬클라우드가 만든 오픈소스(MIT) AI 세컨드 브레인 vault 템플릿이다. 읽은 글·PDF·Word·HWP 문서를 Claude Code가 출처 달린 마크다운 위키로 정리하고, 그 위키를 근거로 질문에 답한다. 위키는 내 GitHub 저장소에 마크다운 파일로 남는다.
+
+**비용은 얼마인가?**
+템플릿은 무료다. Claude로 인제스트·질의를 돌리려면 Claude Pro 이상 구독이 따로 필요하다. 셋업이 막히면 [홈페이지](https://doki.lemoncloud.io)의 문의로 레몬클라우드에 도움을 요청할 수 있다.
+
+**볼트 뷰어는 무엇인가?**
+볼트 뷰어는 doki 볼트를 브라우저에서 읽는 읽기 전용 로컬 뷰어다. 트리·검색·역링크·연결 그래프·PR 리뷰 모드를 제공하고, "뷰어로 보여줘 <경로>"라고 말하면 에이전트가 띄운다. Obsidian 없이도 위키를 탐색할 수 있다. 자세한 내용은 [볼트 뷰어](#볼트-뷰어).
+
+**옛 이름 2nd-brain과 같은 프로젝트인가?**
+같다. 레포 이름을 `lemoncloud-io/2nd-brain`에서 `lemoncloud-io/doki`로 바꿨다(옛 이름). 옛 주소는 GitHub가 새 주소로 리다이렉트한다.
 
 **Obsidian이 꼭 있어야 하나?**
 없어도 동작한다. vault는 그냥 마크다운 파일과 Git 저장소이고, 에이전트는 파일 도구로 읽고 쓴다. Obsidian은 그래프 뷰·백링크·Web Clipper 때문에 권장한다.
@@ -311,7 +373,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 
 ## 관련 개념
 
-Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Method · Obsidian vault · Markdown wiki · AI agent skills · Retrieval-grounded Q&A · Knowledge base automation
+Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Method · Obsidian vault · Markdown wiki · Knowledge graph viewer · AI agent skills · Retrieval-grounded Q&A · Knowledge base automation
 
 ## 기여
 
