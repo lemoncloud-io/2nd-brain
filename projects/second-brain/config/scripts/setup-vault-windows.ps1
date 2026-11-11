@@ -11,7 +11,7 @@
 #
 # 사용법 — git이 없어도 됨. PowerShell에 아래 한 줄만 붙여넣으면 끝
 # (파일 다운로드·실행 정책 설정 불필요):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
 #   (이 파일은 Windows PowerShell 5.1의 파일 실행 시 한글 깨짐을 막으려 UTF-8 BOM을
 #    달고 있다. irm은 BOM을 그대로 문자열에 넘겨 PowerShell 7의 파서가 실패하므로
 #    TrimStart로 벗긴다 — BOM이 이미 없으면 무해한 no-op이다.)
@@ -35,7 +35,7 @@
 # 기본 RepoUrl은 공개 부트스트랩 템플릿이다. 실제 clone 대상은 5번 단계에서 팀 repo
 # URL을 물어 결정한다 — 조직 값의 단일 출처는 projects/second-brain/config/team-settings.yaml.
 param(
-    [string]$RepoUrl   = "https://github.com/lemoncloud-io/2nd-brain.git",
+    [string]$RepoUrl   = "https://github.com/lemoncloud-io/doki.git",
     [string]$TargetDir = "$HOME\knowledge",
     [switch]$SkipConverters,
     [switch]$NonInteractive,
@@ -45,7 +45,8 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $canPrompt = -not $NonInteractive
-$TemplateUrl = "https://github.com/lemoncloud-io/2nd-brain.git"
+$TemplateUrl = "https://github.com/lemoncloud-io/doki.git"
+$LegacyTemplateUrl = "https://github.com/lemoncloud-io/2nd-brain.git"  # 옛 이름 — 개명 전 clone 의 origin 도 공개 템플릿이다
 
 function Say($msg)  { Write-Host "`n==> $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "`n[주의] $msg" -ForegroundColor Yellow }
@@ -63,7 +64,7 @@ function Get-NormalizedRepoUrl($u) {
 # 비대화형 입력은 설치를 시작하기 전에 검사한다 — 도구를 다 깐 뒤 clone 단계에서 멈추지 않게.
 if ($NonInteractive -and -not (Test-Path (Join-Path $TargetDir ".git")) -and
     ((Get-NormalizedRepoUrl $RepoUrl) -eq (Get-NormalizedRepoUrl $TemplateUrl))) {
-    Fail "-NonInteractive에는 -RepoUrl <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).`n새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/2nd-brain --private"
+    Fail "-NonInteractive에는 -RepoUrl <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).`n새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/doki --private"
 }
 
 # ── 0. winget 확인 ───────────────────────────────────────────
@@ -248,7 +249,7 @@ if ($canPrompt -and -not (Test-Path (Join-Path $TargetDir ".git")) -and ($RepoUr
     $inputUrl = Read-Host "팀 vault repo URL을 입력하세요 (예: https://github.com/<org>/<repo>.git — 엔터 = 공개 템플릿으로 시작)"
     if ($inputUrl) { $RepoUrl = $inputUrl }
     if ($RepoUrl -eq $TemplateUrl) {
-        Warn "공개 템플릿($TemplateUrl)을 clone합니다 — 팀 위키가 아닙니다.`n팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.`n팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:`n  SETUP.md 6단계 참조 (gh repo create --template lemoncloud-io/2nd-brain --private)"
+        Warn "공개 템플릿($TemplateUrl)을 clone합니다 — 팀 위키가 아닙니다.`n팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.`n팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:`n  SETUP.md 6단계 참조 (gh repo create --template lemoncloud-io/doki --private)"
     }
 }
 
@@ -270,7 +271,8 @@ if (Test-Path (Join-Path $TargetDir ".git")) {
 
 # 잔여 안전망: origin이 여전히 공개 템플릿이면 push·PR이 공개 repo로 향한다
 $currentOrigin = Invoke-Native { git -C $TargetDir remote get-url origin 2>$null }
-if ($currentOrigin -and ((Get-NormalizedRepoUrl $currentOrigin) -eq (Get-NormalizedRepoUrl $TemplateUrl))) {
+if ($currentOrigin -and (((Get-NormalizedRepoUrl $currentOrigin) -eq (Get-NormalizedRepoUrl $TemplateUrl)) -or
+    ((Get-NormalizedRepoUrl $currentOrigin) -eq (Get-NormalizedRepoUrl $LegacyTemplateUrl)))) {
     Warn "origin이 공개 부트스트랩 템플릿입니다. 팀 repo가 생기면 전환하세요:`n  git -C `"$TargetDir`" remote set-url origin <팀-repo-URL>"
 }
 

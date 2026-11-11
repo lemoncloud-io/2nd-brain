@@ -32,7 +32,7 @@
 3. 아래 한 줄을 그대로 입력한다.
 
    ```text
-   github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
+   github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
    ```
 
 ## 2단계 — Claude가 부탁하는 것만 하기
@@ -86,7 +86,7 @@ Claude가 순서대로 진행하면서 사람 손이 필요한 순간에만 멈�
 ## 팀 관리자용 체크리스트 (온보딩 시켜 주는 사람)
 
 - [ ] (팀 위키가 아직 없으면) 관리자 본인이 위 1단계를 하며 "새로 만들어줘"로 저장소를 만든다 —
-  공개 템플릿을 clone하는 것이 아니라 GitHub template 생성(`gh repo create --template lemoncloud-io/2nd-brain --private`)이 정본이고,
+  공개 템플릿을 clone하는 것이 아니라 GitHub template 생성(`gh repo create --template lemoncloud-io/doki --private`)이 정본이고,
   `SETUP.md` 6·8단계가 그것과 `team-settings.yaml` 교체를 한다. 무료 공유가 목적이면 유료 org에 만들지 않는다(좌석 비용 발생)
 - [ ] 팀 위키 저장소에 신규 팀원 초대 (읽기·쓰기 권한 — 무료 플랜으로 성립)
 - [ ] 팀 위키 주소를 전달 (Claude가 물을 때 답할 값)
