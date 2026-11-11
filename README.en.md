@@ -1,23 +1,59 @@
-# doki — An AI Second Brain Vault for Obsidian, Run by Claude Code
+<div align="center">
 
-[한국어](README.md) · **English** · [Homepage](https://doki.lemoncloud.io)
+<img src="docs/assets/doki-mark.svg" width="88" alt="doki logo">
 
-> **doki** is a personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it. The compiled wiki opens in the **vault viewer**, a local browser view with a file tree, search, backlinks, and a link graph. Setup is one line in the Claude desktop Code tab.
+# doki — An AI Second Brain for Obsidian, Run by Claude Code
 
-![The doki vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view](screenshot.png)
+**One line to Claude, and you have your own wiki.**<br>
+An AI agent turns the articles, PDFs, Word files, and Korean HWP documents you save into a cited Markdown wiki.
+
+[Homepage](https://doki.lemoncloud.io) · [Quick start](#quick-start) · [Vault viewer](#vault-viewer) · [FAQ](#faq) · [한국어](README.md)
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-vault-7C3AED)](https://obsidian.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-agent-D97757)](https://claude.com/claude-code)
 [![Markdown](https://img.shields.io/badge/format-Markdown-000000)](https://commonmark.org)
 [![Git](https://img.shields.io/badge/sync-Git%20%2B%20PR-F05032)](https://git-scm.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/lemoncloud-io/doki?style=flat&logo=github)](https://github.com/lemoncloud-io/doki/stargazers)
+
+</div>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/viewer-read-dark.webp">
+  <img src="docs/assets/viewer-read-light.webp" alt="An example wiki in the vault viewer — document tree on the left, a wiki article in the middle, link map, table of contents, and backlinks on the right">
+</picture>
+
+<p align="center"><sub>An example vault (Korean) in the vault viewer — document tree, article, link map, contents, and backlinks on one screen.</sub></p>
+
+> **doki** is a personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it. The compiled wiki opens in the **vault viewer**, a local browser view with a file tree, search, backlinks, and a link graph. Setup is one line in the Claude desktop Code tab.
 
 **Keywords**: Obsidian second brain · personal knowledge management (PKM) · AI knowledge base · markdown wiki automation · web clipper ingest pipeline · Claude Code agent skills · vault viewer · knowledge graph · Korean HWP to Markdown · PARA method · Zettelkasten · cited Q&A over your notes
+
+## Quick start
+
+Paste one line into the **Code** tab of the Claude desktop app (Claude Pro or higher).
+
+```text
+github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
+```
+
+(It reads "set this up following SETUP.md in github.com/lemoncloud-io/doki".) Claude installs the tools, signs you in to GitHub, creates your private wiki repository, configures the environment, and checks the result. After that, you just ask.
+
+| Say | What happens |
+| --- | --- |
+| `클리핑 처리해줘` (process my clippings) | Compiles newly saved articles into topic wiki articles and opens a PR |
+| `Summarize what our wiki has on context engineering` | Answers from the wiki, with citations |
+| `뷰어로 보여줘 wiki/INDEX.md` (show it in the viewer) | Starts the vault viewer and opens the document |
+| `연결 그래프 보여줘` (show the link graph) | Maps how documents connect |
+| `주간 보고` (weekly report) | Builds a weekly report from the last 7 days of git history |
+
+For the terminal setup scripts and manual setup, see [Getting started](#getting-started).
 
 ---
 
 ## Contents
 
+- [Quick start](#quick-start)
 - [The problem it solves](#the-problem-it-solves)
 - [Features](#features)
 - [How it works](#how-it-works)
@@ -82,6 +118,9 @@ flowchart LR
 ```
 
 Ingest runs as **one daily batch**, not once per clipping. The agent creates an `ingest/<date>-<author>` branch, moves originals to `raw/`, writes the wiki, updates the indexes, and opens a PR. Opening the PR is automatic; **merging requires explicit human approval**.
+
+<p align="center"><img src="screenshot.png" alt="The doki vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view"></p>
+<p align="center"><sub>The same vault in Obsidian — the wiki is plain Markdown, so any editor opens it.</sub></p>
 
 ## Directory structure
 
@@ -239,6 +278,13 @@ Writes to `private/YYYY-MM-DD.md`, which is gitignored and never reaches the sha
 ## Vault viewer
 
 The vault viewer (`projects/knowledge-viewer`) is a **read-only local viewer** for the whole vault in a browser. It opens Markdown wiki articles and HTML or React outputs at one address, `/v/<vault-relative path>`. It runs no commands and never edits the source documents.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/viewer-search-dark.webp">
+  <img src="docs/assets/viewer-search-light.webp" alt="Vault viewer search — title and body matches for a Korean query">
+</picture>
+
+<p align="center"><sub>One search across titles and body text.</sub></p>
 
 - **Tree, search, backlinks** — the document list, full-text search, and the documents that link here
 - **Link graph** — `?view=graph` maps how documents connect

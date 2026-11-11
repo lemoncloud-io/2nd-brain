@@ -1,23 +1,59 @@
-# doki — Obsidian + Claude Code로 운영하는 AI Second Brain Vault
+<div align="center">
 
-**한국어** · [English](README.en.md) · [홈페이지](https://doki.lemoncloud.io)
+<img src="docs/assets/doki-mark.svg" width="88" alt="doki 로고">
 
-> **doki(도키)** 는 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿이다. 정리된 위키는 **볼트 뷰어**로 브라우저에서 트리·검색·역링크·연결 그래프로 읽는다. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다. 설치는 Claude 데스크톱 Code 탭에 한 줄이면 된다.
+# doki — Obsidian + Claude Code AI 세컨드 브레인
 
-![Obsidian에서 연 doki vault — wiki 문서, 토픽 인덱스, 그래프 뷰가 보이는 화면](screenshot.png)
+**Claude에게 한 줄이면 생기는 나만의 위키.**<br>
+읽은 글·PDF·Word·한글(HWP) 문서를 AI가 출처 달린 마크다운 위키로 정리한다.
+
+[홈페이지](https://doki.lemoncloud.io) · [빠른 시작](#빠른-시작) · [볼트 뷰어](#볼트-뷰어) · [자주 묻는 질문](#자주-묻는-질문) · [English](README.en.md)
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-vault-7C3AED)](https://obsidian.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-agent-D97757)](https://claude.com/claude-code)
 [![Markdown](https://img.shields.io/badge/format-Markdown-000000)](https://commonmark.org)
 [![Git](https://img.shields.io/badge/sync-Git%20%2B%20PR-F05032)](https://git-scm.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/lemoncloud-io/doki?style=flat&logo=github)](https://github.com/lemoncloud-io/doki/stargazers)
+
+</div>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/viewer-read-dark.webp">
+  <img src="docs/assets/viewer-read-light.webp" alt="볼트 뷰어로 연 예시 위키 — 왼쪽 문서 트리, 가운데 '전세 계약' 문서, 오른쪽 연결 지도·목차·역링크">
+</picture>
+
+<p align="center"><sub>볼트 뷰어로 연 예시 볼트 — 문서 트리, 본문, 연결 지도·목차·역링크가 한 화면에 있다.</sub></p>
+
+> **doki(도키)** 는 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿이다. 정리된 위키는 **볼트 뷰어**로 브라우저에서 트리·검색·역링크·연결 그래프로 읽는다. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다. 설치는 Claude 데스크톱 Code 탭에 한 줄이면 된다.
 
 **키워드**: Obsidian second brain · 세컨드 브레인 · 제2의 뇌 · 개인 지식 관리(PKM) · AI 지식 베이스 · 마크다운 위키 자동 생성 · 웹 클리퍼 인제스트 · 볼트 뷰어 · 지식 그래프 · 한글(HWP) 문서 위키 변환 · Claude Code agent skills · PARA 노트 정리법
+
+## 빠른 시작
+
+Claude 데스크톱 **Code 탭**(Claude Pro 이상)에 한 줄을 붙여 넣는다.
+
+```text
+github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
+```
+
+Claude가 도구 설치·GitHub 로그인·내 비공개 위키 저장소 생성·환경 설정·점검까지 진행한다. 그다음부터는 말로 쓴다.
+
+| 이렇게 말하면 | 이렇게 된다 |
+| --- | --- |
+| `클리핑 처리해줘` | 새로 저장한 글을 주제별 위키 문서로 정리하고 PR을 연다 |
+| `컨텍스트 엔지니어링 관련해서 우리 위키에 뭐가 있는지 정리해줘` | 위키를 근거로 출처 달린 답을 만든다 |
+| `뷰어로 보여줘 wiki/INDEX.md` | 볼트 뷰어를 띄워 문서를 연다 |
+| `연결 그래프 보여줘` | 문서가 어떻게 이어졌는지 지도로 본다 |
+| `주간 보고` | 지난 7일 git 이력으로 주간 보고서를 만든다 |
+
+터미널 설치 스크립트와 수동 설치는 [설치 및 시작](#설치-및-시작).
 
 ---
 
 ## 목차
 
+- [빠른 시작](#빠른-시작)
 - [무엇을 해결하는가](#무엇을-해결하는가)
 - [핵심 기능](#핵심-기능)
 - [동작 방식](#동작-방식)
@@ -82,6 +118,9 @@ flowchart LR
 ```
 
 인제스트는 클리핑 1건마다가 아니라 **하루 1회 배치**로 돈다. 에이전트는 `ingest/<날짜>-<작업자>` 브랜치를 만들고, 원문을 `raw/`로 옮기고, 위키를 쓰고, 인덱스를 갱신한 뒤 PR을 연다. PR을 여는 데까지는 자동이지만 **merge는 사람의 명시적 승인**이 필요하다.
+
+<p align="center"><img src="screenshot.png" alt="Obsidian에서 연 doki vault — wiki 문서, 토픽 인덱스, 그래프 뷰가 보이는 화면"></p>
+<p align="center"><sub>같은 볼트를 Obsidian에서 연 화면 — 위키는 그냥 마크다운이라 어느 편집기로도 연다.</sub></p>
 
 ## 디렉터리 구조
 
@@ -251,6 +290,13 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 ## 볼트 뷰어
 
 볼트 뷰어(`projects/knowledge-viewer`)는 볼트 전체를 브라우저에서 읽는 **읽기 전용 로컬 뷰어**다. 마크다운 위키뿐 아니라 HTML·React 산출물도 `/v/<볼트 상대경로>` 주소 하나로 연다. 명령을 실행하지 않고 원본 문서를 고치지 않는다.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/viewer-search-dark.webp">
+  <img src="docs/assets/viewer-search-light.webp" alt="볼트 뷰어 검색 — '등기부등본'으로 찾은 제목·본문 결과 목록">
+</picture>
+
+<p align="center"><sub>제목과 본문을 한 번에 찾는 검색.</sub></p>
 
 - **트리·검색·역링크** — 문서 목록과 전문 검색, 이 문서를 가리키는 문서 목록
 - **연결 그래프** — `?view=graph`로 문서가 어떻게 이어졌는지 지도로 본다
