@@ -23,9 +23,9 @@ An AI agent turns the articles, PDFs, Word files, and Korean HWP documents you s
   <img src="docs/assets/viewer-read-light.webp" alt="An example wiki in the vault viewer — document tree on the left, a wiki article in the middle, link map, table of contents, and backlinks on the right">
 </picture>
 
-<p align="center"><sub>An example vault (Korean) in the vault viewer — document tree, article, link map, contents, and backlinks on one screen.</sub></p>
+<p align="center"><sub>An example vault (Korean) in the vault viewer — document tree, article, link map, contents, and backlinks on one screen. Capture colours match the homepage palette.</sub></p>
 
-> **doki** is a personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git — no vendor lock-in — and the rules are model-neutral, so Claude, GPT, or Codex can all drive it. The compiled wiki opens in the **vault viewer**, a local browser view with a file tree, search, backlinks, and a link graph. Setup is one line in the Claude desktop Code tab.
+> **doki** is a personal and team knowledge management (PKM) vault template where an AI agent **compiles clipped web sources into structured wiki articles**, then answers your questions from that wiki **with citations**. Everything is Markdown and Git, so there is no vendor lock-in, and the rules are model-neutral: Claude, GPT, or Codex can all drive it. The compiled wiki opens in the **vault viewer**, a local browser view with a file tree, search, backlinks, and a link graph. Setup is one line in the Claude desktop Code tab.
 
 **Keywords**: Obsidian second brain · personal knowledge management (PKM) · AI knowledge base · markdown wiki automation · web clipper ingest pipeline · Claude Code agent skills · vault viewer · knowledge graph · Korean HWP to Markdown · PARA method · Zettelkasten · cited Q&A over your notes
 
@@ -70,28 +70,28 @@ For the terminal setup scripts and manual setup, see [Getting started](#getting-
 
 Reading material piles up, but saved articles are never revisited. Bookmarks and clipping folders end up as **a heap of unread originals**, and when you actually need something you are back to "where did I read that?".
 
-This vault inserts a **compile step** in between. Originals are preserved untouched in `raw/`, and an AI agent extracts the concepts into wiki articles — one concept per file. From then on you ask questions against the **organized wiki**, not the heap, and every answer links back to its sources.
+This vault inserts a **compile step** in between. Originals are kept untouched in `raw/`. An AI agent extracts the concepts into wiki articles, one concept per file. From then on you ask questions against the **organized wiki**, not the heap, and every answer links back to its sources.
 
-- **Preservation and interpretation are separated** — `raw/` is append-only; interpretation lives in `wiki/`
-- **Verifiable answers** — answers cite their source articles, and weakly-supported claims are flagged `needs-update`
-- **Built for a team** — every change arrives as a Git branch and PR; a human approves the merge
+- **Preservation and interpretation are separate** — `raw/` is append-only; interpretation lives in `wiki/`
+- **Verifiable answers** — answers cite their source articles, and weakly supported claims are flagged `needs-update`
+- **Built for a team** — every change arrives as a Git branch and PR, and a human approves the merge
 - **Agents follow the rules** — the contract lives in one file (`VAULT_RULES.md`) that humans and LLMs both read
 
 ## Features
 
 | Feature | What it does |
 | --- | --- |
-| **Clipping ingest** | Compiles sources collected in `Clippings/` (via Obsidian Web Clipper) into wiki articles as one daily batch |
-| **PDF ingest** | Converts PDFs to Markdown with a strategy matched to per-page text density and drops them into `Clippings/` (`pdf2md-ingest`) |
-| **HWP ingest** | Converts Korean HWP/HWPX documents to Markdown — no Hancom Office required — and drops them into `Clippings/` (`hwp2md-ingest`) |
+| **Clipping ingest** | Compiles sources collected in `Clippings/` (via Obsidian Web Clipper) into wiki articles in one daily batch |
+| **PDF ingest** | Converts PDFs to Markdown with a strategy matched to per-page text density, and drops them into `Clippings/` (`pdf2md-ingest`) |
+| **HWP ingest** | Converts Korean HWP/HWPX documents to Markdown, with no Hancom Office required, and drops them into `Clippings/` (`hwp2md-ingest`) |
 | **Word ingest** | Converts Word documents (.doc/.docx) to Markdown and drops them into `Clippings/` — `.docx` keeps its structure, `.doc` may lose structure depending on the conversion path (`doc2md-ingest`) |
 | **Document promotion** | Promotes team/personal repo docs — reusable concepts to wiki, original snapshots to `raw/` (`vault-promote`) |
 | **Cited Q&A** | Answers from `wiki/INDEX.md` and saves retained answers to `outputs/` |
 | **Vault viewer** | A read-only local viewer that opens the vault's Markdown, HTML, and React outputs at one address, `/v/<path>` — file tree, search, backlinks, link graph, hover previews, and a PR review mode (`knowledge-viewer`) |
 | **Review viewer** | Builds a single-HTML viewer for reviewing a project's design and progress from one `viewer.yml` (`project-viewer`) |
-| **Open by local name** | Opens local services such as the vault viewer at `http://doki.local` instead of a port — an nginx reverse-proxy generator; a person runs the sudo step (`local-nginx-proxy`) |
+| **Open by local name** | Opens local services such as the vault viewer at `http://doki.local` instead of a port. It is an nginx reverse-proxy generator; a person runs the sudo step (`local-nginx-proxy`) |
 | **Open-question triage** | Gathers the `## Open Questions` of wiki notes into a queue, closes what the agent can, and batches the rest for the owner (`vault-questions`) |
-| **Orphan check** | Finds documents that cannot be reached by links from `wiki/INDEX.md`, proposes where to link them, and applies the approved links (`vault-reach`) |
+| **Orphan check** | Finds documents that no link path from `wiki/INDEX.md` reaches, proposes where to link them, and applies the approved links (`vault-reach`) |
 | **PR review** | Reviews a PR's code, design, and doc changes for decisions made without instruction, checked against the evidence (`github-review`) |
 | **Serverless data pipeline** | A reference for deploying S3 → Lambda → DynamoDB → OpenSearch to your own AWS account with a restricted deploy key, plus 8 skills (`aws-serverless`) |
 | **Quality lint** | Detects stubs, contradictions, broken links, and frontmatter violations, files a report, and regenerates the `raw/` index |
@@ -100,9 +100,9 @@ This vault inserts a **compile step** in between. Originals are preserved untouc
 | **Private notes** | `private/` is a git-untracked local scratch space, separating personal memos from the shared vault |
 | **GitHub-linked projects** | Tracks external repos as lightweight status/goal notes under `projects/@<org>/<repo>/` |
 | **Agent context budget** | Caps the always-loaded rule set at 8 KB so instructions never crowd out the actual work |
-| **Counter-free memory** | Run and volume counters are derived from the append-only ledgers instead of being stored in memory, so concurrent ingest branches stop colliding (`vault_volume.py`) |
-| **One-line install** | macOS and Windows onboarding scripts handle tool installation, GitHub login, the vault clone, and environment setup (safe to re-run) |
-| **Shared tool sync** | Shared tools — vault viewer, review viewer, local-name proxy, PR review — arrive as copies from an upstream vault (vault-sync). The `managed: vault-sync` and `origin:` stamps in each copy's README record the source |
+| **Counter-free memory** | Run and volume counters are derived from the append-only ledgers instead of being stored in memory, so concurrent ingest branches no longer collide (`vault_volume.py`) |
+| **One-line install** | macOS and Windows onboarding scripts install the tools, log in to GitHub, clone the vault, and set up the environment (safe to re-run) |
+| **Shared tool sync** | Shared tools (vault viewer, review viewer, local-name proxy, PR review) arrive as copies from an upstream vault (vault-sync). The `managed: vault-sync` and `origin:` stamps in each copy's README record the source |
 
 ## How it works
 
@@ -117,7 +117,7 @@ flowchart LR
     D -->|commit · PR| H[GitHub<br/>human approves merge]
 ```
 
-Ingest runs as **one daily batch**, not once per clipping. The agent creates an `ingest/<date>-<author>` branch, moves originals to `raw/`, writes the wiki, updates the indexes, and opens a PR. Opening the PR is automatic; **merging requires explicit human approval**.
+Ingest runs as **one daily batch**, not once per clipping. The agent creates an `ingest/<date>-<author>` branch, moves originals to `raw/`, writes the wiki, updates the indexes, and opens a PR. The PR opens automatically; **merging requires explicit human approval**.
 
 <p align="center"><img src="screenshot.png" alt="The doki vault opened in Obsidian, showing wiki articles, topic index pages, and the graph view"></p>
 <p align="center"><sub>The same vault in Obsidian — the wiki is plain Markdown, so any editor opens it.</sub></p>
@@ -168,7 +168,7 @@ gh --version         # optional
 
 ### Setup script (recommended — one line)
 
-The script installs Git, Obsidian, Claude Code, and the GitHub CLI along with the document converters (pandoc, uv), signs you into GitHub in the browser, sets your git identity, clones the vault, registers `VAULT_DIR`, and verifies the structure. Anything already installed or configured is skipped, so **re-running is safe**.
+The script installs Git, Obsidian, Claude Code, the GitHub CLI, and the document converters (pandoc, uv). It signs you in to GitHub in the browser, sets your git identity, clones the vault, registers `VAULT_DIR`, and verifies the structure. It skips anything already installed or configured, so **re-running is safe**.
 
 **macOS** — paste into Terminal:
 
@@ -182,13 +182,13 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/maste
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
 ```
 
-The script asks for your **team vault repo URL** partway through. Pressing Enter clones this public template instead of your team's wiki, so supply the URL if you are joining a team. To decide up front, set `REPO_URL` / `TARGET_DIR` (on Windows, the `-RepoUrl` / `-TargetDir` parameters); to skip the converters, pass `SKIP_CONVERTERS=1` (`-SkipConverters` on Windows).
+The script asks for your **team vault repo URL** partway through. Pressing Enter clones this public template instead of your team's wiki, so give the URL if you are joining a team. To decide up front, set `REPO_URL` / `TARGET_DIR` (on Windows, the `-RepoUrl` / `-TargetDir` parameters); to skip the converters, pass `SKIP_CONVERTERS=1` (`-SkipConverters` on Windows).
 
-> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path — they type one line in the Claude desktop **Code** tab (`github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘`) and Claude follows the [`SETUP.md`](SETUP.md) runbook, then everything happens in a Code-tab session on the vault folder. It also carries the checklist for whoever runs the onboarding. Agents run these scripts with `--non-interactive` (Windows `-NonInteractive`); see the script header for the options.
+> Onboarding someone who does not use a terminal? **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** is the dedicated path. They type one line in the Claude desktop **Code** tab (`github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘`), Claude follows the [`SETUP.md`](SETUP.md) runbook, and everything after that happens in a Code-tab session on the vault folder. It also has the checklist for whoever runs the onboarding. Agents run these scripts with `--non-interactive` (Windows `-NonInteractive`); see the script header for the options.
 
 ### Manual setup
 
-1. **Clone the repo and set `VAULT_DIR`** — the repo and path below are examples. After cloning, repoint `origin` to your own/team git, and use `$VAULT_DIR`/`~` relative paths instead of absolute machine paths.
+1. **Clone the repo and set `VAULT_DIR`** — the repo and path below are examples. After cloning, repoint `origin` to your own or your team's git, and use `$VAULT_DIR` or `~` paths instead of absolute machine paths.
 
    ```bash
    git clone https://github.com/lemoncloud-io/doki.git ~/knowledge
@@ -211,7 +211,7 @@ The script asks for your **team vault repo URL** partway through. Pressing Enter
 
 ### Vault root rule
 
-Treat the repository root as `VAULT_DIR` only when the expected structure is present (`VAULT_RULES.md`, `wiki/`, `raw/`, `Clippings/`, `outputs/`, and `templates/`). Use a user-provided `VAULT_DIR` when set. Never silently fall back to `~/knowledge` — that is only an example setup path. Full rule: [`CLAUDE.md`](CLAUDE.md) § Vault Root.
+Treat the repository root as `VAULT_DIR` only when the expected structure is present (`VAULT_RULES.md`, `wiki/`, `raw/`, `Clippings/`, `outputs/`, and `templates/`). Use a user-provided `VAULT_DIR` when set. Never silently fall back to `~/knowledge`; that is only an example setup path. Full rule: [`CLAUDE.md`](CLAUDE.md) § Vault Root.
 
 ## Usage
 
@@ -241,7 +241,7 @@ Drop one source into `Clippings/` (e.g. an article on a multi-agent setup) and r
 - Update `wiki/INDEX.md` and `wiki/TOPIC_MAP.md`, and write this run's log as a note under `outputs/runs/` (`wiki/VAULT_MEMORY.md` is left untouched — run figures are derived from the run logs)
 - Commit, push, and open a PR against `master` automatically (reviewer = `github.default_reviewer` in `team-settings.yaml`)
 
-New articles usually start as `stub`, and time-sensitive or under-supported claims are flagged `needs-update`. When it finishes, you get a summary of processed clippings, created/updated articles, remaining issues, and the PR link.
+New articles usually start as `stub`, and time-sensitive or under-supported claims are flagged `needs-update`. When it finishes, you get a summary of processed clippings, created and updated articles, remaining issues, and the PR link.
 
 #### Scheduled runs (cron · webhook)
 
@@ -253,11 +253,11 @@ python3 projects/second-brain/config/scripts/vault_ingest_once.py
 
 The script checks for pending clippings, the lock, and Claude CLI availability, and reports a status: `no_work` (nothing to process), `claude_success` (the shared-invariant check has already passed — its output is in the `verify` field), `fallback_required` / exit 42 (run the Hermes-native fallback), `locked` (never run in parallel), `claude_failed_after_start` (partial changes possible — no automatic fallback; review the changed files first), or `verify_failed` (the commit and PR exist, but invariant verification failed — do not report success; fix the defects on the PR, never re-run automatically).
 
-The script carries no copy of the job spec handed to Claude — the "Claude job spec" block in [`vault-ingest-claude.md`](projects/second-brain/config/skills/vault-ingest-claude.md) is the single source of truth for both the delegated and the interactive lane. A cron prompt seed is included in [`vault-ingest-once.md`](projects/second-brain/config/skills/vault-ingest-once.md).
+The script holds no copy of the job spec handed to Claude. The "Claude job spec" block in [`vault-ingest-claude.md`](projects/second-brain/config/skills/vault-ingest-claude.md) is the single source of truth for both the delegated and the interactive lane. A cron prompt seed is in [`vault-ingest-once.md`](projects/second-brain/config/skills/vault-ingest-once.md).
 
 ### Query
 
-Ask any question — the agent reads `wiki/INDEX.md`, identifies relevant articles, and writes a cited answer to `outputs/`.
+Ask any question. The agent reads `wiki/INDEX.md`, identifies relevant articles, and writes a cited answer to `outputs/`.
 
 ### Weekly report
 
@@ -311,7 +311,7 @@ To run it as a login service and open it at `http://doki.local` (macOS), follow 
 
 ## Rules and contracts
 
-Humans and LLMs read the same documents. Each one owns a different layer.
+Humans and LLMs read the same documents. Each document owns a different layer.
 
 | Document | Owns |
 | --- | --- |
@@ -400,10 +400,10 @@ Yes. Copy `VAULT_RULES.md`, `CLAUDE.md`, `templates/`, and `projects/second-brai
 Entirely in your local Git repository. Nothing is uploaded to a third-party service by the vault itself; what reaches an agent is scoped to the task you run. Keep anything you don't want shared in `private/` (git-untracked).
 
 **Can I use it solo?**
-Yes, though the default rules assume a shared team vault — for example, personal experiment data and per-item labels over personal media must not be committed. Running solo, you can relax those clauses in `VAULT_RULES.md`.
+Yes, though the default rules assume a shared team vault. For example, personal experiment data and per-item labels over personal media must not be committed. Running solo, you can relax those clauses in `VAULT_RULES.md`.
 
 **Why compile wiki articles instead of just searching the originals?**
-Full-text search only finds what lives inside a single document. The wiki layer gathers the same concept from several sources into one article and links concepts to each other, which is what makes multi-source questions answerable.
+Full-text search only finds what lives inside a single document. The wiki layer gathers the same concept from several sources into one article and links concepts to each other. That is what makes multi-source questions answerable.
 
 ## Related concepts
 
@@ -411,8 +411,8 @@ Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Meth
 
 ## Contributing
 
-This repository is a bootstrap template — clone it and repoint `origin` to your own or your team's repository. Suggestions are welcome as issues or PRs.
+This repository is a bootstrap template. Clone it and repoint `origin` to your own or your team's repository. Suggestions are welcome as issues or PRs.
 
 ## License
 
-[MIT](LICENSE) — clone, modify, and redistribute freely. The license covers the vault template (rules, skills, templates, scripts), not the notes you write into your own vault.
+[MIT](LICENSE). Clone, modify, and redistribute freely. The license covers the vault template (rules, skills, templates, scripts), not the notes you write into your own vault.

@@ -23,9 +23,9 @@
   <img src="docs/assets/viewer-read-light.webp" alt="볼트 뷰어로 연 예시 위키 — 왼쪽 문서 트리, 가운데 '전세 계약' 문서, 오른쪽 연결 지도·목차·역링크">
 </picture>
 
-<p align="center"><sub>볼트 뷰어로 연 예시 볼트 — 문서 트리, 본문, 연결 지도·목차·역링크가 한 화면에 있다.</sub></p>
+<p align="center"><sub>볼트 뷰어로 연 예시 볼트 — 문서 트리, 본문, 연결 지도·목차·역링크가 한 화면에 있다. 캡처 색은 홈페이지 팔레트에 맞췄다.</sub></p>
 
-> **doki(도키)** 는 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿이다. 정리된 위키는 **볼트 뷰어**로 브라우저에서 트리·검색·역링크·연결 그래프로 읽는다. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다. 설치는 Claude 데스크톱 Code 탭에 한 줄이면 된다.
+> **doki(도키)** 는 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿이다. 정리된 위키는 **볼트 뷰어**로 브라우저에서 트리·검색·역링크·연결 그래프로 읽는다. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 쓸 수 있다. 설치는 Claude 데스크톱 Code 탭에 한 줄이면 된다.
 
 **키워드**: Obsidian second brain · 세컨드 브레인 · 제2의 뇌 · 개인 지식 관리(PKM) · AI 지식 베이스 · 마크다운 위키 자동 생성 · 웹 클리퍼 인제스트 · 볼트 뷰어 · 지식 그래프 · 한글(HWP) 문서 위키 변환 · Claude Code agent skills · PARA 노트 정리법
 
@@ -37,7 +37,7 @@ Claude 데스크톱 **Code 탭**(Claude Pro 이상)에 한 줄을 붙여 넣는�
 github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
 ```
 
-Claude가 도구 설치·GitHub 로그인·내 비공개 위키 저장소 생성·환경 설정·점검까지 진행한다. 그다음부터는 말로 쓴다.
+Claude가 도구 설치·GitHub 로그인·내 비공개 위키 저장소 생성·환경 설정·점검까지 진행한다. 그다음부터는 말로 시킨다.
 
 | 이렇게 말하면 | 이렇게 된다 |
 | --- | --- |
@@ -70,10 +70,10 @@ Claude가 도구 설치·GitHub 로그인·내 비공개 위키 저장소 생성
 
 읽을거리는 계속 쌓이는데, 저장한 글은 다시 찾지 않는다. 북마크와 클리핑 폴더는 **읽지 않은 원문 더미**로 끝나고, 정작 필요한 순간에는 "그거 어디서 봤더라"로 돌아간다.
 
-이 vault는 그 사이에 **컴파일 단계**를 넣는다. 원문은 `raw/`에 원본 그대로 보존하고, AI 에이전트가 거기서 개념을 뽑아 한 개념당 한 파일인 위키 문서로 정리한다. 이후 질문은 원문 더미가 아니라 **정리된 위키**에 대고 하며, 답변에는 항상 근거 문서 링크가 붙는다.
+이 vault는 그 사이에 **컴파일 단계**를 넣는다. 원문은 `raw/`에 원본 그대로 보존하고, AI 에이전트가 거기서 개념을 뽑아 한 개념당 한 파일인 위키 문서로 정리한다. 이후 질문은 원문 더미가 아니라 **정리된 위키**에 던지며, 답변에는 항상 근거 문서 링크가 붙는다.
 
 - **원문 보존과 지식 정리를 분리한다** — `raw/`는 append-only, 해석은 `wiki/`에서
-- **검증 가능한 답변** — 모든 답변은 출처 위키 문서를 인용하고, 근거가 약한 주장은 `needs-update`로 표시된다
+- **검증 가능한 답변** — 모든 답변은 출처 위키 문서를 인용하고, 근거가 약한 주장에는 `needs-update`를 표시한다
 - **팀 단위로 굴러간다** — 모든 변경은 Git 브랜치와 PR로 들어오고, merge는 사람이 승인한다
 - **에이전트가 규칙을 지킨다** — 규칙이 `VAULT_RULES.md` 한 곳에 계약으로 적혀 있어 사람과 LLM이 같은 문서를 읽는다
 
@@ -142,7 +142,7 @@ private/          ← 개인 전용 스크래치 (git 비추적)
 
 `projects/` · `areas/` · `archive/`는 [PARA](https://fortelabs.com/blog/para/) 정리법을 따르고, `wiki/`가 재사용 가능한 개념 계층(R에 해당)을 맡는다.
 
-> `raw/`와 `archive/`는 append-only다. `wiki/VAULT_MEMORY.md`와 `wiki/INDEX.md`는 모든 vault 작업 시작 시 로드된다.
+> `raw/`와 `archive/`는 append-only다. `wiki/VAULT_MEMORY.md`와 `wiki/INDEX.md`는 모든 vault 작업을 시작할 때 로드된다.
 
 ## 필요한 도구
 
@@ -190,9 +190,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/maste
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
 ```
 
-스크립트는 실행 중 **팀 vault repo URL**을 묻는다. 그냥 Enter로 넘기면 팀 위키가 아니라 이 공개 템플릿이 clone되므로, 팀에서 쓰는 경우 반드시 주소를 입력한다. repo·경로를 미리 지정하려면 `REPO_URL`·`TARGET_DIR` 환경변수(Windows는 `-RepoUrl`·`-TargetDir` 인자)를 쓰고, 변환 도구를 빼려면 `SKIP_CONVERTERS=1`(Windows는 `-SkipConverters`)을 준다.
+스크립트는 실행 중 **팀 vault repo URL**을 묻는다. 그냥 Enter로 넘기면 팀 위키가 아니라 이 공개 템플릿이 clone되므로, 팀에서 쓰는 경우 반드시 주소를 입력한다. repo·경로를 미리 지정하려면 `REPO_URL`·`TARGET_DIR` 환경변수(Windows는 `-RepoUrl`·`-TargetDir` 인자)를 쓴다. 변환 도구를 빼려면 `SKIP_CONVERTERS=1`(Windows는 `-SkipConverters`)을 준다.
 
-> 터미널을 쓰지 않는 팀원을 온보딩한다면 **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** 가 전용 경로다 — 설치도 이후 작업도 Claude 데스크톱 Code 탭에서 말로 한다. 팀 관리자용 체크리스트도 그 문서에 있다. 에이전트가 이 스크립트를 실행할 때는 `--non-interactive`(Windows `-NonInteractive`) 모드를 쓴다 — 옵션은 스크립트 머리 주석.
+> 터미널을 쓰지 않는 팀원을 온보딩한다면 **[`docs/non-developer-onboarding.md`](docs/non-developer-onboarding.md)** 가 전용 경로다 — 설치도 이후 작업도 Claude 데스크톱 Code 탭에서 말로 한다. 팀 관리자용 체크리스트도 그 문서에 있다. 에이전트가 이 스크립트를 실행할 때는 `--non-interactive`(Windows `-NonInteractive`) 모드를 쓴다. 옵션은 스크립트 머리 주석에 있다.
 
 ### 수동 설치
 
@@ -215,11 +215,11 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/maste
 
 4. **(선택) Claude CLI 설치** — 인제스트/린트를 Claude Code에 위임하려면 `claude`가 설치·인증돼 있어야 한다. 없으면 Hermes 네이티브 워크플로우로 폴백된다.
 
-> Obsidian Web Clipper 설정, 플러그인, PR 흐름, 문제 해결 등 **자세한 설치·이용 가이드는 [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md)를 참조**한다.
+> Obsidian Web Clipper 설정, 플러그인, PR 흐름, 문제 해결 등 **자세한 설치·이용 가이드는 [`docs/knowledge-wiki-setup-guide.md`](docs/knowledge-wiki-setup-guide.md)를 본다**.
 
 ### Vault 루트 규칙
 
-저장소 루트를 `VAULT_DIR`로 취급하는 것은 기대 구조(`VAULT_RULES.md`, `wiki/`, `raw/`, `Clippings/`, `outputs/`, `templates/`)가 모두 존재할 때만이다. 사용자가 `VAULT_DIR`를 지정하면 그것을 쓴다. `~/knowledge`로 조용히 폴백하지 않는다 — 설치 예시 경로일 뿐이다. 전체 규칙은 [`CLAUDE.md`](CLAUDE.md) § Vault Root에 있다.
+저장소 루트를 `VAULT_DIR`로 취급하는 경우는 기대 구조(`VAULT_RULES.md`, `wiki/`, `raw/`, `Clippings/`, `outputs/`, `templates/`)가 모두 있을 때뿐이다. 사용자가 `VAULT_DIR`를 지정하면 그것을 쓴다. `~/knowledge`로 조용히 폴백하지 않는다 — 설치 예시 경로일 뿐이다. 전체 규칙은 [`CLAUDE.md`](CLAUDE.md) § Vault Root에 있다.
 
 ## 사용법
 
@@ -249,7 +249,7 @@ Claude에 위임해서 클리핑 처리해줘
 - `wiki/INDEX.md`·`wiki/TOPIC_MAP.md` 갱신, 이번 실행의 run-log 노트를 `outputs/runs/`에 생성 (`wiki/VAULT_MEMORY.md`는 건드리지 않는다 — 실행 수치는 run-log에서 유추)
 - 결과를 커밋·push하고 `master` 대상 PR을 자동으로 오픈 (리뷰어는 `team-settings.yaml`의 `github.default_reviewer`)
 
-새로 만들어진 문서는 대개 `stub` 상태이며, 시간에 민감하거나 근거가 부족한 주장은 `needs-update`로 표기된다. 실행이 끝나면 처리한 클리핑, 생성·갱신 문서, 남은 이슈, PR 링크가 요약 보고된다.
+새로 만든 문서는 대개 `stub` 상태이며, 시간에 민감하거나 근거가 부족한 주장에는 `needs-update`를 표기한다. 실행이 끝나면 에이전트가 처리한 클리핑, 생성·갱신 문서, 남은 이슈, PR 링크를 요약해 보고한다.
 
 #### 자동 실행 (cron · webhook)
 
@@ -265,7 +265,7 @@ Claude에 넘기는 job spec은 스크립트 안에 사본이 없다 — [`vault
 
 ### 질의
 
-무엇이든 물어보면 에이전트가 `wiki/INDEX.md`를 읽어 관련 문서를 찾고, 인용된 답변을 `outputs/`에 저장한다.
+무엇이든 물어보면 에이전트가 `wiki/INDEX.md`를 읽어 관련 문서를 찾고, 인용을 단 답변을 `outputs/`에 저장한다.
 
 ```text
 컨텍스트 엔지니어링 관련해서 우리 위키에 뭐가 있는지 정리해줘
@@ -383,7 +383,7 @@ node projects/knowledge-viewer/config/app/start.ts   # → http://127.0.0.1:8778
 - [aws-serverless](projects/aws-serverless/) — `active` · 서버리스 데이터 파이프라인 레퍼런스
 - [devops](projects/devops/) — `active` · 개발 작업 진입 절차 (로컬 vs AWS 서버리스)
 
-프로젝트 상태·마감·다음 행동의 진실원은 각 프로젝트 README의 frontmatter다. 자세한 내용은 [projects/README.md](projects/README.md)를 참조한다.
+프로젝트 상태·마감·다음 행동의 진실원은 각 프로젝트 README의 frontmatter다. 자세한 내용은 [projects/README.md](projects/README.md)를 본다.
 
 ## 자주 묻는 질문
 
@@ -409,10 +409,10 @@ doki는 레몬클라우드가 만든 오픈소스(MIT) AI 세컨드 브레인 va
 가능하다. `VAULT_RULES.md`, `CLAUDE.md`, `templates/`, `projects/second-brain/config/`를 기존 vault에 복사하고 `Clippings/`·`raw/`·`wiki/`·`outputs/` 폴더를 만들면 된다. 기존 노트는 건드리지 않는다.
 
 **내 데이터는 어디에 저장되나?**
-전부 로컬 Git 저장소다. 외부 서비스에 업로드하는 단계는 없고, 에이전트에 전달되는 내용은 사용자가 실행하는 그 작업의 범위로 한정된다. 팀과 공유하고 싶지 않은 기록은 `private/`(git 비추적)에 둔다.
+전부 로컬 Git 저장소다. 외부 서비스에 업로드하는 단계는 없고, 에이전트에 넘기는 내용은 사용자가 실행한 작업의 범위로 한정한다. 팀과 공유하고 싶지 않은 기록은 `private/`(git 비추적)에 둔다.
 
 **개인용으로 써도 되나?**
-된다. 다만 기본 규칙은 "공유 팀 vault"를 전제로 쓰여 있어, 개인 실험 데이터·개인 미디어 라벨은 커밋하지 않도록 되어 있다. 혼자 쓴다면 `VAULT_RULES.md`의 해당 조항을 완화해도 된다.
+된다. 다만 기본 규칙은 "공유 팀 vault"를 전제로 하므로, 개인 실험 데이터·개인 미디어 라벨은 커밋하지 않도록 규정한다. 혼자 쓴다면 `VAULT_RULES.md`의 해당 조항을 완화해도 된다.
 
 **왜 위키 문서를 자동 생성하나? 원문 검색으로 충분하지 않나?**
 원문 검색은 "그 글 안에 있는 것"만 찾는다. 위키 계층은 여러 원문에 흩어진 같은 개념을 한 문서로 모으고 개념 사이 링크를 남기므로, 출처가 여러 개인 질문에 답할 수 있다.
@@ -423,7 +423,7 @@ Personal Knowledge Management (PKM) · Second Brain · Zettelkasten · PARA Meth
 
 ## 기여
 
-이 저장소는 부트스트랩 템플릿이다. clone 후 origin을 본인/팀 저장소로 바꿔 쓰는 것을 전제로 한다. 개선 제안은 이슈나 PR로 보내면 된다.
+이 저장소는 부트스트랩 템플릿이다. clone 후 origin을 본인/팀 저장소로 바꿔 쓴다는 전제다. 개선 제안은 이슈나 PR로 보내면 된다.
 
 ## 라이선스
 
