@@ -35,7 +35,7 @@ def _legacy_slug() -> str:
 def _guard_snippet() -> str:
     text = SCRIPT.read_text(encoding="utf-8")
     keep = []
-    for prefix in ("warn() ", "norm_url() ", "TEMPLATE_URL=", "LEGACY_TEMPLATE_URL="):
+    for prefix in ("warn() ", "norm_url() ", "is_template_url() ", "TEMPLATE_URL=", "LEGACY_TEMPLATE_URL="):
         line = next(l for l in text.splitlines() if l.startswith(prefix))
         keep.append(line)
     block = re.search(r"^# 잔여 안전망:.*?^fi$", text, re.S | re.M)
@@ -76,6 +76,41 @@ class OriginGuardTest(unittest.TestCase):
     def test_no_origin_is_quiet(self) -> None:
         self.assertFalse(self.warns(""))
 
+
+
+@unittest.skipIf(shutil.which("bash") is None, "bash not available")
+class NonInteractiveTemplateGuardTest(unittest.TestCase):
+    """--non-interactive refuses the public template before any install step.
+
+    Only the guard block is cut out and run — never the whole installer, which would
+    install tools and edit shell rc files on this machine if the guard regressed.
+    """
+
+    def refuses(self, repo: str) -> bool:
+        text = SCRIPT.read_text(encoding="utf-8")
+        keep = [next(l for l in text.splitlines() if l.startswith(p))
+                for p in ("fail() ", "norm_url() ", "is_template_url() ", "TEMPLATE_URL=", "LEGACY_TEMPLATE_URL=")]
+        block = re.search(r"^# 비대화형 입력은 설치를 시작하기 전에 검사한다.*?^fi$", text, re.S | re.M)
+        if block is None:
+            raise AssertionError("non-interactive guard block not found in setup-vault-mac.sh")
+        snippet = "\n".join(keep + ['NON_INTERACTIVE=1', 'TARGET_DIR="/nonexistent/vault"', 'REPO_URL="$1"',
+                                     block.group(0), 'echo passed'])
+        proc = subprocess.run(["bash", "-c", snippet, "guard", repo], capture_output=True, text=True)
+        refused = proc.returncode != 0 and "--non-interactive에는 --repo" in proc.stdout
+        self.assertEqual(refused, "passed" not in proc.stdout)
+        return refused
+
+    def test_old_name_is_refused_in_every_url_form(self) -> None:
+        old = "lemoncloud-io/2nd-brain"  # 옛 이름 — 리다이렉트로 공개 템플릿이 clone 된다
+        for repo in (f"https://github.com/{old}.git", f"https://github.com/{old}", f"git@github.com:{old}.git"):
+            with self.subTest(repo=repo):
+                self.assertTrue(self.refuses(repo))
+
+    def test_current_template_is_refused(self) -> None:
+        self.assertTrue(self.refuses("https://github.com/lemoncloud-io/doki.git"))
+
+    def test_team_repo_passes(self) -> None:
+        self.assertFalse(self.refuses("git@github.com:my-org/my-doki.git"))
 
 if __name__ == "__main__":
     unittest.main()

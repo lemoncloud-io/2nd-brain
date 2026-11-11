@@ -63,15 +63,17 @@ TARGET_DIR="${POSITIONAL[1]:-${TARGET_DIR:-$HOME/knowledge}}"
 if [ "$NON_INTERACTIVE" = "0" ] && [ -t 0 ]; then CAN_PROMPT=1; else CAN_PROMPT=0; fi
 # URL 비교용 정규화: 프로토콜·ssh 접두·.git 접미를 벗겨 host/org/repo만 남긴다
 norm_url() { printf '%s' "$1" | sed -E 's#^https?://##; s#^git@##; s#:#/#; s#\.git$##; s#/$##'; }
+# 공개 템플릿인가 — 현재 이름과 옛 이름(GitHub 가 리다이렉트한다) 둘 다
+is_template_url() { [ "$(norm_url "$1")" = "$(norm_url "$TEMPLATE_URL")" ] || [ "$(norm_url "$1")" = "$(norm_url "$LEGACY_TEMPLATE_URL")" ]; }
 
 # 비대화형 입력은 설치를 시작하기 전에 검사한다 — 도구를 다 깐 뒤 clone 단계에서 멈추지 않게.
 if [ "$NON_INTERACTIVE" = "1" ] && [ ! -d "$TARGET_DIR/.git" ] \
-   && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ]; then
+   && is_template_url "$REPO_URL"; then
   fail "--non-interactive에는 --repo <내 위키 repo URL>이 필요합니다 (공개 템플릿은 clone하지 않습니다).
   새 repo는 먼저 만드세요: gh repo create <이름> --template lemoncloud-io/doki --private"
 fi
 # 이미 있는 checkout이 고른 repo가 아니면 그 vault를 설정·push하게 된다 — 다른 경로를 받는다.
-if [ -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" != "$(norm_url "$TEMPLATE_URL")" ] && command -v git >/dev/null 2>&1; then
+if [ -d "$TARGET_DIR/.git" ] && ! is_template_url "$REPO_URL" && command -v git >/dev/null 2>&1; then
   EXISTING_ORIGIN="$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null || echo "")"
   if [ "$(norm_url "$EXISTING_ORIGIN")" != "$(norm_url "$REPO_URL")" ]; then
     fail "$TARGET_DIR 는 다른 repo(${EXISTING_ORIGIN:-origin 없음})의 checkout입니다 — $REPO_URL 이 아닙니다.
@@ -227,12 +229,12 @@ if [ -z "$(git config --global user.name 2>/dev/null || true)" ] || [ -z "$(git 
 fi
 
 # ── 6. 팀 repo 지정 + vault clone ────────────────────────────
-if [ ! -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ] && [ "$CAN_PROMPT" = "1" ]; then
+if [ ! -d "$TARGET_DIR/.git" ] && is_template_url "$REPO_URL" && [ "$CAN_PROMPT" = "1" ]; then
   printf '팀 vault repo URL을 입력하세요 (예: https://github.com/<org>/<repo>.git — 엔터 = 공개 템플릿으로 시작): '
   read -r INPUT_URL || INPUT_URL=""
   [ -n "$INPUT_URL" ] && REPO_URL="$INPUT_URL"
 fi
-if [ ! -d "$TARGET_DIR/.git" ] && [ "$(norm_url "$REPO_URL")" = "$(norm_url "$TEMPLATE_URL")" ]; then
+if [ ! -d "$TARGET_DIR/.git" ] && is_template_url "$REPO_URL"; then
   warn "공개 템플릿($TEMPLATE_URL)을 clone합니다 — 팀 위키가 아닙니다.
   팀 repo가 있다면 지금 중단(Ctrl+C)하고 재실행 때 URL을 입력하세요.
   팀 repo를 새로 만들 관리자는 clone 대신 GitHub template 생성이 정본입니다:
@@ -252,8 +254,7 @@ fi
 
 # 잔여 안전망: origin이 여전히 공개 템플릿이면 push·PR이 공개 repo로 향한다
 CURRENT_ORIGIN="$(git -C "$TARGET_DIR" remote get-url origin 2>/dev/null || echo "")"
-if [ -n "$CURRENT_ORIGIN" ] && { [ "$(norm_url "$CURRENT_ORIGIN")" = "$(norm_url "$TEMPLATE_URL")" ] \
-   || [ "$(norm_url "$CURRENT_ORIGIN")" = "$(norm_url "$LEGACY_TEMPLATE_URL")" ]; }; then
+if [ -n "$CURRENT_ORIGIN" ] && is_template_url "$CURRENT_ORIGIN"; then
   warn "origin이 공개 부트스트랩 템플릿입니다. 팀 repo가 생기면 전환하세요:
   git -C \"$TARGET_DIR\" remote set-url origin <팀-repo-URL>"
 fi
