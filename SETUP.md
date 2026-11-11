@@ -1,10 +1,10 @@
-# SETUP.md — 에이전트가 따라 하는 2nd-brain 설치 런북
+# SETUP.md — 에이전트가 따라 하는 doki 설치 런북
 
 이 문서는 **사람이 아니라 에이전트(Claude)가 읽고 실행하는 절차서**다. 사용자는 Claude 데스크톱 앱의
 **Code 탭(로컬 세션)** 에서 아래 한 줄만 입력한다.
 
 ```text
-github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
+github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
 ```
 
 끝나면 사용자 컴퓨터에 사용자 본인의 비공개 위키 repo(기본 `~/knowledge`)가 생기고, 그 폴더로 연 새 세션에서
@@ -36,7 +36,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 설치를 시작하기 전에 아래 하나만 묻는다(나머지 값은 GitHub 계정에서 가져온다).
 
 - **이미 쓰는 팀 위키 repo가 있나요?** 팀 관리자에게 주소를 받았다면 그 주소(`https://github.com/<org>/<repo>`).
-  없으면 새로 만든다 — 기본 이름 `my-2nd-brain`(사용자가 다른 이름을 원하면 그 이름).
+  없으면 새로 만든다 — 기본 이름 `my-doki`(사용자가 다른 이름을 원하면 그 이름).
 
 설치 위치(`VAULT`)는 고정하지 않고 아래 순서로 정한다. 처음 맞는 값을 쓰고 사용자에게 한 줄로 알린다.
 
@@ -105,8 +105,8 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 
 - **실행**:
   1. `gh repo view "$LOGIN/<이름>" --json name` — 성공하면 같은 이름이 이미 있다. 사용자에게 다른 이름을 묻는다
-     (그 repo가 예전에 만든 2nd-brain 위키라면 "팀 위키가 있는 경우"로 간다).
-  2. `gh repo create "<이름>" --template lemoncloud-io/2nd-brain --private`
+     (그 repo가 예전에 이 템플릿으로 만든 위키라면 "팀 위키가 있는 경우"로 간다).
+  2. `gh repo create "<이름>" --template lemoncloud-io/doki --private`
   3. 템플릿 복사는 몇 초 늦게 끝난다. `gh api "repos/$LOGIN/<이름>/contents/VAULT_RULES.md" --jq .name`이 성공할 때까지
      2초 간격으로 최대 30번 다시 확인한다.
 - **확인**: 3이 `VAULT_RULES.md`를 출력한다. `REPO_URL=https://github.com/$LOGIN/<이름>.git`
@@ -126,12 +126,12 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 
 - **실행** (macOS):
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-mac.sh -o "${TMPDIR:-/tmp}/setup-vault-mac.sh"
+  curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-mac.sh -o "${TMPDIR:-/tmp}/setup-vault-mac.sh"
   bash "${TMPDIR:-/tmp}/setup-vault-mac.sh" --non-interactive --repo "$REPO_URL" --name "$NAME" --email "$EMAIL"
   ```
 - **실행** (Windows PowerShell):
   ```powershell
-  irm https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-windows.ps1 -OutFile "$env:TEMP\setup-vault-windows.ps1"
+  irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1 -OutFile "$env:TEMP\setup-vault-windows.ps1"
   powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\setup-vault-windows.ps1" -NonInteractive -RepoUrl $REPO_URL -Name $NAME -Email $EMAIL
   ```
   Windows에서는 설치가 끝난 뒤 8~10단계 명령을 실행할 PowerShell 세션에서 PATH를 다시 읽는다:
@@ -154,7 +154,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
 가리키므로 그대로 두면 위키 변경 제안(PR)이 사용자 repo가 아닌 곳을 향한다.
 
 - **실행**: `$VAULT/projects/second-brain/config/team-settings.yaml`에서 세 값만 바꾼다. 다른 줄과 주석은 그대로 둔다.
-  - `vault.name` → `"<NAME>의 2nd-brain"`
+  - `vault.name` → `"<NAME>의 doki"`
   - `github.vault_repo` → `"<LOGIN>/<이름>"`
   - `github.default_reviewer` → `""` — 혼자 쓰는 위키라 리뷰어를 비운다(GitHub은 PR 작성자 본인을 리뷰어로 지정할 수 없다).
     함께 볼 사람이 있으면 그 사람의 GitHub 아이디.
@@ -188,7 +188,7 @@ github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
   (`uv`가 없으면 `python3`, Windows는 `python`으로 같은 파일을 실행한다)
 - **확인**: 첫 줄이 `PASS`로 시작하고 종료 코드가 0이다.
 - **실패 시**: `FAIL` 줄을 사용자에게 그대로 보여주고 멈춘다 — 막 만든 repo에서 실패하면 템플릿 결함이므로
-  <https://github.com/lemoncloud-io/2nd-brain/issues>에 그 줄을 올려 달라고 안내한다.
+  <https://github.com/lemoncloud-io/doki/issues>에 그 줄을 올려 달라고 안내한다.
 
 ## 11단계 — 마무리 안내
 

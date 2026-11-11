@@ -1,10 +1,10 @@
-# 2nd-brain — Obsidian + Claude Code로 운영하는 AI Second Brain Vault
+# doki — Obsidian + Claude Code로 운영하는 AI Second Brain Vault
 
 **한국어** · [English](README.en.md)
 
 > 웹에서 클리핑한 원문을 AI 에이전트가 **구조화된 위키 문서로 컴파일**하고, 그 위키를 근거로 **출처가 달린 답변**을 만들어 주는 Obsidian 기반 개인·팀 지식 관리(PKM) vault 템플릿. 마크다운과 Git만 쓰므로 벤더 종속이 없고, 규칙은 모델 중립적이라 Claude·GPT·Codex 어느 쪽으로도 굴릴 수 있다.
 
-![Obsidian에서 연 2nd-brain vault — wiki 문서, 토픽 인덱스, 그래프 뷰가 보이는 화면](screenshot.png)
+![Obsidian에서 연 doki vault — wiki 문서, 토픽 인덱스, 그래프 뷰가 보이는 화면](screenshot.png)
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-vault-7C3AED)](https://obsidian.md)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-agent-D97757)](https://claude.com/claude-code)
@@ -123,7 +123,7 @@ gh --version         # 선택
 Claude 데스크톱 앱 **Code 탭**의 로컬 세션에 아래 한 줄을 입력하면 Claude가 [`SETUP.md`](SETUP.md) 런북대로 도구 설치·GitHub 로그인·내 비공개 위키 repo 생성·clone·환경 설정·검증까지 진행한다. Obsidian은 설치하지 않는다.
 
 ```text
-github.com/lemoncloud-io/2nd-brain 의 SETUP.md 대로 설정해줘
+github.com/lemoncloud-io/doki 의 SETUP.md 대로 설정해줘
 ```
 
 ### 설치 스크립트 (터미널 한 줄)
@@ -133,13 +133,13 @@ Git·Obsidian·Claude Code·GitHub CLI와 문서 변환 도구(pandoc·uv)를 �
 **macOS** — 터미널에 붙여넣기:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-mac.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-mac.sh)"
 ```
 
 **Windows** (10 1809+) — PowerShell에 붙여넣기:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/lemoncloud-io/doki/master/projects/second-brain/config/scripts/setup-vault-windows.ps1).TrimStart([char]0xFEFF)))
 ```
 
 스크립트는 실행 중 **팀 vault repo URL**을 묻는다. 그냥 Enter로 넘기면 팀 위키가 아니라 이 공개 템플릿이 clone되므로, 팀에서 쓰는 경우 반드시 주소를 입력한다. repo·경로를 미리 지정하려면 `REPO_URL`·`TARGET_DIR` 환경변수(Windows는 `-RepoUrl`·`-TargetDir` 인자)를 쓰고, 변환 도구를 빼려면 `SKIP_CONVERTERS=1`(Windows는 `-SkipConverters`)을 준다.
@@ -151,7 +151,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/lemoncloud-io/2nd-brain/
 1. **저장소 clone 후 `VAULT_DIR` 설정** — 아래 저장소·경로는 예시다. clone 후 origin을 본인/팀 git으로 바꿔 쓰고, 절대경로 대신 `$VAULT_DIR`·`~` 상대경로를 쓴다.
 
    ```bash
-   git clone https://github.com/lemoncloud-io/2nd-brain.git ~/knowledge
+   git clone https://github.com/lemoncloud-io/doki.git ~/knowledge
    export VAULT_DIR="$HOME/knowledge"
    cd "$VAULT_DIR"
    ```
